@@ -53,7 +53,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: config.nodeEnv === 'production',
+      secure: config.cookieSecure,
       maxAge: config.sessionMaxAge,
     },
   })
@@ -96,7 +96,7 @@ app.use('/api/screens', requireAuth, screensRoutes);
 app.use('/api/settings', requireAuth, settingsRoutes);
 app.use('/api/system', requireAuth, require('./src/modules/system/system.routes'));
 
-// SPA fallback for admin pages — redirect to login if not authenticated
+// Admin paths not served by static fall through to errorHandler
 app.get('/admin/*', (req, res, next) => {
   next();
 });
