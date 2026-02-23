@@ -86,12 +86,15 @@
   function updateSidebarBrand(settings) {
     var name = (settings && settings.systemName) || 'NeoFit TV';
     var logoUrl = (settings && settings.logoUrl) || null;
+    var logoUrlWithCacheBuster = (logoUrl && logoUrl.trim())
+      ? (logoUrl.replace(/\?.*$/, '') + '?t=' + Date.now())
+      : null;
     var brand = document.querySelector('.sidebar-brand');
     if (!brand) return;
     var img = brand.querySelector('.sidebar-logo');
     var span = brand.querySelector('.sidebar-brand-name');
-    if (logoUrl && logoUrl.trim()) {
-      if (img) { img.src = logoUrl; img.alt = name; img.style.display = ''; }
+    if (logoUrlWithCacheBuster) {
+      if (img) { img.src = logoUrlWithCacheBuster; img.alt = name; img.style.display = ''; }
       if (span) { span.textContent = name; span.style.display = ''; }
     } else {
       if (img) img.style.display = 'none';

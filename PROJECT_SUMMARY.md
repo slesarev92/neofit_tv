@@ -6,7 +6,7 @@
 **Домен:** https://s9a.ru  
 **Хостинг:** Timeweb Cloud (VPS, Ubuntu)  
 **Сервер:** 2 x 3.3 ГГц CPU · 2 ГБ RAM · 40 ГБ NVMe · 1 Гбит/с канал  
-**Текущая версия:** v1.7 (package.json: 1.7.0)
+**Текущая версия:** v2.0 (package.json: 2.0.0)
 
 ---
 
