@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const os = require('os');
 const settingsService = require('./settings.service');
+const backupScheduler = require('../backup/backup.scheduler');
 
 const router = Router();
 const uploadDir = path.join(os.tmpdir(), 'signage-logo-uploads');
@@ -30,6 +31,7 @@ router.put('/', async (req, res, next) => {
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
+    backupScheduler.reschedule(result.settings);
     res.json({ settings: result.settings });
   } catch (err) {
     next(err);

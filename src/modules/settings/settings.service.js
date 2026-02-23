@@ -72,6 +72,20 @@ function validate(data) {
     const v = Number(data.backupKeepCount);
     if (!Number.isInteger(v) || v < 10 || v > 90) errors.push('backupKeepCount: 10–90');
   }
+  if (data.backupScheduleTime !== undefined && data.backupScheduleTime !== null && data.backupScheduleTime !== '') {
+    if (!timeRegex.test(String(data.backupScheduleTime).trim())) errors.push('backupScheduleTime: формат ЧЧ:ММ');
+  }
+  const freqOk = ['daily', 'weekly', 'monthly'].includes(data.backupScheduleFrequency);
+  if (data.backupScheduleFrequency !== undefined && !freqOk) errors.push('backupScheduleFrequency: daily, weekly или monthly');
+  if (data.backupScheduleWeekday !== undefined) {
+    const w = Number(data.backupScheduleWeekday);
+    if (!Number.isInteger(w) || w < 0 || w > 6) errors.push('backupScheduleWeekday: 0–6 (0 = вс)');
+  }
+  if (data.backupScheduleMonthDays !== undefined && data.backupScheduleMonthDays !== null && data.backupScheduleMonthDays !== '') {
+    const str = String(data.backupScheduleMonthDays).trim();
+    const parts = str.split(',').map((p) => parseInt(p.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
+    if (parts.length === 0) errors.push('backupScheduleMonthDays: числа 1–31 через запятую');
+  }
   return errors;
 }
 
@@ -109,6 +123,14 @@ async function update(data) {
   if (data.onlineThresholdMultiplier !== undefined) sanitized.onlineThresholdMultiplier = data.onlineThresholdMultiplier === null || data.onlineThresholdMultiplier === '' ? null : Number(data.onlineThresholdMultiplier);
   if (data.maxFileSizeMb !== undefined) sanitized.maxFileSizeMb = Number(data.maxFileSizeMb);
   if (data.backupKeepCount !== undefined) sanitized.backupKeepCount = Math.min(90, Math.max(10, Number(data.backupKeepCount) || 30));
+  if (data.backupScheduleEnabled !== undefined) sanitized.backupScheduleEnabled = Boolean(data.backupScheduleEnabled);
+  if (data.backupScheduleTime !== undefined) sanitized.backupScheduleTime = (data.backupScheduleTime === null || data.backupScheduleTime === '') ? '03:00' : String(data.backupScheduleTime).trim();
+  if (data.backupScheduleFrequency !== undefined) sanitized.backupScheduleFrequency = ['daily', 'weekly', 'monthly'].includes(data.backupScheduleFrequency) ? data.backupScheduleFrequency : 'daily';
+  if (data.backupScheduleWeekday !== undefined) sanitized.backupScheduleWeekday = Math.min(6, Math.max(0, parseInt(data.backupScheduleWeekday, 10) || 0));
+  if (data.backupScheduleMonthDays !== undefined && data.backupScheduleMonthDays !== null && data.backupScheduleMonthDays !== '') {
+    const parts = String(data.backupScheduleMonthDays).trim().split(',').map((p) => parseInt(p.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
+    sanitized.backupScheduleMonthDays = [...new Set(parts)].sort((a, b) => a - b).join(',') || '1,10,20';
+  }
 
   const settings = await settingsRepository.save(sanitized);
   return { ok: true, settings };

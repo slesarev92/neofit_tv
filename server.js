@@ -109,8 +109,12 @@ const videoQueue = require('./src/modules/media/video.queue');
 const mediaRepository = require('./src/modules/media/media.repository');
 const { compressVideo } = require('./src/modules/media/media.processor');
 
+const settingsRepository = require('./src/modules/settings/settings.repository');
+const backupScheduler = require('./src/modules/backup/backup.scheduler');
+
 app.listen(config.port, '0.0.0.0', () => {
   logger.info(`Server running on 0.0.0.0:${config.port} [${config.nodeEnv}]`);
+  settingsRepository.get().then((s) => backupScheduler.startScheduler(s)).catch(() => {});
   screenMonitor.start();
   videoQueue.resumeUnfinished((mediaId) => async (result) => {
     const fs = require('fs').promises;

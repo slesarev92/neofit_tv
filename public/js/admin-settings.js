@@ -46,6 +46,20 @@
     setValue('telegramBotToken', s.telegramBotToken || '');
     setValue('telegramChatId', s.telegramChatId || '');
     setValue('backupKeepCount', s.backupKeepCount != null ? s.backupKeepCount : 30);
+    setValue('backupScheduleEnabled', !!s.backupScheduleEnabled, true);
+    setValue('backupScheduleTime', (s.backupScheduleTime || '03:00').slice(0, 5));
+    setValue('backupScheduleFrequency', s.backupScheduleFrequency || 'daily');
+    setValue('backupScheduleWeekday', s.backupScheduleWeekday != null ? String(s.backupScheduleWeekday) : '0');
+    setValue('backupScheduleMonthDays', s.backupScheduleMonthDays || '1,10,20');
+    toggleBackupScheduleExtra();
+  }
+
+  function toggleBackupScheduleExtra() {
+    var freq = getValue('backupScheduleFrequency');
+    var weekdayWrap = document.getElementById('backupScheduleWeekdayWrap');
+    var monthDaysWrap = document.getElementById('backupScheduleMonthDaysWrap');
+    if (weekdayWrap) weekdayWrap.style.display = freq === 'weekly' ? '' : 'none';
+    if (monthDaysWrap) monthDaysWrap.style.display = freq === 'monthly' ? '' : 'none';
   }
 
   function updateSidebarBrand(settings) {
@@ -121,7 +135,24 @@
   }
   function collectBackup() {
     var v = parseInt(getValue('backupKeepCount'), 10);
-    return { backupKeepCount: (v >= 10 && v <= 90) ? v : 30 };
+    var timeVal = getValue('backupScheduleTime') || '03:00';
+    if (/^\d{1,2}:\d{2}$/.test(timeVal) === false) timeVal = '03:00';
+    var form = document.getElementById('formBackup');
+    var cb = form && form.elements && form.elements.namedItem('backupScheduleEnabled');
+    var enabled = cb ? !!cb.checked : (getValue('backupScheduleEnabled', true) === true);
+    var freq = getValue('backupScheduleFrequency') || 'daily';
+    if (freq !== 'daily' && freq !== 'weekly' && freq !== 'monthly') freq = 'daily';
+    var weekday = parseInt(getValue('backupScheduleWeekday'), 10);
+    if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) weekday = 0;
+    var monthDays = (getValue('backupScheduleMonthDays') || '').trim();
+    return {
+      backupKeepCount: (v >= 10 && v <= 90) ? v : 30,
+      backupScheduleEnabled: !!enabled,
+      backupScheduleTime: timeVal,
+      backupScheduleFrequency: freq,
+      backupScheduleWeekday: weekday,
+      backupScheduleMonthDays: monthDays || '1,10,20',
+    };
   }
   function collectSystem() {
     return { systemName: getValue('systemName').trim() || 'NeoFit TV' };
@@ -371,6 +402,8 @@
         }
       });
     }
+    var backupFreqEl = document.getElementById('backupScheduleFrequency');
+    if (backupFreqEl) backupFreqEl.addEventListener('change', toggleBackupScheduleExtra);
 
     var logoFileInput = document.getElementById('logoFileInput');
     if (logoFileInput) {

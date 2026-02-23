@@ -28,6 +28,11 @@ const DEFAULTS = {
   onlineThresholdMultiplier: null,
   maxFileSizeMb: config.maxFileSizeMb || 500,
   backupKeepCount: 30,
+  backupScheduleEnabled: false,
+  backupScheduleTime: '03:00',
+  backupScheduleFrequency: 'daily',
+  backupScheduleWeekday: 0,
+  backupScheduleMonthDays: '1,10,20',
 };
 
 async function get() {

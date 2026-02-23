@@ -236,12 +236,54 @@
         <div class="card-header">Резервное копирование</div>
         <div class="card-body">
           <form id="formBackup" class="settings-form">
-            <div class="form-group">
-              <label for="backupKeepCount" class="label-with-hint">Хранить последних архивов <button type="button" class="hint-icon" data-hint="Сколько последних бэкапов хранить в папке backups/. Хранятся последние N архивов, самый старый удаляется автоматически при каждом запуске." aria-label="Подсказка">?</button></label>
-              <input type="number" id="backupKeepCount" min="10" max="90" placeholder="30">
-              <div class="hint">От 10 до 90. По умолчанию — 30.</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="backupKeepCount" class="label-with-hint">Хранить последних архивов <button type="button" class="hint-icon" data-hint="Сколько последних бэкапов хранить в папке backups/. Хранятся последние N архивов, самый старый удаляется автоматически при каждом запуске." aria-label="Подсказка">?</button></label>
+                <input type="number" id="backupKeepCount" min="10" max="90" placeholder="30">
+                <div class="hint">От 10 до 90. По умолчанию — 30.</div>
+              </div>
             </div>
-            <p class="hint" style="margin-top: 1rem;">Запуск вручную: <code>npm run backup</code>. Автобэкап по расписанию: <code>bash scripts/setup-cron.sh</code>. Подробнее — раздел «Резервное копирование» в DEPLOY.md.</p>
+            <div class="form-group" style="margin-top: 1rem;">
+              <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="backupScheduleEnabled" name="backupScheduleEnabled"> Включить автобэкап по расписанию</label>
+              <div class="hint">Бэкап запускается автоматически в выбранные день/время (пока работает сервер).</div>
+            </div>
+            <div class="form-row" id="backupScheduleRow">
+              <div class="form-group">
+                <label for="backupScheduleFrequency">Периодичность</label>
+                <select id="backupScheduleFrequency" aria-label="Периодичность бэкапа">
+                  <option value="daily">Каждый день</option>
+                  <option value="weekly">Раз в неделю</option>
+                  <option value="monthly">Несколько раз в месяц</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="backupScheduleTime">Время запуска (ЧЧ:ММ)</label>
+                <input type="time" id="backupScheduleTime" value="03:00" step="60" aria-label="Время запуска">
+                <div class="hint">Часовой пояс — из раздела «Расписание».</div>
+              </div>
+            </div>
+            <div class="form-row backup-schedule-extra" id="backupScheduleWeekdayWrap" style="display: none;">
+              <div class="form-group">
+                <label for="backupScheduleWeekday">День недели</label>
+                <select id="backupScheduleWeekday" aria-label="День недели">
+                  <option value="0">Воскресенье</option>
+                  <option value="1">Понедельник</option>
+                  <option value="2">Вторник</option>
+                  <option value="3">Среда</option>
+                  <option value="4">Четверг</option>
+                  <option value="5">Пятница</option>
+                  <option value="6">Суббота</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row backup-schedule-extra" id="backupScheduleMonthDaysWrap" style="display: none;">
+              <div class="form-group">
+                <label for="backupScheduleMonthDays" class="label-with-hint">Числа месяца <button type="button" class="hint-icon" data-hint="В какие числа каждого месяца запускать бэкап. Через запятую, от 1 до 31. Например: 1, 10, 20." aria-label="Подсказка">?</button></label>
+                <input type="text" id="backupScheduleMonthDays" placeholder="1, 10, 20" maxlength="80" autocomplete="off">
+                <div class="hint">Числа 1–31 через запятую. Например: 1, 10, 20.</div>
+              </div>
+            </div>
+            <p class="hint" style="margin-top: 1rem;">Запуск вручную: кнопка «Сделать бэкап» или <code>npm run backup</code>. Подробнее — DEPLOY.md.</p>
             <div class="section-actions">
               <button type="button" class="btn btn-primary" id="backupRunBtn">Сделать бэкап</button>
               <button type="submit" class="btn btn-primary">Сохранить</button>
