@@ -1,5 +1,6 @@
 const os = require('os');
 const path = require('path');
+const fs = require('fs').promises;
 const config = require('../../config');
 const checkDiskSpace = require('check-disk-space').default;
 
@@ -68,6 +69,22 @@ async function getSystemStats() {
     }
   }
 
+  let backupStatus = null;
+  try {
+    const statusPath = path.join(config.dataDir, 'backup-status.json');
+    const raw = await fs.readFile(statusPath, 'utf-8');
+    const data = JSON.parse(raw);
+    if (data && typeof data === 'object') {
+      backupStatus = {
+        lastRun: data.lastRun || null,
+        success: Boolean(data.success),
+        fileName: data.fileName || null,
+        sizeBytes: Number.isFinite(data.sizeBytes) ? data.sizeBytes : null,
+        error: data.error || null,
+      };
+    }
+  } catch (_) {}
+
   return {
     loadAvg: loadAvg ? { 1: loadAvg[0], 5: loadAvg[1], 15: loadAvg[2] } : null,
     loadHistory: loadHistory.slice(),
@@ -83,6 +100,7 @@ async function getSystemStats() {
     disk,
     network,
     uptimeSeconds: Math.floor(os.uptime()),
+    backupStatus,
   };
 }
 

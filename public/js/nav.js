@@ -1,6 +1,7 @@
 /**
  * Единая навигация и переключатель темы для страниц админки.
  * Подключается на всех страницах админки. Добавление пункта меню — только здесь.
+ * Загружает systemName и logoUrl из /api/settings и подставляет в сайдбар и document.title.
  */
 (function () {
   var NAV_ITEMS = [
@@ -13,6 +14,54 @@
   ];
 
   var SVG_APK = '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>';
+
+  function applyBranding(settings) {
+    var systemName = (settings && (settings.systemName || settings.settings && settings.settings.systemName)) || 'NeoFit TV';
+    var logoUrl = (settings && (settings.logoUrl || settings.settings && settings.settings.logoUrl)) || null;
+    var logoUrlWithCacheBuster = (logoUrl && logoUrl.trim())
+      ? logoUrl.replace(/\?.*$/, '') + '?t=' + Date.now()
+      : null;
+
+    var pageTitle = document.body.getAttribute('data-page-title');
+    if (pageTitle) {
+      document.title = pageTitle + ' — ' + systemName;
+    }
+
+    var brand = document.querySelector('.sidebar-brand');
+    if (brand) {
+      var img = brand.querySelector('.sidebar-logo');
+      var span = brand.querySelector('.sidebar-brand-name');
+      if (logoUrlWithCacheBuster) {
+        if (img) {
+          img.src = logoUrlWithCacheBuster;
+          img.alt = systemName;
+          img.style.display = '';
+        }
+        if (span) {
+          span.textContent = systemName;
+          span.style.display = '';
+        }
+      } else {
+        if (img) img.style.display = 'none';
+        if (span) {
+          span.textContent = systemName;
+          span.style.display = '';
+        }
+      }
+    }
+    var mobileBrand = document.querySelector('.mobile-brand');
+    if (mobileBrand) {
+      var mImg = mobileBrand.querySelector('img');
+      var mSpan = mobileBrand.querySelector('span');
+      if (logoUrlWithCacheBuster) {
+        if (mImg) { mImg.src = logoUrlWithCacheBuster; mImg.alt = systemName; mImg.style.display = ''; }
+        if (mSpan) { mSpan.textContent = systemName; mSpan.style.display = ''; }
+      } else {
+        if (mImg) mImg.style.display = 'none';
+        if (mSpan) { mSpan.textContent = systemName; mSpan.style.display = ''; }
+      }
+    }
+  }
 
   function renderNav() {
     var nav = document.getElementById('main-nav');
@@ -41,6 +90,21 @@
       '<span class="theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true">🌙</span></div>';
   }
 
-  renderNav();
-  renderThemeToggle();
+  function init() {
+    fetch('/api/settings', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        var s = (data && data.settings) ? data.settings : data || {};
+        applyBranding(s);
+      })
+      .catch(function () {
+        applyBranding({});
+      })
+      .then(function () {
+        renderNav();
+        renderThemeToggle();
+      });
+  }
+
+  init();
 })();

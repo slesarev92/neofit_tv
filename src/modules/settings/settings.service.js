@@ -1,4 +1,20 @@
+const fs = require('fs').promises;
+const path = require('path');
+const config = require('../../config');
 const settingsRepository = require('./settings.repository');
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 МБ для логотипа
+const LOGO_BASE_NAME = 'system-logo';
+
+function extFromMime(mime) {
+  if (!mime) return '.png';
+  const m = mime.toLowerCase();
+  if (m === 'image/jpeg' || m === 'image/jpg') return '.jpg';
+  if (m === 'image/png') return '.png';
+  if (m === 'image/webp') return '.webp';
+  if (m === 'image/svg+xml') return '.svg';
+  return '.png';
+}
 
 function validate(data) {
   const errors = [];
@@ -52,6 +68,10 @@ function validate(data) {
     const v = Number(data.maxFileSizeMb);
     if (!Number.isInteger(v) || v < 10 || v > 2000) errors.push('maxFileSizeMb: 10–2000');
   }
+  if (data.backupKeepCount !== undefined) {
+    const v = Number(data.backupKeepCount);
+    if (!Number.isInteger(v) || v < 10 || v > 90) errors.push('backupKeepCount: 10–90');
+  }
   return errors;
 }
 
@@ -81,15 +101,53 @@ async function update(data) {
   if (data.workScheduleFrom !== undefined) sanitized.workScheduleFrom = data.workScheduleFrom === null || data.workScheduleFrom === '' ? null : String(data.workScheduleFrom).trim();
   if (data.workScheduleTo !== undefined) sanitized.workScheduleTo = data.workScheduleTo === null || data.workScheduleTo === '' ? null : String(data.workScheduleTo).trim();
   if (data.systemName !== undefined) sanitized.systemName = String(data.systemName || '').trim() || 'NeoFit TV';
+  if (data.logoUrl !== undefined) sanitized.logoUrl = data.logoUrl === null || data.logoUrl === '' ? null : String(data.logoUrl).trim();
   if (data.timezone !== undefined) sanitized.timezone = String(data.timezone || '').trim() || 'Europe/Moscow';
   if (data.videoCrf !== undefined) sanitized.videoCrf = Number(data.videoCrf);
   if (data.videoMaxWidth !== undefined) sanitized.videoMaxWidth = data.videoMaxWidth === null || data.videoMaxWidth === '' ? null : Number(data.videoMaxWidth);
   if (data.monitorCheckIntervalSec !== undefined) sanitized.monitorCheckIntervalSec = Number(data.monitorCheckIntervalSec);
   if (data.onlineThresholdMultiplier !== undefined) sanitized.onlineThresholdMultiplier = data.onlineThresholdMultiplier === null || data.onlineThresholdMultiplier === '' ? null : Number(data.onlineThresholdMultiplier);
   if (data.maxFileSizeMb !== undefined) sanitized.maxFileSizeMb = Number(data.maxFileSizeMb);
+  if (data.backupKeepCount !== undefined) sanitized.backupKeepCount = Math.min(90, Math.max(10, Number(data.backupKeepCount) || 30));
 
   const settings = await settingsRepository.save(sanitized);
   return { ok: true, settings };
 }
 
-module.exports = { get, update };
+async function uploadLogo(file) {
+  if (!file || !file.path) {
+    return { ok: false, status: 400, error: 'Файл не загружен' };
+  }
+  const stat = await fs.stat(file.path).catch(() => null);
+  if (stat && stat.size > LOGO_MAX_BYTES) {
+    await fs.unlink(file.path).catch(() => {});
+    return { ok: false, status: 413, error: 'Логотип не более 2 МБ' };
+  }
+  const ext = extFromMime(file.mimetype);
+  const uploadsDir = path.resolve(config.uploadsDir);
+  await fs.mkdir(uploadsDir, { recursive: true });
+  const filename = LOGO_BASE_NAME + ext;
+  const destPath = path.join(uploadsDir, filename);
+
+  try {
+    const current = await settingsRepository.get();
+    const oldUrl = current.logoUrl;
+    if (oldUrl && typeof oldUrl === 'string' && oldUrl.includes(LOGO_BASE_NAME)) {
+      const oldName = path.basename(oldUrl.split('?')[0]);
+      if (oldName !== filename) {
+        const oldPath = path.join(uploadsDir, oldName);
+        await fs.unlink(oldPath).catch(() => {});
+      }
+    }
+    await fs.copyFile(file.path, destPath);
+    await fs.unlink(file.path).catch(() => {});
+    const url = '/uploads/' + filename;
+    await settingsRepository.save({ ...current, logoUrl: url });
+    return { ok: true, url };
+  } catch (err) {
+    await fs.unlink(file.path).catch(() => {});
+    throw err;
+  }
+}
+
+module.exports = { get, update, uploadLogo };

@@ -20,12 +20,14 @@ const DEFAULTS = {
   workScheduleFrom: null,
   workScheduleTo: null,
   systemName: 'NeoFit TV',
+  logoUrl: null,
   timezone: 'Europe/Moscow',
   videoCrf: 23,
   videoMaxWidth: null,
   monitorCheckIntervalSec: 10,
   onlineThresholdMultiplier: null,
   maxFileSizeMb: config.maxFileSizeMb || 500,
+  backupKeepCount: 30,
 };
 
 async function get() {

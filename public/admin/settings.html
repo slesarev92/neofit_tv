@@ -28,11 +28,17 @@
 .hint-popover.below::before{bottom:auto;top:-6px;border-top-color:transparent;border-bottom-color:var(--hint-popover-bg)}
 .checkbox-with-hint{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
 .checkbox-with-hint .hint-icon{margin-left:.2rem}
+.logo-upload-wrap{margin-top:.25rem}
+.logo-preview-wrap{display:flex;align-items:center;gap:1rem;margin-bottom:.75rem}
+.logo-preview-img{max-height:64px;max-width:180px;object-fit:contain;border-radius:var(--radius);border:1px solid var(--gray-200)}
+.logo-preview-actions{flex-shrink:0}
+.logo-file-input{position:absolute;width:.1px;height:.1px;opacity:0;overflow:hidden;z-index:-1}
+.logo-upload-area{display:flex;flex-direction:column;align-items:flex-start;gap:.25rem}
   </style>
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>
-<body class="app-layout">
+<body class="app-layout" data-page-title="Настройки">
   <aside class="sidebar">
     <div class="sidebar-brand">
       <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
@@ -55,6 +61,7 @@
       <button type="button" class="tab" data-tab="media" role="tab">Медиа</button>
       <button type="button" class="tab" data-tab="system" role="tab">Система</button>
       <button type="button" class="tab" data-tab="telegram" role="tab">Telegram</button>
+      <button type="button" class="tab" data-tab="backup" role="tab">Бэкапы</button>
       <button type="button" class="tab" data-tab="security" role="tab">Безопасность</button>
     </div>
     <div class="card">
@@ -180,6 +187,23 @@
               <input type="text" id="systemName" placeholder="NeoFit TV">
               <div class="hint">Отображается в заголовке и боковой панели админки.</div>
             </div>
+            <div class="form-group">
+              <label>Логотип в сайдбаре</label>
+              <div class="logo-upload-wrap" id="logoUploadWrap">
+                <div class="logo-preview-wrap" id="logoPreviewWrap" style="display: none;">
+                  <img id="logoPreviewImg" src="" alt="Логотип" class="logo-preview-img">
+                  <div class="logo-preview-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="logoRemoveBtn">Удалить логотип</button>
+                  </div>
+                </div>
+                <div class="logo-upload-area" id="logoUploadArea">
+                  <input type="file" id="logoFileInput" accept="image/*" class="logo-file-input" aria-label="Выбрать изображение">
+                  <label for="logoFileInput" class="btn btn-secondary btn-sm">Выбрать изображение</label>
+                  <span class="hint" style="display: block; margin-top: .5rem;">PNG, JPG, WebP или SVG, не более 2 МБ</span>
+                </div>
+                <p class="hint" style="margin-top: .5rem;">Если загружен — в сайдбаре показывается изображение вместо названия.</p>
+              </div>
+            </div>
             <div class="section-actions">
               <button type="submit" class="btn btn-primary">Сохранить</button>
             </div>
@@ -203,6 +227,23 @@
               </div>
             </div>
             <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-backup" class="settings-section" data-section="backup" role="tabpanel">
+        <div class="card-header">Резервное копирование</div>
+        <div class="card-body">
+          <form id="formBackup" class="settings-form">
+            <div class="form-group">
+              <label for="backupKeepCount" class="label-with-hint">Хранить последних архивов <button type="button" class="hint-icon" data-hint="Сколько последних бэкапов хранить в папке backups/. Хранятся последние N архивов, самый старый удаляется автоматически при каждом запуске." aria-label="Подсказка">?</button></label>
+              <input type="number" id="backupKeepCount" min="10" max="90" placeholder="30">
+              <div class="hint">От 10 до 90. По умолчанию — 30.</div>
+            </div>
+            <p class="hint" style="margin-top: 1rem;">Запуск вручную: <code>npm run backup</code>. Автобэкап по расписанию: <code>bash scripts/setup-cron.sh</code>. Подробнее — раздел «Резервное копирование» в DEPLOY.md.</p>
+            <div class="section-actions">
+              <button type="button" class="btn btn-primary" id="backupRunBtn">Сделать бэкап</button>
               <button type="submit" class="btn btn-primary">Сохранить</button>
             </div>
           </form>

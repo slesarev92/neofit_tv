@@ -21,9 +21,14 @@ const API = {
       return;
     }
 
-    const data = await res.json();
+    var data;
+    try {
+      data = await res.json();
+    } catch (_) {
+      throw new Error('Ответ сервера не JSON (статус ' + res.status + '). Возможно, ошибка на сервере.');
+    }
     if (!res.ok) {
-      throw new Error(data.error || `Ошибка ${res.status}`);
+      throw new Error(data.error || 'Ошибка ' + res.status);
     }
     return data;
   },
@@ -103,8 +108,34 @@ const API = {
   updateSettings(data) {
     return this.request('/api/settings', { method: 'PUT', body: data });
   },
+  uploadLogo(file, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/settings/logo');
+      xhr.withCredentials = true;
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(data.error || 'Ошибка ' + xhr.status));
+        } catch (e) {
+          reject(new Error('Ответ сервера не JSON (статус ' + xhr.status + '). Проверьте консоль разработчика или логи сервера.'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Ошибка сети'));
+      if (onProgress) xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      const fd = new FormData();
+      fd.append('logo', file);
+      xhr.send(fd);
+    });
+  },
   getSystem() {
     return this.request('/api/system');
+  },
+  runBackup() {
+    return this.request('/api/backup/run', { method: 'POST' });
   },
 };
 

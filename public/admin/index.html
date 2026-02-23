@@ -11,7 +11,7 @@
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>
-<body class="app-layout">
+<body class="app-layout" data-page-title="Дашборд">
   <aside class="sidebar">
     <div class="sidebar-brand">
       <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
@@ -137,6 +137,16 @@
                 <div class="system-stat-value" id="system-uptime">—</div>
               </div>
             </div>
+            <div class="system-stat-card">
+              <div class="system-stat-icon system-stat-icon--disk">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+              <div class="system-stat-content">
+                <div class="system-stat-label">Резервное копирование</div>
+                <div class="system-stat-value" id="system-backup">—</div>
+                <div class="hint" style="font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem;">Последний запуск</div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -232,6 +242,31 @@
       }
     }
     if (uptimeEl && data.uptimeSeconds != null) uptimeEl.textContent = formatUptime(data.uptimeSeconds);
+    var backupEl = document.getElementById('system-backup');
+    if (backupEl && data.backupStatus) {
+      var bs = data.backupStatus;
+      var dateStr = '—';
+      if (bs.lastRun) {
+        try {
+          var d = new Date(bs.lastRun);
+          dateStr = d.getDate().toString().padStart(2, '0') + '.' + (d.getMonth() + 1).toString().padStart(2, '0') + '.' + d.getFullYear() + ' ' + d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+        } catch (_) {}
+      }
+      if (bs.success) {
+        var sizeStr = bs.sizeBytes != null && bs.sizeBytes > 0 ? (bs.sizeBytes < 1024 ? bs.sizeBytes + ' Б' : (bs.sizeBytes < 1024 * 1024 ? (bs.sizeBytes / 1024).toFixed(1) + ' КБ' : (bs.sizeBytes / (1024 * 1024)).toFixed(1) + ' МБ')) : '';
+        backupEl.textContent = dateStr + ' — OK' + (sizeStr ? ', ' + sizeStr : '');
+        backupEl.className = 'system-stat-value';
+      } else if (bs.error) {
+        backupEl.textContent = dateStr + ' — Ошибка: ' + (bs.error.length > 40 ? bs.error.slice(0, 40) + '…' : bs.error);
+        backupEl.className = 'system-stat-value system-stat-value--danger';
+      } else {
+        backupEl.textContent = dateStr + ' — Нет данных';
+        backupEl.className = 'system-stat-value';
+      }
+    } else if (backupEl) {
+      backupEl.textContent = 'Нет данных';
+      backupEl.className = 'system-stat-value';
+    }
   }
   function refreshDashboard() {
     var btn = document.getElementById('dashboardRefreshBtn');
@@ -264,7 +299,8 @@
           loadHistory: systemRes.loadHistory || [],
           memory: systemRes.memory,
           disk: systemRes.disk,
-          uptimeSeconds: systemRes.uptimeSeconds
+          uptimeSeconds: systemRes.uptimeSeconds,
+          backupStatus: systemRes.backupStatus || null
         });
       }
       document.getElementById('dashboardSkeleton').style.display = 'none';

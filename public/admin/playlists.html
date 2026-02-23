@@ -11,7 +11,7 @@
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>
-<body class="app-layout">
+<body class="app-layout" data-page-title="Плейлисты">
   <aside class="sidebar">
     <div class="sidebar-brand">
       <img src="/logo.png" alt="NeoFit" class="sidebar-logo">

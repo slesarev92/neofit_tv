@@ -153,8 +153,8 @@ body {
 }
 .sidebar-brand { padding: 0 1.25rem 1.5rem; font-size: 1.125rem; font-weight: 700; border-bottom: 1px solid var(--gray-700); margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
 .sidebar-brand svg { flex-shrink: 0; }
-.sidebar-brand .sidebar-logo { height: 32px; width: auto; display: block; flex-shrink: 0; }
-.sidebar-brand .sidebar-brand-name { white-space: nowrap; }
+.sidebar-brand .sidebar-logo { height: 32px; max-width: 120px; width: auto; object-fit: contain; display: block; flex-shrink: 0; }
+.sidebar-brand .sidebar-brand-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .sidebar-nav { flex: 1; }
 .sidebar-nav a {
   display: flex; align-items: center; gap: .75rem; padding: .75rem 1.25rem; color: var(--gray-400);

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/theme.js"></script>
 </head>
-<body class="login-page">
+<body class="login-page" data-page-title="Вход">
   <div style="position:fixed;top:1rem;right:1rem;z-index:10;">
     <div class="theme-toggle">
     <span class="theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true">☀️</span>
@@ -38,6 +38,7 @@
     </form>
   </div>
   <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();

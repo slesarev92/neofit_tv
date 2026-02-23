@@ -41,14 +41,27 @@
     setValue('videoCrf', s.videoCrf ?? 23);
     setValue('videoMaxWidth', s.videoMaxWidth == null ? '' : s.videoMaxWidth);
     setValue('systemName', s.systemName || '');
+    setLogoPreview(s.logoUrl || null);
     setValue('telegramEnabled', !!s.telegramEnabled, true);
     setValue('telegramBotToken', s.telegramBotToken || '');
     setValue('telegramChatId', s.telegramChatId || '');
+    setValue('backupKeepCount', s.backupKeepCount != null ? s.backupKeepCount : 30);
   }
 
-  function updateSidebarName(name) {
-    var el = document.querySelector('.sidebar-brand-name');
-    if (el && name) el.textContent = name;
+  function updateSidebarBrand(settings) {
+    var name = (settings && settings.systemName) || 'NeoFit TV';
+    var logoUrl = (settings && settings.logoUrl) || null;
+    var brand = document.querySelector('.sidebar-brand');
+    if (!brand) return;
+    var img = brand.querySelector('.sidebar-logo');
+    var span = brand.querySelector('.sidebar-brand-name');
+    if (logoUrl && logoUrl.trim()) {
+      if (img) { img.src = logoUrl; img.alt = name; img.style.display = ''; }
+      if (span) { span.textContent = name; span.style.display = ''; }
+    } else {
+      if (img) img.style.display = 'none';
+      if (span) { span.textContent = name; span.style.display = ''; }
+    }
   }
 
   async function loadSettings() {
@@ -56,7 +69,7 @@
       var data = await API.getSettings();
       var s = data.settings || data;
       applyToForm(s);
-      updateSidebarName(s.systemName || 'NeoFit TV');
+      updateSidebarBrand(s);
     } catch (err) {
       showToast(err.message || 'Ошибка загрузки настроек', 'error');
     }
@@ -106,8 +119,27 @@
       videoMaxWidth: w === '' ? null : parseInt(w, 10),
     };
   }
+  function collectBackup() {
+    var v = parseInt(getValue('backupKeepCount'), 10);
+    return { backupKeepCount: (v >= 10 && v <= 90) ? v : 30 };
+  }
   function collectSystem() {
     return { systemName: getValue('systemName').trim() || 'NeoFit TV' };
+  }
+
+  function setLogoPreview(url) {
+    var wrap = document.getElementById('logoPreviewWrap');
+    var img = document.getElementById('logoPreviewImg');
+    var fileInput = document.getElementById('logoFileInput');
+    if (!wrap || !img) return;
+    if (url && String(url).trim()) {
+      img.src = url.indexOf('?') === -1 ? url + '?t=' + Date.now() : url;
+      wrap.style.display = 'flex';
+      if (fileInput) fileInput.value = '';
+    } else {
+      img.src = '';
+      wrap.style.display = 'none';
+    }
   }
   function collectTelegram() {
     return {
@@ -275,7 +307,9 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectSystem());
-        updateSidebarName(getValue('systemName') || 'NeoFit TV');
+        var previewImg = document.getElementById('logoPreviewImg');
+        var currentLogoUrl = previewImg && previewImg.src ? previewImg.src : null;
+        updateSidebarBrand({ systemName: getValue('systemName') || 'NeoFit TV', logoUrl: currentLogoUrl });
         showToast('Настройки системы сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -301,6 +335,93 @@
         if (submitBtn) submitBtn.disabled = false;
       }
     });
+
+    document.getElementById('formBackup').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (saveInProgress) return;
+      saveInProgress = true;
+      var submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        await API.updateSettings(collectBackup());
+        showToast('Настройки бэкапов сохранены', 'success');
+      } catch (err) {
+        showToast(err.message || 'Ошибка сохранения', 'error');
+      } finally {
+        saveInProgress = false;
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
+    var backupRunBtn = document.getElementById('backupRunBtn');
+    if (backupRunBtn) {
+      backupRunBtn.addEventListener('click', async function () {
+        if (backupRunBtn.disabled) return;
+        backupRunBtn.disabled = true;
+        var originalText = backupRunBtn.textContent;
+        backupRunBtn.textContent = 'Создаётся бэкап…';
+        try {
+          await API.runBackup();
+          showToast('Бэкап создан', 'success');
+        } catch (err) {
+          showToast(err.message || 'Ошибка создания бэкапа', 'error');
+        } finally {
+          backupRunBtn.disabled = false;
+          backupRunBtn.textContent = originalText;
+        }
+      });
+    }
+
+    var logoFileInput = document.getElementById('logoFileInput');
+    if (logoFileInput) {
+      logoFileInput.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+          showToast('Выберите изображение (PNG, JPG, WebP или SVG)', 'error');
+          this.value = '';
+          return;
+        }
+        var label = document.querySelector('label[for="logoFileInput"]');
+        if (label) { label.disabled = true; label.textContent = 'Загрузка…'; }
+        API.uploadLogo(file)
+          .then(function (data) {
+            var url = data.url;
+            var urlFresh = (url && url.indexOf('?') === -1) ? url + '?t=' + Date.now() : url;
+            setLogoPreview(url);
+            updateSidebarBrand({ systemName: getValue('systemName') || 'NeoFit TV', logoUrl: urlFresh });
+            showToast('Логотип загружен', 'success');
+          })
+          .catch(function (err) {
+            showToast(err.message || 'Ошибка загрузки', 'error');
+          })
+          .finally(function () {
+            if (label) { label.disabled = false; label.textContent = 'Выбрать изображение'; }
+            logoFileInput.value = '';
+          });
+      });
+    }
+    var logoRemoveBtn = document.getElementById('logoRemoveBtn');
+    if (logoRemoveBtn) {
+      logoRemoveBtn.addEventListener('click', function () {
+        if (saveInProgress) return;
+        saveInProgress = true;
+        logoRemoveBtn.disabled = true;
+        API.updateSettings({ logoUrl: null })
+          .then(function () {
+            setLogoPreview(null);
+            updateSidebarBrand({ systemName: getValue('systemName') || 'NeoFit TV', logoUrl: null });
+            showToast('Логотип удалён', 'success');
+          })
+          .catch(function (err) {
+            showToast(err.message || 'Ошибка', 'error');
+          })
+          .finally(function () {
+            saveInProgress = false;
+            logoRemoveBtn.disabled = false;
+          });
+      });
+    }
 
     document.getElementById('passwordForm').addEventListener('submit', async function (e) {
       e.preventDefault();

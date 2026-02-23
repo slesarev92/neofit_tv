@@ -74,17 +74,7 @@ app.get('/NeoFit_TV.apk', requireAuth, (req, res) => {
   res.download(apkPath, 'NeoFit_TV.apk');
 });
 
-// Static files
-app.use('/uploads', express.static(path.resolve(config.uploadsDir), {
-  maxAge: '1d',
-  setHeaders(res, filePath) {
-    res.set('Accept-Ranges', 'bytes');
-    res.set('Cache-Control', 'public, max-age=86400');
-  },
-}));
-app.use(express.static(path.resolve('public')));
-
-// Public API routes
+// Public API routes (до static, иначе POST к /api/* отдаёт 404)
 app.use('/api/auth', authRoutes);
 app.use('/api/player', playerRoutes);
 app.use('/api/pair', require('./src/modules/pair/pair.routes'));
@@ -95,6 +85,17 @@ app.use('/api/playlists', requireAuth, playlistsRoutes);
 app.use('/api/screens', requireAuth, screensRoutes);
 app.use('/api/settings', requireAuth, settingsRoutes);
 app.use('/api/system', requireAuth, require('./src/modules/system/system.routes'));
+app.use('/api/backup', requireAuth, require('./src/modules/backup/backup.routes'));
+
+// Static files (после API, чтобы POST /api/settings/logo и др. не перехватывались)
+app.use('/uploads', express.static(path.resolve(config.uploadsDir), {
+  maxAge: '1d',
+  setHeaders(res, filePath) {
+    res.set('Accept-Ranges', 'bytes');
+    res.set('Cache-Control', 'public, max-age=86400');
+  },
+}));
+app.use(express.static(path.resolve('public')));
 
 // Admin paths not served by static fall through to errorHandler
 app.get('/admin/*', (req, res, next) => {
