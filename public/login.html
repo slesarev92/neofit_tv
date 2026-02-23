@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+  (function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+  </script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Вход — NeoFit_TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/theme.js"></script>
+</head>
+<body class="login-page">
+  <div style="position:fixed;top:1rem;right:1rem;z-index:10;">
+    <div class="theme-toggle">
+    <span class="theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true">☀️</span>
+    <label class="theme-toggle-track">
+      <input type="checkbox" id="theme-toggle" class="theme-toggle-input" aria-label="Переключить тему">
+      <span class="theme-toggle-thumb"></span>
+    </label>
+    <span class="theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true">🌙</span>
+  </div>
+  </div>
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="/logo.png" alt="NeoFit" style="height: 48px; width: auto;">
+    </div>
+    <h1>NeoFit TV</h1>
+    <p class="login-subtitle">Панель управления</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="password">Пароль администратора</label>
+        <input type="password" id="password" name="password" required autofocus placeholder="Введите пароль">
+      </div>
+      <div id="errorMsg" class="error-msg" hidden></div>
+      <button type="submit" class="btn btn-primary btn-block">Войти</button>
+    </form>
+  </div>
+  <script src="/js/api.js"></script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('errorMsg');
+      errEl.hidden = true;
+      const btn = e.target.querySelector('button');
+      btn.disabled = true;
+      try {
+        await API.login(document.getElementById('password').value);
+        const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+        window.location.href = returnUrl && returnUrl.startsWith('/') ? returnUrl : '/admin/index.html';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.hidden = false;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

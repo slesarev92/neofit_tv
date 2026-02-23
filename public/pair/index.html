@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script>
+  (function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+  </script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Привязка устройства — NeoFit TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/theme.js"></script>
+  <style>
+    .pair-page { min-height: 100vh; background: var(--gray-50); padding: 1rem; padding-bottom: 2rem; }
+    .pair-card { background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; max-width: 420px; margin: 0 auto; }
+    .pair-title { font-size: 1.25rem; font-weight: 600; color: var(--gray-800); margin-bottom: 0.25rem; }
+    .pair-code { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.15em; color: var(--primary); margin-bottom: 1.5rem; }
+    .pair-section { margin-bottom: 1.25rem; }
+    .pair-section label { display: block; font-size: .875rem; font-weight: 500; color: var(--gray-700); margin-bottom: 0.5rem; }
+    .pair-page .form-group input, .pair-page .form-group select { font-size: 1rem; padding: 0.75rem 1rem; min-height: 48px; }
+    .pair-page .btn { min-height: 48px; font-size: 1rem; padding: 0.75rem 1.25rem; }
+    .pair-success { background: #dcfce7; color: #166534; padding: 1rem; border-radius: var(--radius); margin-top: 1rem; }
+    .pair-success-title { font-weight: 600; margin-bottom: 0.5rem; }
+    .pair-success-details { font-size: .9375rem; margin: 0; line-height: 1.5; }
+    .pair-success-details span { display: block; }
+    .pair-btn-ok { margin-top: 1.25rem; }
+    .pair-error { background: #fef2f2; color: var(--danger); padding: 0.75rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: .875rem; }
+    .pair-radio-wrap { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
+    .pair-radio-wrap label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
+    .pair-radio-wrap input { width: auto; min-height: auto; }
+    .pair-hide { display: none !important; }
+    .pair-countdown--expired { color: var(--danger) !important; }
+  </style>
+  <script>
+    (function(){
+      var returnUrl = window.location.pathname + (window.location.search || '');
+      fetch('/api/settings', { credentials: 'include' }).then(function(r) {
+        if (r.status === 401) {
+          window.location.href = '/login.html?returnUrl=' + encodeURIComponent(returnUrl);
+        }
+      }).catch(function() {
+        window.location.href = '/login.html?returnUrl=' + encodeURIComponent(returnUrl);
+      });
+    })();
+  </script>
+</head>
+<body class="pair-page">
+  <div style="position:fixed;top:1rem;right:1rem;z-index:10;">
+    <div class="theme-toggle">
+    <span class="theme-toggle-icon theme-toggle-icon-sun" aria-hidden="true">☀️</span>
+    <label class="theme-toggle-track">
+      <input type="checkbox" id="theme-toggle" class="theme-toggle-input" aria-label="Переключить тему">
+      <span class="theme-toggle-thumb"></span>
+    </label>
+    <span class="theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true">🌙</span>
+  </div>
+  </div>
+  <div class="pair-card">
+    <h1 class="pair-title">Привязка устройства</h1>
+    <p class="pair-code" id="displayCode">—</p>
+    <p class="pair-countdown" id="pairCountdown" style="font-size: .875rem; color: var(--gray-500); margin-top: -0.75rem; margin-bottom: 1rem;"></p>
+
+    <div id="formBlock">
+      <div class="pair-section">
+        <div class="pair-radio-wrap">
+          <label><input type="radio" name="mode" value="existing" id="modeExisting" checked> Выбрать существующий экран</label>
+        </div>
+        <div class="form-group" id="wrapSelect">
+          <label for="screenSelect">Экран</label>
+          <select id="screenSelect">
+            <option value="">— Загрузка... —</option>
+          </select>
+        </div>
+      </div>
+      <div class="pair-section">
+        <div class="pair-radio-wrap">
+          <label><input type="radio" name="mode" value="new" id="modeNew"> Создать новый экран</label>
+        </div>
+        <div class="form-group pair-hide" id="wrapNew">
+          <label for="newScreenName">Название экрана</label>
+          <input type="text" id="newScreenName" placeholder="Например: Зал 1">
+        </div>
+      </div>
+      <div id="errorMsg" class="pair-error" hidden></div>
+      <button type="button" class="btn btn-primary btn-block" id="btnBind">Привязать</button>
+    </div>
+
+    <div id="successBlock" class="pair-hide">
+      <div class="pair-success">
+        <p class="pair-success-title">✅ Устройство привязано!</p>
+        <p class="pair-success-details" id="successDetails"></p>
+        <a href="/admin/index.html" class="btn btn-primary btn-block pair-btn-ok">Ок</a>
+      </div>
+    </div>
+  </div>
+  <script src="/js/api.js"></script>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var code = params.get('code') || '';
+      var displayCode = document.getElementById('displayCode');
+      var formBlock = document.getElementById('formBlock');
+      var successBlock = document.getElementById('successBlock');
+      var successDetails = document.getElementById('successDetails');
+      var screenSelect = document.getElementById('screenSelect');
+      var newScreenName = document.getElementById('newScreenName');
+      var wrapSelect = document.getElementById('wrapSelect');
+      var wrapNew = document.getElementById('wrapNew');
+      var errorMsg = document.getElementById('errorMsg');
+      var btnBind = document.getElementById('btnBind');
+
+      displayCode.textContent = code ? 'Код ' + code : 'Нет кода в ссылке';
+
+      var countdownEl = document.getElementById('pairCountdown');
+      var countdownTimer = null;
+      function formatRemaining(sec) {
+        if (sec <= 0) return 'Код истёк';
+        var m = Math.floor(sec / 60);
+        var s = sec % 60;
+        return 'Код действителен ещё ' + m + ':' + String(s).padStart(2, '0');
+      }
+      function startCountdown(expiresAt) {
+        if (countdownTimer) clearInterval(countdownTimer);
+        if (!expiresAt || !countdownEl) return;
+        function tick() {
+          var now = Date.now();
+          var end = new Date(expiresAt).getTime();
+          var sec = Math.max(0, Math.floor((end - now) / 1000));
+          countdownEl.textContent = formatRemaining(sec);
+          countdownEl.classList.toggle('pair-countdown--expired', sec <= 0);
+          if (sec <= 0) clearInterval(countdownTimer);
+        }
+        tick();
+        countdownTimer = setInterval(tick, 1000);
+      }
+      if (code && countdownEl) {
+        fetch('/api/pair/' + encodeURIComponent(code), { credentials: 'include' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.status === 'waiting' && data.expiresAt) startCountdown(data.expiresAt);
+            else if (data.status === 'expired') { countdownEl.textContent = 'Код истёк'; countdownEl.classList.add('pair-countdown--expired'); }
+          })
+          .catch(function() {});
+      }
+
+      document.getElementById('modeExisting').addEventListener('change', function() {
+        wrapSelect.classList.remove('pair-hide');
+        wrapNew.classList.add('pair-hide');
+      });
+      document.getElementById('modeNew').addEventListener('change', function() {
+        wrapSelect.classList.add('pair-hide');
+        wrapNew.classList.remove('pair-hide');
+      });
+
+      function showError(msg) {
+        errorMsg.textContent = msg;
+        errorMsg.hidden = false;
+      }
+      function hideError() {
+        errorMsg.hidden = true;
+      }
+      function escapeHtml(str) {
+        if (!str) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      API.getScreens().then(function(data) {
+        var items = data.items || [];
+        screenSelect.innerHTML = '<option value="">— Выберите экран —</option>';
+        items.forEach(function(s) {
+          var opt = document.createElement('option');
+          opt.value = s.id;
+          var status = !s.lastSeenAt ? '\u26AB ' : (s.isOnline ? '\uD83D\uDFE2 ' : '\uD83D\uDD34 ');
+          opt.textContent = status + (s.name || s.id) + (s.lastSeenAt ? (s.isOnline ? ' (онлайн)' : ' (офлайн)') : ' (не подключался)');
+          screenSelect.appendChild(opt);
+        });
+      }).catch(function() {
+        screenSelect.innerHTML = '<option value="">— Ошибка загрузки —</option>';
+      });
+
+      btnBind.addEventListener('click', function() {
+        if (!code) {
+          showError('В ссылке отсутствует код привязки.');
+          return;
+        }
+        hideError();
+        btnBind.disabled = true;
+        var body;
+        if (document.getElementById('modeNew').checked) {
+          var name = (newScreenName.value || '').trim();
+          if (!name) {
+            showError('Введите название нового экрана.');
+            btnBind.disabled = false;
+            return;
+          }
+          body = { newScreenName: name };
+        } else {
+          var sid = screenSelect.value;
+          if (!sid) {
+            showError('Выберите экран.');
+            btnBind.disabled = false;
+            return;
+          }
+          body = { screenId: sid };
+        }
+        fetch('/api/pair/' + encodeURIComponent(code) + '/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(body)
+        }).then(function(r) {
+          return r.json().then(function(data) {
+            if (!r.ok) {
+              if (r.status === 404) throw new Error('Код не найден. Проверьте правильность ввода.');
+              if (data.error && (data.error.indexOf('истёк') !== -1 || data.error.indexOf('истек') !== -1)) throw new Error('Код истёк. Откройте приложение заново для получения нового кода.');
+              throw new Error(data.error || 'Ошибка привязки');
+            }
+            return data;
+          });
+        }).then(function(data) {
+          formBlock.classList.add('pair-hide');
+          successBlock.classList.remove('pair-hide');
+          var screenLabel = data.screenName || data.screenId || '—';
+          var playlistLabel = (data.playlistName && data.playlistName.trim()) ? data.playlistName : 'Не назначен';
+          successDetails.innerHTML = '<span><strong>Экран:</strong> ' + escapeHtml(screenLabel) + '</span><span><strong>Плейлист:</strong> ' + escapeHtml(playlistLabel) + '</span>';
+        }).catch(function(err) {
+          showError(err.message || 'Ошибка привязки');
+        }).finally(function() {
+          btnBind.disabled = false;
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Плейлисты — NeoFit_TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>.auth-pending{visibility:hidden!important}</style>
+  <script src="/js/theme.js"></script>
+  <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
+      <span class="sidebar-brand-name">NeoFit TV</span>
+    </div>
+    <nav class="sidebar-nav" id="main-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="theme-toggle-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" id="sidebarLogoutBtn">Выйти</button>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="page-header">
+      <h1>Плейлисты</h1>
+      <button type="button" class="btn btn-primary" id="btnCreatePlaylist">Создать плейлист</button>
+    </header>
+    <div id="playlistsList"></div>
+    <div class="modal-overlay" id="playlistModal">
+      <div class="modal" style="max-width: 520px;">
+        <div class="modal-header">
+          <h2 id="playlistModalTitle">Создать плейлист</h2>
+          <button type="button" class="close-btn" id="playlistModalClose" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="playlistName">Название</label>
+            <input type="text" id="playlistName" placeholder="Название плейлиста">
+          </div>
+          <div class="form-group">
+            <label>Элементы плейлиста</label>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAddMediaInPlaylist">Добавить медиафайл</button>
+            <ul id="playlistItems" class="playlist-items"></ul>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="playlistModalCancel">Отмена</button>
+          <button type="button" class="btn btn-primary" id="playlistModalSave">Сохранить</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="mediaSelectModal">
+      <div class="modal" style="max-width: 560px;">
+        <div class="modal-header">
+          <h2>Выбрать медиафайлы</h2>
+          <button type="button" class="close-btn" id="mediaSelectModalClose" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="media-select-grid" id="mediaSelectGrid"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="mediaSelectModalCancel">Отмена</button>
+          <button type="button" class="btn btn-primary" id="mediaSelectAddBtn">Добавить выбранные</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/admin-mobile.js"></script>
+  <script src="/js/admin-playlists.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NeoFit TV Player</string>
+
+    <string name="enter_pin">Введите PIN</string>
+    <string name="pin_hint">PIN</string>
+    <string name="new_pin_hint">Новый PIN (мин. 4 цифры)</string>
+    <string name="pin_incorrect">Неверный PIN</string>
+    <string name="change_pin_first_run">Смените PIN при первом запуске</string>
+    <string name="pin_too_short">PIN не менее 4 цифр</string>
+
+    <string name="settings_title">Настройки плеера</string>
+    <string name="server_url">URL сервера</string>
+    <string name="screen_id">ID экрана</string>
+    <string name="check_connection">Проверить соединение</string>
+    <string name="save_and_launch">Сохранить и запустить</string>
+    <string name="change_pin">Сменить PIN</string>
+    <string name="connection_ok">Соединение: %1$d, время %2$d мс</string>
+    <string name="connection_error">Ошибка: %1$s</string>
+    <string name="notification_channel_name">Запуск плеера</string>
+</resources>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Медиа — NeoFit_TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>.auth-pending{visibility:hidden!important}</style>
+  <script src="/js/theme.js"></script>
+  <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
+      <span class="sidebar-brand-name">NeoFit TV</span>
+    </div>
+    <nav class="sidebar-nav" id="main-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="theme-toggle-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" id="sidebarLogoutBtn">Выйти</button>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="page-header">
+      <h1>Медиафайлы</h1>
+    </header>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" accept="image/*,video/*" multiple>
+      <p>Перетащите файлы сюда или нажмите для выбора</p>
+      <p style="font-size: .75rem; margin-top: .25rem;">Изображения и видео</p>
+    </div>
+    <div class="progress-bar-wrap" id="progressBarWrap" style="display: none;">
+      <p class="progress-bar-label" id="progressBarLabel"></p>
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-bar-fill" id="progressBarFill"></div>
+      </div>
+    </div>
+    <section class="card media-card-section">
+      <div class="card-body">
+        <div class="media-toolbar">
+          <div class="form-group media-toolbar-search">
+            <label for="mediaSearch">Поиск по имени</label>
+            <input type="text" id="mediaSearch" class="input" placeholder="Введите часть имени файла…" autocomplete="off">
+          </div>
+          <div class="form-group media-toolbar-sort">
+            <label for="mediaSort">Сортировка</label>
+            <select id="mediaSort" class="media-sort-select">
+              <option value="date-desc">По дате — сначала новые</option>
+              <option value="date-asc">По дате — сначала старые</option>
+              <option value="name-asc">По имени — А–Я</option>
+              <option value="name-desc">По имени — Я–А</option>
+              <option value="size-desc">По размеру — сначала большие</option>
+              <option value="size-asc">По размеру — сначала маленькие</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div id="mediaGrid" class="media-grid"></div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/admin-mobile.js"></script>
+  <script src="/js/admin-media.js"></script>
+</body>
+</html>

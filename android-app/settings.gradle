@@ -1,0 +1,2 @@
+rootProject.name = "NeoFitTV Player"
+include ':app'

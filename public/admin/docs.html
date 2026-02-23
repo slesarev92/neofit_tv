@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Инструкция — NeoFit TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/docs.css">
+  <style>.auth-pending{visibility:hidden!important}</style>
+  <script src="/js/theme.js"></script>
+  <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
+      <span class="sidebar-brand-name">NeoFit TV</span>
+    </div>
+    <nav class="sidebar-nav" id="main-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="theme-toggle-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" id="sidebarLogoutBtn">Выйти</button>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="page-header"><h1>Инструкция</h1></header>
+    <div class="docs-search"><input type="text" id="docsSearch" placeholder="Поиск по разделам..." aria-label="Поиск"></div>
+    <div class="docs-wrap">
+      <nav class="docs-toc" id="docsToc"></nav>
+      <div class="docs-content" id="docsContent"></div>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/admin-mobile.js"></script>
+  <script src="/js/docs-content.js"></script>
+  <script>
+(function(){
+var sections = window.DOCS_SECTIONS || [];
+var toc = document.getElementById('docsToc');
+var content = document.getElementById('docsContent');
+var searchEl = document.getElementById('docsSearch');
+sections.forEach(function(s){
+  toc.innerHTML += '<a href="#'+s.id+'" data-id="'+s.id+'">'+s.title+'</a>';
+  var div = document.createElement('section');
+  div.id = s.id;
+  div.className = 'docs-section';
+  div.setAttribute('data-search', (s.title+' '+s.body.replace(/<[^>]+>/g,'')).toLowerCase());
+  div.innerHTML = '<h2>'+s.title+'</h2>'+s.body.trim();
+  content.appendChild(div);
+});
+function filter(){
+  var q = (searchEl.value||'').trim().toLowerCase();
+  content.querySelectorAll('.docs-section').forEach(function(el){
+    var show = !q || el.getAttribute('data-search').indexOf(q)!==-1;
+    el.classList.toggle('hidden-by-search', !show);
+  });
+  toc.querySelectorAll('a').forEach(function(a){
+    var id = a.getAttribute('data-id');
+    var sec = content.querySelector('#'+id);
+    a.style.display = (sec&&!sec.classList.contains('hidden-by-search')) ? '' : 'none';
+  });
+}
+searchEl.addEventListener('input', filter);
+var logoutBtn = document.getElementById('sidebarLogoutBtn');
+if (logoutBtn && typeof API !== 'undefined') {
+  logoutBtn.addEventListener('click', function() { API.logout().then(function() { location.href = '/login.html'; }); });
+}
+})();
+  </script>
+</body>
+</html>

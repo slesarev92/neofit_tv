@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Дашборд — NeoFit TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>.auth-pending{visibility:hidden!important}.dashboard-skeleton{min-height:12rem}.skeleton-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin:1rem 0}.skeleton-card{height:100px;background:var(--gray-200);border-radius:var(--radius);animation:pulse 1.5s ease-in-out infinite}@keyframes pulse{50%{opacity:.6}}.dashboard-content{display:none}.dashboard-content.ready{display:block}</style>
+  <script src="/js/theme.js"></script>
+  <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
+      <span class="sidebar-brand-name">NeoFit TV</span>
+    </div>
+    <nav class="sidebar-nav" id="main-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="theme-toggle-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" id="sidebarLogoutBtn">Выйти</button>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="page-header">
+      <h1>Дашборд</h1>
+      <div class="page-header-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="dashboardRefreshBtn">Обновить</button>
+      </div>
+    </header>
+    <div id="dashboardSkeleton" class="dashboard-skeleton">
+      <div class="skeleton-cards">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+      </div>
+    </div>
+    <div class="dashboard-content">
+      <div class="stats-grid">
+        <a href="/admin/media.html" class="stat-card stat-card--clickable" style="text-decoration: none; color: inherit;">
+          <div class="stat-icon media">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M22 16l-5-5L5 22"/></svg>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-media">—</div>
+            <div class="stat-label">Медиафайлы</div>
+          </div>
+        </a>
+        <a href="/admin/playlists.html" class="stat-card stat-card--clickable" style="text-decoration: none; color: inherit;">
+          <div class="stat-icon playlists">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-playlists">—</div>
+            <div class="stat-label">Плейлисты</div>
+          </div>
+        </a>
+        <a href="/admin/screens.html" class="stat-card stat-card--clickable" style="text-decoration: none; color: inherit;">
+          <div class="stat-icon screens">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div>
+            <div class="stat-value" id="stat-screens">—</div>
+            <div class="stat-label">Экраны</div>
+          </div>
+        </a>
+        <a href="/admin/screens.html?filter=offline" class="stat-card stat-card--clickable" id="statCardOnline" style="text-decoration: none; color: inherit;">
+          <div class="stat-icon online">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div>
+            <div class="stat-value stat-value--online" id="stat-online">—</div>
+            <div class="stat-label">Онлайн</div>
+          </div>
+        </a>
+      </div>
+      <section class="card system-section" style="margin-top: 1.5rem;">
+        <div class="card-header">Сервер</div>
+        <div class="card-body">
+          <div class="system-stats-grid" id="systemStatsGrid">
+            <div class="system-stat-card">
+              <div class="system-stat-icon system-stat-icon--load">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
+              </div>
+              <div class="system-stat-content">
+                <div class="system-stat-label">Нагрузка CPU</div>
+                <div class="system-load-chart-wrap" id="system-load-chart-wrap">
+                  <svg class="system-load-chart" id="system-load-chart" viewBox="0 0 200 44" preserveAspectRatio="none" aria-hidden="true"></svg>
+                </div>
+                <div class="system-stat-value system-load-current" id="system-load">—</div>
+                <div class="system-load-hint" id="system-load-hint">1 / 5 / 15 мин. Норма: ниже числа ядер.</div>
+              </div>
+            </div>
+            <div class="system-stat-card">
+              <div class="system-stat-icon system-stat-icon--memory">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+              </div>
+              <div class="system-stat-content">
+                <div class="system-stat-label">Память (ОЗУ)</div>
+                <div class="system-stat-value" id="system-memory">—</div>
+                <div class="system-bar-wrap" id="system-memory-bar-wrap">
+                  <div class="system-bar system-bar--used" id="system-memory-bar-used" style="flex: 0 0 0%;"></div>
+                  <div class="system-bar system-bar--free" id="system-memory-bar-free" style="flex: 0 0 100%;"></div>
+                </div>
+                <div class="system-bar-captions" id="system-memory-captions">
+                  <span class="system-bar-caption system-bar-caption--used" id="system-memory-caption-used"></span>
+                  <span class="system-bar-caption system-bar-caption--free" id="system-memory-caption-free"></span>
+                </div>
+              </div>
+            </div>
+            <div class="system-stat-card">
+              <div class="system-stat-icon system-stat-icon--disk">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              </div>
+              <div class="system-stat-content">
+                <div class="system-stat-label">Диск</div>
+                <div class="system-stat-value" id="system-disk">—</div>
+                <div class="system-bar-wrap" id="system-disk-bar-wrap">
+                  <div class="system-bar system-bar--used" id="system-disk-bar-used" style="flex: 0 0 0%;"></div>
+                  <div class="system-bar system-bar--free" id="system-disk-bar-free" style="flex: 0 0 100%;"></div>
+                </div>
+                <div class="system-bar-captions" id="system-disk-captions">
+                  <span class="system-bar-caption system-bar-caption--used" id="system-disk-caption-used"></span>
+                  <span class="system-bar-caption system-bar-caption--free" id="system-disk-caption-free"></span>
+                </div>
+              </div>
+            </div>
+            <div class="system-stat-card">
+              <div class="system-stat-icon system-stat-icon--uptime">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="system-stat-content">
+                <div class="system-stat-label">Время работы сервера</div>
+                <div class="system-stat-value" id="system-uptime">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/admin-mobile.js"></script>
+  <script>
+(function loadStats() {
+  function formatUptime(sec) {
+    if (sec < 60) return sec + ' с';
+    if (sec < 3600) return Math.floor(sec / 60) + ' мин';
+    if (sec < 86400) return Math.floor(sec / 3600) + ' ч ' + Math.floor((sec % 3600) / 60) + ' мин';
+    return Math.floor(sec / 86400) + ' д ' + Math.floor((sec % 86400) / 3600) + ' ч';
+  }
+  function renderSystem(data) {
+    var loadEl = document.getElementById('system-load');
+    var loadHint = document.getElementById('system-load-hint');
+    var memEl = document.getElementById('system-memory');
+    var memBarUsed = document.getElementById('system-memory-bar-used');
+    var memBarFree = document.getElementById('system-memory-bar-free');
+    var memCapUsed = document.getElementById('system-memory-caption-used');
+    var memCapFree = document.getElementById('system-memory-caption-free');
+    var diskEl = document.getElementById('system-disk');
+    var diskBarUsed = document.getElementById('system-disk-bar-used');
+    var diskBarFree = document.getElementById('system-disk-bar-free');
+    var diskCapUsed = document.getElementById('system-disk-caption-used');
+    var diskCapFree = document.getElementById('system-disk-caption-free');
+    var uptimeEl = document.getElementById('system-uptime');
+    var loadChart = document.getElementById('system-load-chart');
+    var loadChartWrap = document.getElementById('system-load-chart-wrap');
+    if (loadEl) {
+      if (data.loadAvg) {
+        loadEl.textContent = '1 мин: ' + data.loadAvg[0].toFixed(2) + '  ·  5 мин: ' + data.loadAvg[1].toFixed(2) + '  ·  15 мин: ' + data.loadAvg[2].toFixed(2);
+        if (loadHint) loadHint.style.display = '';
+      } else {
+        loadEl.textContent = '—';
+        if (loadHint) loadHint.style.display = 'none';
+      }
+    }
+    if (loadChart && data.loadHistory && data.loadHistory.length > 0) {
+      var hist = data.loadHistory;
+      var n = hist.length;
+      var maxV = Math.max.apply(null, hist);
+      var minV = Math.min.apply(null, hist);
+      var range = maxV - minV || 1;
+      var pad = 2;
+      var w = 200;
+      var h = 44;
+      var pts = hist.map(function(v, i) {
+        var x = n > 1 ? (i / (n - 1)) * w : w / 2;
+        var y = h - pad - ((v - minV) / range) * (h - 2 * pad);
+        return x.toFixed(2) + ',' + y.toFixed(2);
+      }).join(' ');
+      var poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      poly.setAttribute('fill', 'none');
+      poly.setAttribute('stroke', 'currentColor');
+      poly.setAttribute('stroke-width', '1.5');
+      poly.setAttribute('stroke-linecap', 'round');
+      poly.setAttribute('stroke-linejoin', 'round');
+      poly.setAttribute('points', pts);
+      loadChart.innerHTML = '';
+      loadChart.appendChild(poly);
+      if (loadChartWrap) loadChartWrap.style.display = '';
+    } else if (loadChartWrap) loadChartWrap.style.display = 'none';
+    if (memEl && data.memory) {
+      var usedPct = data.memory.usedPercent;
+      var freePct = 100 - usedPct;
+      memEl.textContent = 'Свободно ' + data.memory.freeFormatted + ' из ' + data.memory.totalFormatted;
+      memEl.className = 'system-stat-value';
+      if (memBarUsed) memBarUsed.style.flex = '0 0 ' + usedPct + '%';
+      if (memBarFree) memBarFree.style.flex = '0 0 ' + freePct + '%';
+      if (memCapUsed) { memCapUsed.textContent = '(' + usedPct + '% занято)'; memCapUsed.removeAttribute('style'); }
+      if (memCapFree) { memCapFree.textContent = '(' + freePct + '% свободно)'; memCapFree.removeAttribute('style'); }
+    }
+    if (diskEl && data.disk) {
+      if (data.disk.error) {
+        diskEl.textContent = 'Ошибка: ' + data.disk.error;
+        if (diskBarUsed) diskBarUsed.style.flex = '0 0 0%';
+        if (diskBarFree) diskBarFree.style.flex = '0 0 100%';
+        if (diskCapUsed) diskCapUsed.textContent = '';
+        if (diskCapFree) diskCapFree.textContent = '';
+      } else {
+        var diskUsedPct = data.disk.usedPercent;
+        var diskFreePct = 100 - diskUsedPct;
+        diskEl.textContent = 'Свободно ' + data.disk.freeFormatted + ' из ' + data.disk.totalFormatted;
+        diskEl.className = 'system-stat-value';
+        if (diskBarUsed) diskBarUsed.style.flex = '0 0 ' + diskUsedPct + '%';
+        if (diskBarFree) diskBarFree.style.flex = '0 0 ' + diskFreePct + '%';
+        if (diskCapUsed) { diskCapUsed.textContent = '(' + diskUsedPct + '% занято)'; diskCapUsed.removeAttribute('style'); }
+        if (diskCapFree) { diskCapFree.textContent = '(' + diskFreePct + '% свободно)'; diskCapFree.removeAttribute('style'); }
+      }
+    }
+    if (uptimeEl && data.uptimeSeconds != null) uptimeEl.textContent = formatUptime(data.uptimeSeconds);
+  }
+  function refreshDashboard() {
+    var btn = document.getElementById('dashboardRefreshBtn');
+    if (btn) btn.disabled = true;
+    Promise.all([
+      API.getMedia(),
+      API.getPlaylists(),
+      API.getScreens(),
+      API.getSystem().catch(function() { return null; })
+    ]).then(function(results) {
+      var mediaRes = results[0], playlistsRes = results[1], screensRes = results[2], systemRes = results[3];
+      document.getElementById('stat-media').textContent = (mediaRes.items || []).length;
+      document.getElementById('stat-playlists').textContent = (playlistsRes.items || []).length;
+      var screens = screensRes.items || [];
+      document.getElementById('stat-screens').textContent = screens.length;
+      var onlineCount = screens.filter(function(s) { return s.isOnline; }).length;
+      var total = screens.length;
+      var el = document.getElementById('stat-online');
+      el.textContent = total ? (onlineCount + ' из ' + total) : '—';
+      el.className = 'stat-value stat-value--online';
+      if (total) {
+        if (onlineCount === total) el.classList.add('stat-value--ok');
+        else if (onlineCount >= total / 2) el.classList.add('stat-value--warn');
+        else el.classList.add('stat-value--danger');
+      }
+      if (systemRes) {
+        var loadAvg = systemRes.loadAvg;
+        renderSystem({
+          loadAvg: loadAvg ? [loadAvg['1'], loadAvg['5'], loadAvg['15']] : null,
+          loadHistory: systemRes.loadHistory || [],
+          memory: systemRes.memory,
+          disk: systemRes.disk,
+          uptimeSeconds: systemRes.uptimeSeconds
+        });
+      }
+      document.getElementById('dashboardSkeleton').style.display = 'none';
+      document.querySelector('.dashboard-content').classList.add('ready');
+    }).catch(function(err) {
+      if (typeof showToast === 'function') showToast(err.message || 'Ошибка загрузки данных', 'error');
+      document.querySelectorAll('.stat-value').forEach(function(el) { el.textContent = '—'; });
+      document.getElementById('stat-online').className = 'stat-value stat-value--online';
+      document.getElementById('dashboardSkeleton').style.display = 'none';
+      document.querySelector('.dashboard-content').classList.add('ready');
+    }).finally(function() {
+      if (btn) btn.disabled = false;
+    });
+  }
+  document.getElementById('dashboardRefreshBtn').addEventListener('click', refreshDashboard);
+  var logoutBtn = document.getElementById('sidebarLogoutBtn');
+  if (logoutBtn && typeof API !== 'undefined') {
+    logoutBtn.addEventListener('click', function() {
+      API.logout().then(function() { location.href = '/login.html'; });
+    });
+  }
+  var waitAuth = setInterval(function() {
+    if (document.documentElement.classList.contains('auth-pending')) return;
+    clearInterval(waitAuth);
+    refreshDashboard();
+  }, 50);
+})();
+  </script>
+</body>
+</html>

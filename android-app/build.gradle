@@ -1,0 +1,23 @@
+// Root build.gradle
+// Google first so Android/AGP deps often resolve without hitting Maven Central (can reduce TLS issues)
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.3.2'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

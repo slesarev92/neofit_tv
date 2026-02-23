@@ -1,0 +1,55 @@
+const fs = require('fs').promises;
+const path = require('path');
+const config = require('../../config');
+
+const PAIRING_FILE = () => path.resolve(config.dataDir, 'pairing.json');
+
+async function readAll() {
+  try {
+    const raw = await fs.readFile(PAIRING_FILE(), 'utf-8');
+    return JSON.parse(raw);
+  } catch (err) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  }
+}
+
+async function writeAll(items) {
+  await fs.writeFile(PAIRING_FILE(), JSON.stringify(items, null, 2), 'utf-8');
+}
+
+async function findAll() {
+  return readAll();
+}
+
+async function findByCode(code) {
+  const items = await readAll();
+  return items.find((r) => r.code === code) || null;
+}
+
+async function create(record) {
+  const items = await readAll();
+  items.push(record);
+  await writeAll(items);
+  return record;
+}
+
+async function updateScreenId(code, screenId) {
+  const items = await readAll();
+  const idx = items.findIndex((r) => r.code === code);
+  if (idx === -1) return null;
+  items[idx].screenId = screenId;
+  await writeAll(items);
+  return items[idx];
+}
+
+async function removeExpired() {
+  const items = await readAll();
+  const now = new Date().toISOString();
+  const kept = items.filter((r) => r.expiresAt && r.expiresAt > now);
+  if (kept.length !== items.length) {
+    await writeAll(kept);
+  }
+}
+
+module.exports = { findAll, findByCode, create, updateScreenId, removeExpired };

@@ -1,0 +1,135 @@
+const fs = require('fs').promises;
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const FileType = require('file-type');
+const config = require('../../config');
+const mediaRepository = require('./media.repository');
+const playlistsRepository = require('../playlists/playlists.repository');
+const { sanitizeFilename, isAllowedMimeType } = require('../../utils/fileUtils');
+const logger = require('../../utils/logger');
+const processor = require('./media.processor');
+
+function isImage(mime) {
+  return mime && mime.startsWith('image/');
+}
+
+async function list() {
+  return mediaRepository.findAll();
+}
+
+async function getStatus(id) {
+  const media = await mediaRepository.findById(id);
+  if (!media) return null;
+  return {
+    id: media.id,
+    status: media.status || 'ready',
+    originalSize: media.originalSize || media.size,
+    compressedSize: media.compressedSize || media.size,
+    statusMessage: media.statusMessage || null,
+  };
+}
+
+async function upload(file) {
+  const fd = await fs.open(file.path, 'r');
+  const header = Buffer.alloc(4100);
+  await fd.read(header, 0, 4100, 0);
+  await fd.close();
+  const typeResult = await FileType.fromBuffer(header);
+  const detectedMime = typeResult ? typeResult.mime : file.mimetype;
+
+  if (!isAllowedMimeType(detectedMime)) {
+    await fs.unlink(file.path).catch(() => {});
+    return { ok: false, status: 400, error: 'Недопустимый тип файла' };
+  }
+
+  const id = uuidv4();
+  const sanitized = sanitizeFilename(file.originalname);
+  const ext = path.extname(sanitized) || (typeResult ? `.${typeResult.ext}` : '');
+  const filename = `${id}_${path.basename(sanitized, path.extname(sanitized))}${ext}`;
+  const destPath = path.join(path.resolve(config.uploadsDir), filename);
+
+  await fs.rename(file.path, destPath);
+
+  const media = {
+    id,
+    filename,
+    originalName: file.originalname,
+    mimeType: detectedMime,
+    size: file.size,
+    originalSize: file.size,
+    compressedSize: file.size,
+    status: 'processing',
+    statusMessage: null,
+    path: `uploads/${filename}`,
+    createdAt: new Date().toISOString(),
+  };
+
+  await mediaRepository.create(media);
+  logger.info('Media uploaded', { id, filename: media.originalName, size: file.size });
+
+  if (isImage(detectedMime)) {
+    try {
+      const result = await processor.processImage(destPath, detectedMime);
+      const stat = await fs.stat(destPath);
+      await mediaRepository.update(id, {
+        status: 'ready',
+        compressedSize: result.compressedSize,
+        size: stat.size,
+      });
+      media.status = 'ready';
+      media.compressedSize = result.compressedSize;
+      media.size = stat.size;
+    } catch (err) {
+      logger.error('Image processing failed', { id, error: err.message });
+      await mediaRepository.update(id, { status: 'ready' });
+      media.status = 'ready';
+    }
+  } else {
+    processor.enqueueVideo(id, destPath, async (result) => {
+      if (result.error) {
+        await mediaRepository.update(id, {
+          status: 'error',
+          statusMessage: result.error,
+        });
+        logger.error('Video optimization failed', { id, error: result.error });
+      } else {
+        const stat = await fs.stat(destPath).catch(() => null);
+        await mediaRepository.update(id, {
+          status: 'ready',
+          compressedSize: result.compressedSize,
+          size: stat ? stat.size : result.compressedSize,
+          ...(result.durationSeconds != null && { durationSeconds: result.durationSeconds }),
+        });
+        logger.info('Video optimization complete', { id, compressedSize: result.compressedSize });
+      }
+    });
+  }
+
+  return { ok: true, item: media };
+}
+
+async function remove(id) {
+  const media = await mediaRepository.findById(id);
+  if (!media) {
+    return { ok: false, status: 404, error: 'Медиафайл не найден' };
+  }
+
+  const playlists = await playlistsRepository.findAll();
+  for (const pl of playlists) {
+    const hadItem = pl.items && pl.items.some((item) => item.mediaId === id);
+    if (hadItem) {
+      const filtered = pl.items.filter((item) => item.mediaId !== id);
+      await playlistsRepository.update(pl.id, { items: filtered });
+      logger.info('Removed media from playlist', { mediaId: id, playlistId: pl.id, playlistName: pl.name });
+    }
+  }
+
+  const filePath = path.resolve(media.path);
+  await fs.unlink(filePath).catch(() => {});
+  await fs.unlink(filePath + '.tmp.mp4').catch(() => {});
+  await mediaRepository.remove(id);
+  logger.info('Media deleted', { id, filename: media.originalName });
+  return { ok: true };
+}
+
+module.exports = { list, getStatus, upload, remove };

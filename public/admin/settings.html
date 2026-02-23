@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Настройки — NeoFit TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+.auth-pending{visibility:hidden!important}
+.hint{font-size:.75rem;color:var(--gray-500);margin-top:.25rem;line-height:1.4}
+.settings-tabs{display:flex;flex-wrap:wrap;gap:.25rem;margin-bottom:1.25rem;border-bottom:1px solid var(--gray-200);padding-bottom:0}
+.settings-tabs .tab{padding:.6rem 1rem;font-size:.875rem;font-weight:500;color:var(--gray-600);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;border-radius:var(--radius) var(--radius) 0 0;transition:color .15s,background .15s}
+.settings-tabs .tab:hover{color:var(--gray-800);background:var(--gray-100)}
+.settings-tabs .tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.settings-section{display:none}
+.settings-section.active{display:block}
+.section-actions{display:flex;align-items:center;gap:.75rem;margin-top:1.25rem;flex-wrap:wrap}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media (max-width:640px){.form-row{grid-template-columns:1fr}}
+.label-with-hint{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.hint-icon{width:15px;height:15px;padding:0;border-radius:50%;background:var(--hint-icon-bg);color:var(--hint-icon-color);font-size:.65rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.hint-icon:hover,.hint-icon:focus{background:var(--primary);color:var(--text-on-primary);outline:none}
+.hint-icon[aria-expanded="true"]{background:var(--primary);color:var(--text-on-primary)}
+.hint-popover{position:fixed;z-index:1000;max-width:280px;padding:.6rem .75rem;background:var(--hint-popover-bg);color:var(--hint-popover-color);font-size:.8125rem;line-height:1.4;border-radius:var(--radius);box-shadow:var(--shadow-lg);pointer-events:none}
+.hint-popover::before{content:'';position:absolute;bottom:-6px;left:50%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--hint-popover-bg)}
+.hint-popover.below::before{bottom:auto;top:-6px;border-top-color:transparent;border-bottom-color:var(--hint-popover-bg)}
+.checkbox-with-hint{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.checkbox-with-hint .hint-icon{margin-left:.2rem}
+  </style>
+  <script src="/js/theme.js"></script>
+  <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
+      <span class="sidebar-brand-name">NeoFit TV</span>
+    </div>
+    <nav class="sidebar-nav" id="main-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="theme-toggle-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" id="sidebarLogoutBtn">Выйти</button>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="page-header">
+      <h1>Настройки</h1>
+    </header>
+    <div class="settings-tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="playback" role="tab">Воспроизведение</button>
+      <button type="button" class="tab" data-tab="schedule" role="tab">Расписание</button>
+      <button type="button" class="tab" data-tab="monitor" role="tab">Мониторинг</button>
+      <button type="button" class="tab" data-tab="media" role="tab">Медиа</button>
+      <button type="button" class="tab" data-tab="system" role="tab">Система</button>
+      <button type="button" class="tab" data-tab="telegram" role="tab">Telegram</button>
+      <button type="button" class="tab" data-tab="security" role="tab">Безопасность</button>
+    </div>
+    <div class="card">
+      <div id="section-playback" class="settings-section active" data-section="playback" role="tabpanel">
+        <div class="card-header">Воспроизведение</div>
+        <div class="card-body">
+          <form id="formPlayback" class="settings-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="imageDuration" class="label-with-hint">Длительность изображения (сек) <button type="button" class="hint-icon" data-hint="Сколько секунд показывать каждое изображение. Для видео не используется — длительность берётся из ролика." aria-label="Подсказка">?</button></label>
+                <input type="number" id="imageDuration" min="1" max="3600">
+                <div class="hint">Для видео длительность берётся из длины ролика.</div>
+              </div>
+              <div class="form-group">
+                <label for="pollInterval" class="label-with-hint">Интервал опроса (сек) <button type="button" class="hint-icon" data-hint="Как часто плеер запрашивает обновления плейлиста. Меньше значение — быстрее реакция на изменения, но выше нагрузка на сервер." aria-label="Подсказка">?</button></label>
+                <input type="number" id="pollInterval" min="5" max="3600">
+              </div>
+              <div class="form-group">
+                <label for="requestTimeout" class="label-with-hint">Таймаут запроса (сек) <button type="button" class="hint-icon" data-hint="Максимальное время ожидания ответа от сервера. При превышении запрос считается неудачным и плеер повторяет попытку." aria-label="Подсказка">?</button></label>
+                <input type="number" id="requestTimeout" min="1" max="120">
+              </div>
+              <div class="form-group">
+                <label for="maxRetries" class="label-with-hint">Макс. повторов при ошибке <button type="button" class="hint-icon" data-hint="Сколько раз плеер повторяет запрос при ошибке сети. Между попытками — пауза с экспоненциальной задержкой." aria-label="Подсказка">?</button></label>
+                <input type="number" id="maxRetries" min="0" max="10">
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: .75rem; margin-top: .75rem;">
+              <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="prefetchEnabled"> Предзагрузка следующего слайда <button type="button" class="hint-icon" data-hint="Следующий слайд загружается заранее, чтобы при переключении не было задержки." aria-label="Подсказка">?</button></label>
+              <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="cacheEnabled"> Кэширование контента в браузере <button type="button" class="hint-icon" data-hint="Файлы сохраняются в кэше браузера и не скачиваются повторно при следующем показе." aria-label="Подсказка">?</button></label>
+              <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="showLastOnError"> При потере связи показывать последний плейлист <button type="button" class="hint-icon" data-hint="Если связь с сервером потеряна, плеер продолжит показывать последний полученный плейлист вместо пустого экрана." aria-label="Подсказка">?</button></label>
+            </div>
+            <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-schedule" class="settings-section" data-section="schedule" role="tabpanel">
+        <div class="card-header">Расписание</div>
+        <div class="card-body">
+          <form id="formSchedule" class="settings-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="autoReloadAt" class="label-with-hint">Время ночной перезагрузки <button type="button" class="hint-icon" data-hint="Плеер перезагружает страницу в это время для снижения утечек памяти. Формат ЧЧ:ММ." aria-label="Подсказка">?</button></label>
+                <input type="text" id="autoReloadAt" placeholder="04:00" maxlength="5">
+                <div class="hint">Формат ЧЧ:ММ (например 04:00). По умолчанию — 04:00.</div>
+              </div>
+              <div class="form-group">
+                <label for="workScheduleFrom">Начало работы (ЧЧ:ММ)</label>
+                <input type="text" id="workScheduleFrom" placeholder="пусто" maxlength="5">
+                <div class="hint">Оставьте пустым, если экраны работают круглосуточно.</div>
+              </div>
+              <div class="form-group">
+                <label for="workScheduleTo">Конец работы (ЧЧ:ММ)</label>
+                <input type="text" id="workScheduleTo" placeholder="пусто" maxlength="5">
+              </div>
+              <div class="form-group">
+                <label for="timezone">Часовой пояс</label>
+                <input type="text" id="timezone" placeholder="Europe/Moscow">
+                <div class="hint">Для корректного расчёта расписания (IANA, например Europe/Moscow).</div>
+              </div>
+            </div>
+            <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-monitor" class="settings-section" data-section="monitor" role="tabpanel">
+        <div class="card-header">Мониторинг экранов</div>
+        <div class="card-body">
+          <form id="formMonitor" class="settings-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="onlineThreshold" class="label-with-hint">Порог «онлайн» (сек) <button type="button" class="hint-icon" data-hint="Если экран не обращался к серверу дольше этого времени — считается офлайн. Рекомендуется ставить чуть больше интервала опроса." aria-label="Подсказка">?</button></label>
+                <input type="number" id="onlineThreshold" min="5" max="300">
+              </div>
+              <div class="form-group">
+                <label for="monitorCheckIntervalSec" class="label-with-hint">Интервал проверки (сек) <button type="button" class="hint-icon" data-hint="Как часто сервер проверяет статус экранов и отправляет уведомления в Telegram." aria-label="Подсказка">?</button></label>
+                <input type="number" id="monitorCheckIntervalSec" min="5" max="120">
+              </div>
+              <div class="form-group">
+                <label for="onlineThresholdMultiplier" class="label-with-hint">Множитель порога (1–5 или пусто) <button type="button" class="hint-icon" data-hint="Если задан: порог = интервал опроса × множитель. Иначе используется значение «Порог онлайн»." aria-label="Подсказка">?</button></label>
+                <input type="text" id="onlineThresholdMultiplier" placeholder="пусто">
+              </div>
+            </div>
+            <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-media" class="settings-section" data-section="media" role="tabpanel">
+        <div class="card-header">Оптимизация медиа</div>
+        <div class="card-body">
+          <form id="formMedia" class="settings-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="maxFileSizeMb" class="label-with-hint">Макс. размер загрузки (МБ) <button type="button" class="hint-icon" data-hint="Максимальный размер одного загружаемого файла. Увеличение даёт большую нагрузку на сервер." aria-label="Подсказка">?</button></label>
+                <input type="number" id="maxFileSizeMb" min="10" max="2000">
+              </div>
+              <div class="form-group">
+                <label for="videoCrf" class="label-with-hint">Качество видео (CRF 18–28) <button type="button" class="hint-icon" data-hint="18 — лучше качество, больше размер файла. 28 — меньше размер, хуже качество. 23 — по умолчанию." aria-label="Подсказка">?</button></label>
+                <input type="number" id="videoCrf" min="18" max="28">
+              </div>
+              <div class="form-group">
+                <label for="videoMaxWidth" class="label-with-hint">Макс. ширина видео (пикс.) <button type="button" class="hint-icon" data-hint="Оставьте пустым, чтобы не менять разрешение. Уменьшение снижает размер файла при оптимизации." aria-label="Подсказка">?</button></label>
+                <input type="number" id="videoMaxWidth" min="320" max="4096" placeholder="без изменений">
+              </div>
+            </div>
+            <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-system" class="settings-section" data-section="system" role="tabpanel">
+        <div class="card-header">Система</div>
+        <div class="card-body">
+          <form id="formSystem" class="settings-form">
+            <div class="form-group">
+              <label for="systemName">Название системы</label>
+              <input type="text" id="systemName" placeholder="NeoFit TV">
+              <div class="hint">Отображается в заголовке и боковой панели админки.</div>
+            </div>
+            <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-telegram" class="settings-section" data-section="telegram" role="tabpanel">
+        <div class="card-header">Уведомления в Telegram</div>
+        <div class="card-body">
+          <form id="formTelegram" class="settings-form">
+            <p class="hint" style="margin-bottom: 1rem;">При смене статуса экрана (онлайн/офлайн) бот отправит сообщение. Бот создаётся в <a href="https://t.me/BotFather" target="_blank">@BotFather</a>, Chat ID — через <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>.</p>
+            <label style="display: flex; align-items: center; gap: .5rem; cursor: pointer; margin-bottom: 1rem;"><input type="checkbox" id="telegramEnabled"> Включить уведомления</label>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="telegramBotToken">Токен бота</label>
+                <input type="text" id="telegramBotToken" placeholder="123456:ABC-DEF...">
+              </div>
+              <div class="form-group">
+                <label for="telegramChatId">Chat ID</label>
+                <input type="text" id="telegramChatId" placeholder="-1001234567890">
+              </div>
+            </div>
+            <div class="section-actions">
+              <button type="submit" class="btn btn-primary">Сохранить</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="section-security" class="settings-section" data-section="security" role="tabpanel">
+        <div class="card-header">Безопасность</div>
+        <div class="card-body">
+          <form id="passwordForm">
+            <div class="form-group">
+              <label for="currentPassword">Текущий пароль</label>
+              <input type="password" id="currentPassword" required>
+            </div>
+            <div class="form-group">
+              <label for="newPassword">Новый пароль</label>
+              <input type="password" id="newPassword" required minlength="8" placeholder="Минимум 8 символов">
+            </div>
+            <button type="submit" class="btn btn-primary">Сменить пароль</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/admin-mobile.js"></script>
+  <script src="/js/admin-settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>(function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Экраны — NeoFit_TV</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>.auth-pending{visibility:hidden!important}</style>
+  <script src="/js/theme.js"></script>
+  <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
+</head>
+<body class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <img src="/logo.png" alt="NeoFit" class="sidebar-logo">
+      <span class="sidebar-brand-name">NeoFit TV</span>
+    </div>
+    <nav class="sidebar-nav" id="main-nav"></nav>
+    <div class="sidebar-footer">
+      <div id="theme-toggle-container"></div>
+      <button type="button" class="btn btn-secondary btn-block btn-sm" id="sidebarLogoutBtn">Выйти</button>
+    </div>
+  </aside>
+  <main class="main-content">
+    <header class="page-header">
+      <h1>Экраны</h1>
+      <div class="page-header-actions">
+        <button type="button" id="btnAddByCode" class="btn btn-primary">Добавить по коду</button>
+        <button type="button" id="btnCreateScreen" class="btn btn-primary">Создать экран</button>
+      </div>
+    </header>
+    <section class="card">
+      <div class="card-body">
+        <div class="screens-toolbar">
+          <div class="form-group screens-toolbar-search">
+            <label for="screensSearch">Поиск</label>
+            <input type="text" id="screensSearch" class="input" placeholder="По имени экрана…" autocomplete="off">
+          </div>
+          <div class="screens-filter-tabs" role="tablist">
+            <button type="button" class="screens-filter-tab active" data-filter="all" role="tab" id="screensTabAll">Все (<span id="screensCountAll">0</span>)</button>
+            <button type="button" class="screens-filter-tab" data-filter="online" role="tab">Онлайн (<span id="screensCountOnline">0</span>)</button>
+            <button type="button" class="screens-filter-tab" data-filter="offline" role="tab">Офлайн (<span id="screensCountOffline">0</span>)</button>
+          </div>
+          <div class="form-group screens-toolbar-sort">
+            <label for="screensSort">Сортировка</label>
+            <select id="screensSort" class="media-sort-select">
+              <option value="name-asc">По имени — А–Я</option>
+              <option value="name-desc">По имени — Я–А</option>
+              <option value="status">По статусу (онлайн сначала)</option>
+              <option value="lastSeen-desc">По активности — недавние</option>
+              <option value="lastSeen-asc">По активности — давние</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="screens-table">
+            <thead>
+              <tr>
+                <th>Статус</th>
+                <th>Название</th>
+                <th>Плейлист</th>
+                <th>Последняя активность</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="screensList"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal-overlay" id="screenModal">
+      <div class="modal" style="max-width: 480px;">
+        <div class="modal-header">
+          <h2 id="screenModalTitle">Создать экран</h2>
+          <button type="button" class="close-btn" id="screenModalClose" aria-label="Закрыть">&times;</button>
+        </div>
+        <form id="screenForm">
+          <div class="modal-body">
+            <input type="hidden" id="screenId">
+            <div class="form-group">
+              <label for="screenName">Название</label>
+              <input type="text" id="screenName" placeholder="Название экрана">
+            </div>
+            <div class="form-group">
+              <label for="screenPlaylist">Плейлист</label>
+              <select id="screenPlaylist" class="input"></select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="screenModalCancel">Отмена</button>
+            <button type="submit" class="btn btn-primary">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="pairByCodeModal">
+      <div class="modal" style="max-width: 400px;">
+        <div class="modal-header">
+          <h2>Добавить по коду</h2>
+          <button type="button" class="close-btn" id="pairByCodeModalClose" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="pairCodeInput">Код с экрана</label>
+            <input type="text" id="pairCodeInput" class="input" placeholder="Например: A3X7K2" maxlength="10" autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="pairByCodeModalCancel">Отмена</button>
+          <button type="button" class="btn btn-primary" id="pairByCodeGoBtn">Перейти</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/admin-mobile.js"></script>
+  <script src="/js/admin-screens.js"></script>
+</body>
+</html>

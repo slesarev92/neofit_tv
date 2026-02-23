@@ -1,0 +1,170 @@
+# Развёртывание на сервере
+
+## Шаг 1 — Настроить DNS (делаю я вручную)
+
+В панели управления доменом s9a.ru добавить A-записи:
+
+| Тип | Имя  | Значение        | TTL  |
+|-----|------|------------------|------|
+| A   | @    | **5.129.223.35** | 3600 |
+| A   | www  | **5.129.223.35** | 3600 |
+
+Удалить лишние A-записи для s9a.ru (оставить только 5.129.223.35).
+
+Проверить, что DNS обновился:
+
+```bash
+ping s9a.ru
+# Должен вернуть IP сервера (5.129.223.35)
+```
+
+---
+
+## Шаг 2 — Подключиться к серверу
+
+```bash
+ssh root@5.129.223.35
+```
+
+---
+
+## Шаг 3 — Установить Nginx
+
+```bash
+sudo apt update
+sudo apt install nginx -y
+sudo systemctl enable nginx
+sudo systemctl start nginx
+```
+
+---
+
+## Шаг 4 — Скопировать конфиг Nginx
+
+```bash
+sudo cp /opt/digital-signage/nginx.conf /etc/nginx/sites-available/signage
+sudo ln -s /etc/nginx/sites-available/signage /etc/nginx/sites-enabled/signage
+
+# Удалить дефолтный конфиг чтобы не конфликтовал
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Проверить конфиг на ошибки
+sudo nginx -t
+
+# Применить
+sudo systemctl reload nginx
+```
+
+---
+
+## Шаг 5 — Получить SSL-сертификат (бесплатно)
+
+```bash
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d s9a.ru -d www.s9a.ru
+```
+
+Certbot спросит:
+- Email для уведомлений об истечении сертификата → ввести свой
+- Согласие с условиями → Y
+- Делиться ли email с EFF → N (по желанию)
+
+После этого HTTPS настроен автоматически. Сертификат обновляется сам каждые 90 дней.
+
+---
+
+## Шаг 6 — Установить PM2 и запустить проект
+
+```bash
+npm install -g pm2
+
+cd /opt/digital-signage
+
+# Установить зависимости если ещё не установлены
+npm install --production
+
+# Запустить через PM2
+pm2 start ecosystem.config.js
+
+# Сохранить список процессов
+pm2 save
+
+# Настроить автозапуск при старте сервера
+pm2 startup
+# ⚠️ PM2 выдаст команду — скопировать и выполнить её
+```
+
+Перед первым запуском создать `.env` из примера и заполнить (PORT=3000, NODE_ENV=production, BASE_URL=https://s9a.ru, SESSION_SECRET=...):
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+---
+
+## Шаг 7 — Проверить что всё работает
+
+```bash
+# Статус Node.js процесса
+pm2 status
+
+# Логи приложения
+pm2 logs signage --lines 50
+
+# Статус Nginx
+sudo systemctl status nginx
+
+# Проверить открывается ли сайт
+curl -I https://s9a.ru
+# Должен вернуть HTTP/2 200
+```
+
+В браузере:
+- Сайт: https://s9a.ru
+- Админка: https://s9a.ru/admin
+- Плеер: https://s9a.ru/player/index.html?id=ID_ЭКРАНА
+
+---
+
+## Управление проектом после деплоя
+
+```bash
+# Перезапустить после изменений
+pm2 restart signage
+
+# Остановить
+pm2 stop signage
+
+# Посмотреть логи в реальном времени
+pm2 logs signage
+
+# Обновить проект (если используется git)
+cd /opt/digital-signage
+git pull
+npm install --production
+pm2 restart signage
+```
+
+---
+
+## Возможные проблемы
+
+**Ошибка 502 Bad Gateway**  
+→ Node.js не запущен. Выполнить: `pm2 start ecosystem.config.js`
+
+**Сертификат не получается**  
+→ DNS ещё не обновился. Подождать и повторить.
+
+**Файлы не загружаются (ошибка 413)**  
+→ В nginx.conf должен быть `client_max_body_size 512m`. Проверить конфиг.
+
+**Сайт открывается по IP, но не по домену**  
+→ DNS не обновился. Проверить A-запись: `nslookup s9a.ru`
+
+---
+
+## Что НЕ трогать
+
+Всю бизнес-логику, модули, API — не изменять.  
+Только добавить/обновить файлы: `nginx.conf`, `ecosystem.config.js`, `DEPLOY.md`, при необходимости `.env.example` и `src/config/index.js`.
