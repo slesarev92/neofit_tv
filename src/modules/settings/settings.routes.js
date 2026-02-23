@@ -16,6 +16,15 @@ const uploadLogoFile = multer({
   },
 }).single('logo');
 
+const uploadOffHoursImageFile = multer({
+  dest: uploadDir,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = file.mimetype && file.mimetype.startsWith('image/');
+    cb(null, !!ok);
+  },
+}).single('offHoursImage');
+
 router.get('/', async (req, res, next) => {
   try {
     const settings = await settingsService.get();
@@ -51,6 +60,28 @@ router.post('/logo', (req, res, next) => {
 }, async (req, res, next) => {
   try {
     const result = await settingsService.uploadLogo(req.file);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ url: result.url });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/off-hours-image', (req, res, next) => {
+  uploadOffHoursImageFile(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'Изображение не более 5 МБ' });
+      }
+      return next(err);
+    }
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    const result = await settingsService.uploadOffHoursImage(req.file);
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }

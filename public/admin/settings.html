@@ -105,23 +105,66 @@
           <form id="formSchedule" class="settings-form">
             <div class="form-row">
               <div class="form-group">
-                <label for="autoReloadAt" class="label-with-hint">Время ночной перезагрузки <button type="button" class="hint-icon" data-hint="Плеер перезагружает страницу в это время для снижения утечек памяти. Формат ЧЧ:ММ." aria-label="Подсказка">?</button></label>
+                <label for="autoReloadAt" class="label-with-hint">Время перезагрузки плеера <button type="button" class="hint-icon" data-hint="Плеер раз в сутки перезагружает страницу в это время для снижения утечек памяти. Формат ЧЧ:ММ." aria-label="Подсказка">?</button></label>
                 <input type="text" id="autoReloadAt" placeholder="04:00" maxlength="5">
                 <div class="hint">Формат ЧЧ:ММ (например 04:00). По умолчанию — 04:00.</div>
               </div>
               <div class="form-group">
-                <label for="workScheduleFrom">Начало работы (ЧЧ:ММ)</label>
-                <input type="text" id="workScheduleFrom" placeholder="пусто" maxlength="5">
-                <div class="hint">Оставьте пустым, если экраны работают круглосуточно.</div>
-              </div>
-              <div class="form-group">
-                <label for="workScheduleTo">Конец работы (ЧЧ:ММ)</label>
-                <input type="text" id="workScheduleTo" placeholder="пусто" maxlength="5">
-              </div>
-              <div class="form-group">
                 <label for="timezone">Часовой пояс</label>
-                <input type="text" id="timezone" placeholder="Europe/Moscow">
-                <div class="hint">Для корректного расчёта расписания (IANA, например Europe/Moscow).</div>
+                <select id="timezone">
+                  <option value="Europe/Moscow">Москва (Europe/Moscow)</option>
+                  <option value="Europe/Samara">Самара (Europe/Samara)</option>
+                  <option value="Asia/Yekaterinburg">Екатеринбург (Asia/Yekaterinburg)</option>
+                  <option value="Asia/Omsk">Омск (Asia/Omsk)</option>
+                  <option value="Asia/Novosibirsk">Новосибирск (Asia/Novosibirsk)</option>
+                  <option value="Asia/Krasnoyarsk">Красноярск (Asia/Krasnoyarsk)</option>
+                  <option value="Asia/Irkutsk">Иркутск (Asia/Irkutsk)</option>
+                  <option value="Asia/Yakutsk">Якутск (Asia/Yakutsk)</option>
+                  <option value="Asia/Vladivostok">Владивосток (Asia/Vladivostok)</option>
+                  <option value="Asia/Magadan">Магадан (Asia/Magadan)</option>
+                  <option value="Asia/Kamchatka">Камчатка (Asia/Kamchatka)</option>
+                  <option value="Europe/Kyiv">Киев (Europe/Kyiv)</option>
+                  <option value="Europe/Minsk">Минск (Europe/Minsk)</option>
+                  <option value="Europe/Istanbul">Стамбул (Europe/Istanbul)</option>
+                  <option value="Europe/Berlin">Берлин (Europe/Berlin)</option>
+                  <option value="Europe/Paris">Париж (Europe/Paris)</option>
+                  <option value="Europe/London">Лондон (Europe/London)</option>
+                  <option value="UTC">UTC</option>
+                </select>
+                <div class="hint">Для расчёта расписания и бэкапов (IANA).</div>
+              </div>
+            </div>
+            <div class="settings-subsection" style="margin-top: 1.25rem;">
+              <h3 class="settings-subsection-title">Часы работы экранов</h3>
+              <label class="checkbox-with-hint" style="cursor: pointer; display: inline-flex; align-items: center; margin-bottom: 0.75rem;">
+                <input type="checkbox" id="workScheduleEnabled" name="workScheduleEnabled">
+                Включить ограничение по времени
+              </label>
+              <div class="form-row work-schedule-fields">
+                <div class="form-group">
+                  <label for="workScheduleFrom">Начало рабочего времени</label>
+                  <input type="time" id="workScheduleFrom" step="60">
+                </div>
+                <div class="form-group">
+                  <label for="workScheduleTo">Конец рабочего времени</label>
+                  <input type="time" id="workScheduleTo" step="60">
+                </div>
+              </div>
+              <div class="hint" style="margin-top: 0.25rem;">В это время на экране показывается контент. Вне этого окна — чёрный экран или заставка (если задана ниже). Можно задать переход через полночь (например 22:00 → 06:00).</div>
+            </div>
+            <div class="settings-subsection" style="margin-top: 1.25rem;">
+              <h3 class="settings-subsection-title">Заставка вне рабочих часов</h3>
+              <p class="hint" style="margin-bottom: 0.5rem;">Изображение, которое показывается на экране вне рабочих часов. Если не выбрано — чёрный экран.</p>
+              <div class="logo-preview-wrap" id="offHoursPreviewWrap" style="display: none;">
+                <img id="offHoursPreviewImg" src="" alt="Заставка" class="logo-preview-img">
+                <div class="logo-preview-actions">
+                  <button type="button" class="btn btn-secondary btn-sm" id="offHoursRemoveBtn">Удалить</button>
+                </div>
+              </div>
+              <div class="form-group" style="margin-top: 0.5rem;">
+                <input type="file" id="offHoursFileInput" accept="image/*" class="logo-file-input" aria-label="Выбрать изображение заставки">
+                <label for="offHoursFileInput" class="btn btn-secondary btn-sm">Выбрать изображение</label>
+                <span class="hint" style="display: block; margin-top: .35rem;">PNG, JPG или WebP, не более 5 МБ</span>
               </div>
             </div>
             <div class="section-actions">

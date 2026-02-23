@@ -131,6 +131,26 @@ const API = {
       xhr.send(fd);
     });
   },
+  uploadOffHoursImage(file) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/settings/off-hours-image');
+      xhr.withCredentials = true;
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(data.error || 'Ошибка ' + xhr.status));
+        } catch (e) {
+          reject(new Error('Ответ сервера не JSON (статус ' + xhr.status + ').'));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Ошибка сети'));
+      const fd = new FormData();
+      fd.append('offHoursImage', file);
+      xhr.send(fd);
+    });
+  },
   getSystem() {
     return this.request('/api/system');
   },

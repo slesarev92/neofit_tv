@@ -31,9 +31,11 @@
     setValue('cacheEnabled', s.cacheEnabled !== false, true);
     setValue('showLastOnError', s.showLastOnError !== false, true);
     setValue('autoReloadAt', s.autoReloadAt || '');
-    setValue('workScheduleFrom', s.workScheduleFrom || '');
-    setValue('workScheduleTo', s.workScheduleTo || '');
-    setValue('timezone', s.timezone || '');
+    setValue('workScheduleEnabled', !!s.workScheduleEnabled, true);
+    setValue('workScheduleFrom', (s.workScheduleFrom || '').slice(0, 5));
+    setValue('workScheduleTo', (s.workScheduleTo || '').slice(0, 5));
+    setTimezoneSelect(s.timezone || 'Europe/Moscow');
+    setOffHoursImagePreview(s.workScheduleOffImageUrl || null);
     setValue('onlineThreshold', s.onlineThreshold ?? 15);
     setValue('monitorCheckIntervalSec', s.monitorCheckIntervalSec ?? 10);
     setValue('onlineThresholdMultiplier', s.onlineThresholdMultiplier == null ? '' : s.onlineThresholdMultiplier);
@@ -52,6 +54,25 @@
     setValue('backupScheduleWeekday', s.backupScheduleWeekday != null ? String(s.backupScheduleWeekday) : '0');
     setValue('backupScheduleMonthDays', s.backupScheduleMonthDays || '1,10,20');
     toggleBackupScheduleExtra();
+  }
+
+  function setTimezoneSelect(value) {
+    var el = getEl('timezone');
+    if (!el) return;
+    var v = (value || 'Europe/Moscow').trim() || 'Europe/Moscow';
+    if (el.tagName === 'SELECT') {
+      var found = false;
+      for (var i = 0; i < el.options.length; i++) {
+        if (el.options[i].value === v) { found = true; break; }
+      }
+      if (!found) {
+        var opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v + ' (текущий)';
+        el.insertBefore(opt, el.firstChild);
+      }
+    }
+    el.value = v;
   }
 
   function toggleBackupScheduleExtra() {
@@ -110,10 +131,16 @@
     };
   }
   function collectSchedule() {
+    var form = document.getElementById('formSchedule');
+    var cb = form && form.elements && form.elements.namedItem('workScheduleEnabled');
+    var enabled = cb ? !!cb.checked : (getValue('workScheduleEnabled', true) === true);
+    var from = (getValue('workScheduleFrom') || '').trim().slice(0, 5);
+    var to = (getValue('workScheduleTo') || '').trim().slice(0, 5);
     return {
       autoReloadAt: getValue('autoReloadAt').trim() || null,
-      workScheduleFrom: getValue('workScheduleFrom').trim() || null,
-      workScheduleTo: getValue('workScheduleTo').trim() || null,
+      workScheduleEnabled: !!enabled,
+      workScheduleFrom: from && /^\d{1,2}:\d{2}$/.test(from) ? from : null,
+      workScheduleTo: to && /^\d{1,2}:\d{2}$/.test(to) ? to : null,
       timezone: getValue('timezone').trim() || 'Europe/Moscow',
     };
   }
@@ -162,6 +189,20 @@
     var wrap = document.getElementById('logoPreviewWrap');
     var img = document.getElementById('logoPreviewImg');
     var fileInput = document.getElementById('logoFileInput');
+    if (!wrap || !img) return;
+    if (url && String(url).trim()) {
+      img.src = url.indexOf('?') === -1 ? url + '?t=' + Date.now() : url;
+      wrap.style.display = 'flex';
+      if (fileInput) fileInput.value = '';
+    } else {
+      img.src = '';
+      wrap.style.display = 'none';
+    }
+  }
+  function setOffHoursImagePreview(url) {
+    var wrap = document.getElementById('offHoursPreviewWrap');
+    var img = document.getElementById('offHoursPreviewImg');
+    var fileInput = document.getElementById('offHoursFileInput');
     if (!wrap || !img) return;
     if (url && String(url).trim()) {
       img.src = url.indexOf('?') === -1 ? url + '?t=' + Date.now() : url;
@@ -452,6 +493,53 @@
           .finally(function () {
             saveInProgress = false;
             logoRemoveBtn.disabled = false;
+          });
+      });
+    }
+
+    var offHoursFileInput = document.getElementById('offHoursFileInput');
+    if (offHoursFileInput) {
+      offHoursFileInput.addEventListener('change', function () {
+        var file = this.files && this.files[0];
+        if (!file) return;
+        if (!file.type || !file.type.startsWith('image/')) {
+          showToast('Выберите изображение (PNG, JPG или WebP)', 'error');
+          this.value = '';
+          return;
+        }
+        var label = document.querySelector('label[for="offHoursFileInput"]');
+        if (label) { label.disabled = true; label.textContent = 'Загрузка…'; }
+        API.uploadOffHoursImage(file)
+          .then(function (data) {
+            setOffHoursImagePreview(data.url);
+            showToast('Заставка загружена', 'success');
+          })
+          .catch(function (err) {
+            showToast(err.message || 'Ошибка загрузки', 'error');
+          })
+          .finally(function () {
+            if (label) { label.disabled = false; label.textContent = 'Выбрать изображение'; }
+            offHoursFileInput.value = '';
+          });
+      });
+    }
+    var offHoursRemoveBtn = document.getElementById('offHoursRemoveBtn');
+    if (offHoursRemoveBtn) {
+      offHoursRemoveBtn.addEventListener('click', function () {
+        if (saveInProgress) return;
+        saveInProgress = true;
+        offHoursRemoveBtn.disabled = true;
+        API.updateSettings({ workScheduleOffImageUrl: null })
+          .then(function () {
+            setOffHoursImagePreview(null);
+            showToast('Заставка удалена', 'success');
+          })
+          .catch(function (err) {
+            showToast(err.message || 'Ошибка', 'error');
+          })
+          .finally(function () {
+            saveInProgress = false;
+            offHoursRemoveBtn.disabled = false;
           });
       });
     }

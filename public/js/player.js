@@ -22,6 +22,112 @@
 
   const container = document.getElementById('mediaContainer');
   const placeholder = document.getElementById('placeholder');
+  let scheduleBlackoutEl = null;
+  let scheduleCheckTimer = null;
+  let lastScheduleInside = null;
+
+  // =========================================================
+  //  Work schedule — black screen outside configured hours
+  // =========================================================
+  function getCurrentTimeHHMM(tz) {
+    try {
+      const s = new Date().toLocaleTimeString('en-GB', { timeZone: tz || 'Europe/Moscow', hour: '2-digit', minute: '2-digit', hour12: false });
+      return s;
+    } catch (_) {
+      const d = new Date();
+      const h = d.getHours();
+      const m = d.getMinutes();
+      return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    }
+  }
+
+  function timeToMinutes(hhmm) {
+    if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return 0;
+    const parts = hhmm.split(':');
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+
+  function isWithinSchedule(from, to, currentHHMM) {
+    const fromM = timeToMinutes(from);
+    const toM = timeToMinutes(to);
+    const curM = timeToMinutes(currentHHMM);
+    if (fromM === 0 && toM === 0) return true;
+    if (fromM <= toM) return curM >= fromM && curM < toM;
+    return curM >= fromM || curM < toM;
+  }
+
+  function ensureScheduleBlackoutEl() {
+    if (scheduleBlackoutEl) return scheduleBlackoutEl;
+    scheduleBlackoutEl = document.createElement('div');
+    scheduleBlackoutEl.id = 'scheduleBlackout';
+    scheduleBlackoutEl.setAttribute('aria-hidden', 'true');
+    scheduleBlackoutEl.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;pointer-events:none;';
+    const player = document.getElementById('player');
+    if (player) player.appendChild(scheduleBlackoutEl);
+    else document.body.appendChild(scheduleBlackoutEl);
+    return scheduleBlackoutEl;
+  }
+
+  function updateScheduleBlackoutContent(url) {
+    const el = scheduleBlackoutEl;
+    if (!el) return;
+    const existingImg = el.querySelector('img');
+    if (url && (url + '').trim()) {
+      const src = (url.indexOf('?') === -1 ? url + '?t=' + Date.now() : url).trim();
+      if (existingImg) {
+        existingImg.src = src;
+        existingImg.style.display = '';
+      } else {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;';
+        img.src = src;
+        el.appendChild(img);
+      }
+    } else {
+      if (existingImg) existingImg.remove();
+    }
+  }
+
+  function checkSchedule() {
+    const enabled = settings.workScheduleEnabled === true;
+    const from = (settings.workScheduleFrom || '').trim();
+    const to = (settings.workScheduleTo || '').trim();
+    const hasTimes = /^\d{1,2}:\d{2}$/.test(from) && /^\d{1,2}:\d{2}$/.test(to);
+    if (!enabled || !hasTimes) {
+      if (lastScheduleInside === false) {
+        lastScheduleInside = null;
+        if (scheduleBlackoutEl) scheduleBlackoutEl.style.display = 'none';
+      }
+      return;
+    }
+    const tz = (settings.timezone || 'Europe/Moscow').trim() || 'Europe/Moscow';
+    const current = getCurrentTimeHHMM(tz);
+    const inside = isWithinSchedule(from, to, current);
+    if (lastScheduleInside === inside) {
+      if (!inside && scheduleBlackoutEl) {
+        const offUrl = (settings.workScheduleOffImageUrl || '').trim() || null;
+        updateScheduleBlackoutContent(offUrl);
+      }
+      return;
+    }
+    lastScheduleInside = inside;
+    if (inside) {
+      if (scheduleBlackoutEl) scheduleBlackoutEl.style.display = 'none';
+    } else {
+      ensureScheduleBlackoutEl();
+      const offUrl = (settings.workScheduleOffImageUrl || '').trim() || null;
+      updateScheduleBlackoutContent(offUrl);
+      scheduleBlackoutEl.style.display = 'block';
+    }
+  }
+
+  function scheduleScheduleCheck() {
+    clearInterval(scheduleCheckTimer);
+    scheduleCheckTimer = setInterval(function () {
+      checkSchedule();
+    }, 60000);
+  }
 
   // =========================================================
   //  Fullscreen — any key / click / tap
@@ -81,6 +187,7 @@
     try {
       const data = await fetchWithRetry(`/api/player/${screenId}?t=${Date.now()}`, settings.maxRetries);
       settings = { ...settings, ...data.settings };
+      checkSchedule();
       if (!autoReloadScheduled && (settings.autoReloadAt || '04:00')) {
         autoReloadScheduled = true;
         scheduleAutoReload(settings.autoReloadAt || '04:00');
@@ -303,6 +410,7 @@
   // =========================================================
   registerServiceWorker();
   scheduleAutoReload('04:00');
+  scheduleScheduleCheck();
   requestWakeLock();
   poll();
 })();

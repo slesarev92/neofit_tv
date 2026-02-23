@@ -260,6 +260,8 @@ body {
 .card:hover { box-shadow: var(--shadow-md); }
 .card-body { padding: 1.25rem; }
 .card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--gray-100); font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; background: var(--gray-50); }
+.settings-subsection { padding-top: 0; }
+.settings-subsection-title { font-size: 1rem; font-weight: 600; color: var(--gray-800); margin: 0 0 0.5rem 0; }
 
 /* Stats grid */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
