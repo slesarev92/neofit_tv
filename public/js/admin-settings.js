@@ -1,5 +1,8 @@
 (function () {
   var saveInProgress = false;
+  var pendingLogoFile = null;
+  var logoRemoveRequested = false;
+  var currentLogoObjectUrl = null;
 
   function getEl(id) {
     var el = document.getElementById(id);
@@ -43,6 +46,12 @@
     setValue('videoCrf', s.videoCrf ?? 23);
     setValue('videoMaxWidth', s.videoMaxWidth == null ? '' : s.videoMaxWidth);
     setValue('systemName', s.systemName || '');
+    pendingLogoFile = null;
+    logoRemoveRequested = false;
+    if (currentLogoObjectUrl) {
+      URL.revokeObjectURL(currentLogoObjectUrl);
+      currentLogoObjectUrl = null;
+    }
     setLogoPreview(s.logoUrl || null);
     setValue('telegramEnabled', !!s.telegramEnabled, true);
     setValue('telegramBotToken', s.telegramBotToken || '');
@@ -184,8 +193,25 @@
       backupScheduleMonthDays: monthDays || '1,10,20',
     };
   }
+  function getCurrentLogoPath() {
+    var wrap = document.getElementById('logoPreviewWrap');
+    var img = document.getElementById('logoPreviewImg');
+    if (!wrap || !img || wrap.style.display === 'none') return null;
+    var src = img.src;
+    if (!src || !src.trim() || src.indexOf('blob:') === 0) return null;
+    try {
+      var url = new URL(src);
+      return url.pathname || null;
+    } catch (_) {
+      return src.indexOf('?') !== -1 ? src.slice(0, src.indexOf('?')) : src;
+    }
+  }
+
   function collectSystem() {
-    return { systemName: getValue('systemName').trim() || 'NeoFit TV' };
+    return {
+      systemName: getValue('systemName').trim() || 'NeoFit TV',
+      logoUrl: getCurrentLogoPath()
+    };
   }
 
   function setLogoPreview(url) {
@@ -194,7 +220,11 @@
     var fileInput = document.getElementById('logoFileInput');
     if (!wrap || !img) return;
     if (url && String(url).trim()) {
-      img.src = url.indexOf('?') === -1 ? url + '?t=' + Date.now() : url;
+      if (url.indexOf('blob:') === 0) {
+        img.src = url;
+      } else {
+        img.src = url.indexOf('?') === -1 ? url + '?t=' + Date.now() : url;
+      }
       wrap.style.display = 'flex';
       if (fileInput) fileInput.value = '';
     } else {
@@ -380,11 +410,29 @@
       saveInProgress = true;
       var submitBtn = e.target.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
+      var systemName = getValue('systemName').trim() || 'NeoFit TV';
       try {
-        await API.updateSettings(collectSystem());
-        var previewImg = document.getElementById('logoPreviewImg');
-        var currentLogoUrl = previewImg && previewImg.src ? previewImg.src : null;
-        updateSidebarBrand({ systemName: getValue('systemName') || 'NeoFit TV', logoUrl: currentLogoUrl });
+        if (logoRemoveRequested) {
+          await API.updateSettings({ systemName: systemName, logoUrl: null });
+          setLogoPreview(null);
+          updateSidebarBrand({ systemName: systemName, logoUrl: null });
+          logoRemoveRequested = false;
+        } else if (pendingLogoFile) {
+          var data = await API.uploadLogo(pendingLogoFile);
+          var url = data.url;
+          await API.updateSettings({ systemName: systemName, logoUrl: url });
+          if (currentLogoObjectUrl) {
+            URL.revokeObjectURL(currentLogoObjectUrl);
+            currentLogoObjectUrl = null;
+          }
+          pendingLogoFile = null;
+          setLogoPreview(url);
+          updateSidebarBrand({ systemName: systemName, logoUrl: (url && url.indexOf('?') === -1) ? url + '?t=' + Date.now() : url });
+        } else {
+          await API.updateSettings(collectSystem());
+          var path = getCurrentLogoPath();
+          updateSidebarBrand({ systemName: systemName, logoUrl: path ? (path.indexOf('?') === -1 ? path + '?t=' + Date.now() : path) : null });
+        }
         showToast('Настройки системы сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -459,44 +507,30 @@
           this.value = '';
           return;
         }
-        var label = document.querySelector('label[for="logoFileInput"]');
-        if (label) { label.disabled = true; label.textContent = 'Загрузка…'; }
-        API.uploadLogo(file)
-          .then(function (data) {
-            var url = data.url;
-            var urlFresh = (url && url.indexOf('?') === -1) ? url + '?t=' + Date.now() : url;
-            setLogoPreview(url);
-            updateSidebarBrand({ systemName: getValue('systemName') || 'NeoFit TV', logoUrl: urlFresh });
-            showToast('Логотип загружен', 'success');
-          })
-          .catch(function (err) {
-            showToast(err.message || 'Ошибка загрузки', 'error');
-          })
-          .finally(function () {
-            if (label) { label.disabled = false; label.textContent = 'Выбрать изображение'; }
-            logoFileInput.value = '';
-          });
+        logoRemoveRequested = false;
+        if (currentLogoObjectUrl) {
+          URL.revokeObjectURL(currentLogoObjectUrl);
+          currentLogoObjectUrl = null;
+        }
+        currentLogoObjectUrl = URL.createObjectURL(file);
+        pendingLogoFile = file;
+        setLogoPreview(currentLogoObjectUrl);
+        showToast('Логотип выбран. Нажмите «Сохранить», чтобы применить.', 'success');
+        this.value = '';
       });
     }
     var logoRemoveBtn = document.getElementById('logoRemoveBtn');
     if (logoRemoveBtn) {
       logoRemoveBtn.addEventListener('click', function () {
         if (saveInProgress) return;
-        saveInProgress = true;
-        logoRemoveBtn.disabled = true;
-        API.updateSettings({ logoUrl: null })
-          .then(function () {
-            setLogoPreview(null);
-            updateSidebarBrand({ systemName: getValue('systemName') || 'NeoFit TV', logoUrl: null });
-            showToast('Логотип удалён', 'success');
-          })
-          .catch(function (err) {
-            showToast(err.message || 'Ошибка', 'error');
-          })
-          .finally(function () {
-            saveInProgress = false;
-            logoRemoveBtn.disabled = false;
-          });
+        logoRemoveRequested = true;
+        pendingLogoFile = null;
+        if (currentLogoObjectUrl) {
+          URL.revokeObjectURL(currentLogoObjectUrl);
+          currentLogoObjectUrl = null;
+        }
+        setLogoPreview(null);
+        showToast('Логотип будет удалён после нажатия «Сохранить».', 'success');
       });
     }
 

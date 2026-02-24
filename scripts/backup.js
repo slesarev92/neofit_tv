@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Резервное копирование папки data/ в backups/backup-YYYY-MM-DD-HH-mm.tar.gz
+ * Резервное копирование настроек: папка data/ + файлы логотипа и заставки «вне часов» (из uploads/)
+ * в backups/backup-YYYY-MM-DD-HH-mm.tar.gz
  * Только встроенные модули Node.js (fs, path, child_process).
  * Использование: npm run backup
  * Читает backupKeepCount из data/settings.json (10–90), по умолчанию 30.
@@ -13,6 +14,7 @@ const { spawnSync } = require('child_process');
 
 const PROJECT_ROOT = path.resolve(path.join(__dirname, '..'));
 const DATA_DIR = path.resolve(PROJECT_ROOT, process.env.DATA_DIR || 'data');
+const UPLOADS_DIR = path.resolve(PROJECT_ROOT, process.env.UPLOADS_DIR || 'uploads');
 const BACKUPS_DIR = path.join(PROJECT_ROOT, 'backups');
 const BACKUP_STATUS_FILE = path.join(DATA_DIR, 'backup-status.json');
 const DEFAULT_KEEP_LAST = 30;
@@ -31,6 +33,35 @@ async function getKeepLast() {
     if (Number.isInteger(v) && v >= 10 && v <= 90) return v;
   } catch (_) {}
   return DEFAULT_KEEP_LAST;
+}
+
+/** Возвращает массив относительных путей (от PROJECT_ROOT) файлов логотипа и заставки «вне часов», которые существуют. */
+async function getExtraUploadPaths() {
+  const out = [];
+  let s;
+  try {
+    const raw = await fs.readFile(path.join(DATA_DIR, 'settings.json'), 'utf-8');
+    s = JSON.parse(raw);
+  } catch (_) {
+    return out;
+  }
+  const urls = [
+    (s && s.logoUrl) || null,
+    (s && s.workScheduleOffImageUrl) || null,
+  ].filter(Boolean);
+  for (const url of urls) {
+    const rel = (typeof url === 'string' && url.trim()) ? url.replace(/^\//, '').trim() : '';
+    if (!rel) continue;
+    const fullPath = path.resolve(PROJECT_ROOT, rel);
+    if (!fullPath.startsWith(PROJECT_ROOT)) continue;
+    const relPath = path.relative(PROJECT_ROOT, fullPath).replace(/\\/g, '/');
+    if (relPath.startsWith('..')) continue;
+    try {
+      await fs.access(fullPath);
+      out.push(relPath);
+    } catch (_) {}
+  }
+  return out;
 }
 
 function formatBytes(bytes) {
@@ -75,9 +106,15 @@ async function main() {
   const archivePath = path.join(BACKUPS_DIR, archiveName);
   const parentDir = path.dirname(DATA_DIR);
   const dataFolderName = path.basename(DATA_DIR);
+  const extraPaths = await getExtraUploadPaths();
+
+  const tarArgs = ['-czf', archivePath, '-C', parentDir, dataFolderName];
+  if (extraPaths.length) {
+    tarArgs.push('-C', PROJECT_ROOT, ...extraPaths);
+  }
 
   try {
-    const tar = spawnSync('tar', ['-czf', archivePath, '-C', parentDir, dataFolderName], {
+    const tar = spawnSync('tar', tarArgs, {
       stdio: 'pipe',
       maxBuffer: 10 * 1024 * 1024,
     });

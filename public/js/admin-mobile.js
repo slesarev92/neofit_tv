@@ -16,7 +16,6 @@
   var brand = document.createElement('div');
   brand.className = 'mobile-brand';
   var img = document.createElement('img');
-  img.src = '/logo.png';
   img.alt = 'NeoFit';
   var span = document.createElement('span');
   span.textContent = 'NeoFit TV';

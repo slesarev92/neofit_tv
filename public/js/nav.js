@@ -88,6 +88,13 @@
       '<input type="checkbox" id="theme-toggle" class="theme-toggle-input" aria-label="Переключить тему">' +
       '<span class="theme-toggle-thumb"></span></label>' +
       '<span class="theme-toggle-icon theme-toggle-icon-moon" aria-hidden="true">🌙</span></div>';
+    var el = document.getElementById('theme-toggle');
+    if (el && el.type === 'checkbox' && typeof window.getTheme === 'function' && typeof window.setTheme === 'function') {
+      window.setTheme(window.getTheme());
+      el.addEventListener('change', function () {
+        window.setTheme(this.checked ? 'dark' : 'light');
+      });
+    }
   }
 
   function init() {
