@@ -111,15 +111,15 @@
         mediaCache = mediaRes.items || [];
         const item = playlistRes.item || playlistRes;
         document.getElementById('playlistName').value = item.name || '';
-        playlistItems = (item.items || []).map((i) => {
+        playlistItems = (item.items || []).map((i, idx) => {
           const media = mediaCache.find((m) => m.id === i.mediaId);
           return {
-            id: i.id,
+            id: i.id || newItemId(),
             mediaId: i.mediaId,
             mediaName: media ? (media.originalName || media.filename) : 'Медиа',
             mimeType: media ? media.mimeType : '',
             duration: i.duration ?? 10,
-            order: i.order,
+            order: i.order !== undefined ? i.order : idx,
           };
         });
         renderPlaylistItems();
@@ -147,16 +147,13 @@
         }
         grid.innerHTML = readyMedia
           .map(
-            (m) => {
-              const alreadyInPlaylist = playlistItems.some((p) => p.mediaId === m.id);
-              return `
-          <label class="media-select-item ${alreadyInPlaylist ? 'media-select-item-disabled' : ''}" data-media-id="${m.id}" data-media-name="${escapeHtml(m.originalName || m.filename || '')}" data-mime="${escapeHtml(m.mimeType || '')}">
-            <input type="checkbox" class="media-select-checkbox" ${alreadyInPlaylist ? 'disabled' : ''}>
+            (m) => `
+          <label class="media-select-item" data-media-id="${m.id}" data-media-name="${escapeHtml(m.originalName || m.filename || '')}" data-mime="${escapeHtml(m.mimeType || '')}">
+            <input type="checkbox" class="media-select-checkbox">
             ${m.mimeType && m.mimeType.startsWith('video/') ? `<div style="position:relative;"><video src="${getMediaThumbUrl(m)}#t=0.5" preload="metadata" muted style="width:100%;height:80px;object-fit:cover;"></video><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;font-size:.6rem;padding:1px 4px;border-radius:3px;">VIDEO</span></div>` : `<img src="${getMediaThumbUrl(m) || ''}" alt="">`}
             <div class="name">${escapeHtml(m.originalName || m.filename || '')}</div>
           </label>
-        `;
-            }
+        `
           )
           .join('');
         document.getElementById('mediaSelectModal').classList.add('active');
@@ -166,14 +163,19 @@
       });
   }
 
+  function newItemId() {
+    return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  }
+
   function addSelectedMediaToPlaylist() {
     const grid = document.getElementById('mediaSelectGrid');
-    const checked = grid.querySelectorAll('.media-select-checkbox:checked:not([disabled])');
+    const checked = grid.querySelectorAll('.media-select-checkbox:checked');
     let added = 0;
     checked.forEach((cb) => {
       const item = cb.closest('.media-select-item');
-      if (!item || playlistItems.some((p) => p.mediaId === item.dataset.mediaId)) return;
+      if (!item) return;
       playlistItems.push({
+        id: newItemId(),
         mediaId: item.dataset.mediaId,
         mediaName: item.dataset.mediaName || '',
         mimeType: item.dataset.mime || '',
@@ -197,6 +199,10 @@
 
   window.closeMediaSelectModal = closeMediaSelectModal;
 
+  function getMediaCountInPlaylist(mediaId, items) {
+    return (items || []).filter((it) => it.mediaId === mediaId).length;
+  }
+
   function renderPlaylistItems() {
     const ul = document.getElementById('playlistItems');
     ul.innerHTML = '';
@@ -208,11 +214,13 @@
       const isVid = isVideo(media) || (item.mimeType && item.mimeType.startsWith('video/'));
       const name = item.mediaName || media?.originalName || media?.filename || 'Медиа';
       const thumbUrl = media ? getMediaThumbUrl(media) : null;
+      const dupCount = getMediaCountInPlaylist(item.mediaId, playlistItems);
+      const dupBadge = dupCount > 1 ? '<span class="playlist-item-dup-badge" title="Один и тот же файл в плейлисте несколько раз">×' + dupCount + '</span>' : '';
       const li = document.createElement('li');
       li.className = 'playlist-item';
       li.draggable = true;
       li.dataset.index = String(idx);
-      li.dataset.mediaId = item.mediaId;
+      li.dataset.itemId = item.id;
       let thumbHtml;
       if (isVid && thumbUrl) {
         thumbHtml = `<div class="item-thumb" style="position:relative;overflow:hidden;"><video src="${thumbUrl}#t=2" preload="metadata" muted style="width:100%;height:100%;object-fit:cover;"></video><span style="position:absolute;bottom:1px;right:1px;background:rgba(0,0,0,.7);color:#fff;font-size:.55rem;padding:1px 3px;border-radius:2px;">MP4</span></div>`;
@@ -225,17 +233,18 @@
       li.innerHTML = `
         <span class="drag-handle" aria-label="Перетащить">⠿</span>
         ${thumbHtml}
-        <span class="item-name">${escapeHtml(name)}</span>
+        <span class="item-name">${escapeHtml(name)}${dupBadge}</span>
         ${isVid
           ? '<div class="item-duration" style="display:flex;align-items:center;"><span style="font-size:.75rem;color:var(--gray-500);white-space:nowrap;">до конца</span></div>'
-          : `<div class="item-duration"><input type="number" min="1" max="3600" value="${item.duration}" data-media-id="${escapeAttr(item.mediaId)}"></div>`
+          : `<div class="item-duration"><input type="number" min="1" max="3600" value="${item.duration}" data-item-id="${escapeAttr(item.id)}"></div>`
         }
-        <button type="button" class="btn btn-danger btn-icon btn-sm" onclick="removePlaylistItem('${escapeAttr(item.mediaId)}')" title="Удалить">×</button>
+        <button type="button" class="btn btn-secondary btn-icon btn-sm" onclick="duplicatePlaylistItem('${escapeAttr(item.id)}')" title="Дублировать этот элемент" aria-label="Дублировать">⧉</button>
+        <button type="button" class="btn btn-danger btn-icon btn-sm" onclick="removePlaylistItem('${escapeAttr(item.id)}')" title="Удалить">×</button>
       `;
       if (!isVid) {
         li.querySelector('input').addEventListener('change', (e) => {
           const val = parseInt(e.target.value, 10);
-          const p = playlistItems.find((x) => x.mediaId === item.mediaId);
+          const p = playlistItems.find((x) => x.id === item.id);
           if (p && !isNaN(val) && val >= 1) p.duration = val;
         });
       }
@@ -247,8 +256,25 @@
     });
   }
 
-  window.removePlaylistItem = function (mediaId) {
-    playlistItems = playlistItems.filter((p) => p.mediaId !== mediaId);
+  window.removePlaylistItem = function (itemId) {
+    playlistItems = playlistItems.filter((p) => p.id !== itemId);
+    playlistItems.forEach((p, i) => (p.order = i));
+    renderPlaylistItems();
+  };
+
+  window.duplicatePlaylistItem = function (itemId) {
+    const item = playlistItems.find((p) => p.id === itemId);
+    if (!item) return;
+    const copy = {
+      id: newItemId(),
+      mediaId: item.mediaId,
+      mediaName: item.mediaName,
+      mimeType: item.mimeType,
+      duration: item.duration ?? 10,
+      order: (item.order ?? 0) + 0.5,
+    };
+    playlistItems.push(copy);
+    playlistItems.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     playlistItems.forEach((p, i) => (p.order = i));
     renderPlaylistItems();
   };
@@ -292,13 +318,13 @@
   function recalcOrderFromDom() {
     const ul = document.getElementById('playlistItems');
     const lis = ul.querySelectorAll('.playlist-item');
-    const orderByMediaId = {};
+    const orderById = {};
     lis.forEach((li, idx) => {
-      const mid = li.dataset.mediaId;
-      if (mid) orderByMediaId[mid] = idx;
+      const id = li.dataset.itemId;
+      if (id) orderById[id] = idx;
     });
     playlistItems.forEach((p) => {
-      if (orderByMediaId[p.mediaId] !== undefined) p.order = orderByMediaId[p.mediaId];
+      if (orderById[p.id] !== undefined) p.order = orderById[p.id];
     });
     playlistItems.sort((a, b) => a.order - b.order);
     renderPlaylistItems();
@@ -317,9 +343,9 @@
 
     const inputs = document.querySelectorAll('#playlistItems .item-duration input:not([disabled])');
     inputs.forEach((inp) => {
-      const mid = inp.dataset.mediaId;
+      const id = inp.dataset.itemId;
       const val = parseInt(inp.value, 10);
-      const p = playlistItems.find((x) => x.mediaId === mid);
+      const p = playlistItems.find((x) => x.id === id);
       if (p && !isNaN(val) && val >= 1) p.duration = val;
     });
     const items = playlistItems.map((p, idx) => ({

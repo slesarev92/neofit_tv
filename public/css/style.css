@@ -426,7 +426,9 @@ tr:hover td { background: var(--gray-50); }
 .playlist-item.dragging { opacity: .5; box-shadow: var(--shadow-lg); }
 .playlist-item .drag-handle { color: var(--gray-400); cursor: grab; }
 .playlist-item .item-thumb { width: 48px; height: 36px; border-radius: 4px; object-fit: cover; background: var(--gray-200); flex-shrink: 0; }
-.playlist-item .item-name { flex: 1; font-size: .875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.playlist-item .item-name { flex: 1; font-size: .875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 0.35rem; }
+.playlist-item .playlist-item-dup-badge { font-size: 0.7rem; color: var(--gray-500); background: var(--gray-200); padding: 0.1rem 0.35rem; border-radius: 4px; flex-shrink: 0; }
+[data-theme="dark"] .playlist-item .playlist-item-dup-badge { color: var(--gray-400); background: var(--gray-700); }
 .playlist-item .item-duration { width: 70px; }
 .playlist-item .item-duration input { width: 100%; padding: .25rem .5rem; border: 1px solid var(--gray-300); border-radius: 4px; font-size: .8125rem; text-align: center; }
 
