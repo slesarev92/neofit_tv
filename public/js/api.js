@@ -154,8 +154,14 @@ const API = {
   getSystem() {
     return this.request('/api/system');
   },
-  runBackup() {
-    return this.request('/api/backup/run', { method: 'POST' });
+  runBackup(name) {
+    return this.request('/api/backup/run', { method: 'POST', body: name != null ? { name } : {} });
+  },
+  getBackupList() {
+    return this.request('/api/backup/list');
+  },
+  restoreBackup(fileName) {
+    return this.request('/api/backup/restore', { method: 'POST', body: { fileName } });
   },
 };
 

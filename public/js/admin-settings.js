@@ -476,24 +476,119 @@
       }
     });
 
-    var backupRunBtn = document.getElementById('backupRunBtn');
-    if (backupRunBtn) {
-      backupRunBtn.addEventListener('click', async function () {
-        if (backupRunBtn.disabled) return;
-        backupRunBtn.disabled = true;
-        var originalText = backupRunBtn.textContent;
-        backupRunBtn.textContent = 'Создаётся бэкап…';
+    function defaultBackupName() {
+      var d = new Date();
+      var y = d.getFullYear();
+      var m = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      var h = String(d.getHours()).padStart(2, '0');
+      var min = String(d.getMinutes()).padStart(2, '0');
+      return 'backup-' + y + '-' + m + '-' + day + '-' + h + '-' + min;
+    }
+
+    var backupCreateModal = document.getElementById('backupCreateModal');
+    var backupCreateName = document.getElementById('backupCreateName');
+    var backupCreateSubmit = document.getElementById('backupCreateSubmit');
+    var backupCreateCancel = document.getElementById('backupCreateModalClose');
+    var backupCreateCancel2 = document.getElementById('backupCreateCancel');
+    function openBackupCreateModal() {
+      if (backupCreateName) {
+        backupCreateName.value = '';
+        backupCreateName.placeholder = defaultBackupName();
+      }
+      if (backupCreateModal) backupCreateModal.classList.add('active');
+    }
+    function closeBackupCreateModal() {
+      if (backupCreateModal) backupCreateModal.classList.remove('active');
+    }
+    [backupCreateCancel, backupCreateCancel2].forEach(function (btn) {
+      if (btn) btn.addEventListener('click', closeBackupCreateModal);
+    });
+    if (backupCreateModal && backupCreateModal.querySelector('.modal')) {
+      backupCreateModal.querySelector('.modal').addEventListener('click', function (e) { e.stopPropagation(); });
+      backupCreateModal.addEventListener('click', function (e) { if (e.target === backupCreateModal) closeBackupCreateModal(); });
+    }
+    if (backupCreateSubmit) {
+      backupCreateSubmit.addEventListener('click', async function () {
+        if (backupCreateSubmit.disabled) return;
+        var name = backupCreateName && backupCreateName.value.trim() ? backupCreateName.value.trim() : defaultBackupName();
+        backupCreateSubmit.disabled = true;
+        backupCreateSubmit.textContent = 'Создаётся…';
         try {
-          await API.runBackup();
+          await API.runBackup(name);
           showToast('Бэкап создан', 'success');
+          closeBackupCreateModal();
         } catch (err) {
           showToast(err.message || 'Ошибка создания бэкапа', 'error');
         } finally {
-          backupRunBtn.disabled = false;
-          backupRunBtn.textContent = originalText;
+          backupCreateSubmit.disabled = false;
+          backupCreateSubmit.textContent = 'Создать';
         }
       });
     }
+
+    var backupRunBtn = document.getElementById('backupRunBtn');
+    if (backupRunBtn) backupRunBtn.addEventListener('click', openBackupCreateModal);
+
+    var backupRestoreModal = document.getElementById('backupRestoreModal');
+    var backupRestoreList = document.getElementById('backupRestoreList');
+    var backupRestoreEmpty = document.getElementById('backupRestoreEmpty');
+    var backupRestoreCancel = document.getElementById('backupRestoreModalClose');
+    var backupRestoreCancel2 = document.getElementById('backupRestoreCancel');
+    function closeBackupRestoreModal() {
+      if (backupRestoreModal) backupRestoreModal.classList.remove('active');
+    }
+    function openBackupRestoreModal() {
+      if (backupRestoreModal) backupRestoreModal.classList.add('active');
+      if (backupRestoreList) backupRestoreList.innerHTML = '';
+      if (backupRestoreEmpty) backupRestoreEmpty.style.display = 'none';
+      API.getBackupList().then(function (data) {
+        var items = (data && data.items) || [];
+        if (backupRestoreEmpty) backupRestoreEmpty.style.display = items.length ? 'none' : 'block';
+        items.forEach(function (item) {
+          var row = document.createElement('div');
+          row.className = 'backup-list-item';
+          var fileName = item.fileName || item.file_name || '';
+          var displayName = fileName || 'Бэкап';
+          var dateStr = item.mtime ? (function () {
+            try {
+              var d = new Date(item.mtime);
+              return d.getDate().toString().padStart(2, '0') + '.' + (d.getMonth() + 1).toString().padStart(2, '0') + '.' + d.getFullYear() + ' ' + d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+            } catch (_) { return ''; }
+          })() : '';
+          var sizeStr = typeof formatBytes === 'function' ? formatBytes(item.sizeBytes || 0) : (item.sizeBytes || 0) + ' Б';
+          row.innerHTML = '<div class="backup-list-info"><div class="backup-list-name">' + String(displayName).replace(/</g, '&lt;').replace(/&/g, '&amp;') + '</div><div class="backup-list-meta">' + dateStr + ' · ' + sizeStr + '</div></div><button type="button" class="btn btn-primary btn-sm" data-file-name="' + String(fileName).replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">Восстановить</button>';
+          var btn = row.querySelector('button');
+          if (btn) {
+            btn.addEventListener('click', function () {
+              var fileName = btn.getAttribute('data-file-name');
+              if (!fileName) return;
+              if (!confirm('Восстановить настройки из архива «' + fileName + '»? Текущие данные будут заменены.')) return;
+              API.restoreBackup(fileName).then(function () {
+                showToast('Настройки восстановлены. Страница перезагрузится.', 'success');
+                closeBackupRestoreModal();
+                setTimeout(function () { location.reload(); }, 800);
+              }).catch(function (err) {
+                showToast(err.message || 'Ошибка восстановления', 'error');
+              });
+            });
+          }
+          if (backupRestoreList) backupRestoreList.appendChild(row);
+        });
+      }).catch(function (err) {
+        if (backupRestoreEmpty) { backupRestoreEmpty.textContent = 'Ошибка загрузки списка: ' + (err.message || 'нет данных'); backupRestoreEmpty.style.display = 'block'; }
+      });
+    }
+    [backupRestoreCancel, backupRestoreCancel2].forEach(function (btn) {
+      if (btn) btn.addEventListener('click', closeBackupRestoreModal);
+    });
+    if (backupRestoreModal && backupRestoreModal.querySelector('.modal')) {
+      backupRestoreModal.querySelector('.modal').addEventListener('click', function (e) { e.stopPropagation(); });
+      backupRestoreModal.addEventListener('click', function (e) { if (e.target === backupRestoreModal) closeBackupRestoreModal(); });
+    }
+    var backupLoadBtn = document.getElementById('backupLoadBtn');
+    if (backupLoadBtn) backupLoadBtn.addEventListener('click', openBackupRestoreModal);
+
     var backupFreqEl = document.getElementById('backupScheduleFrequency');
     if (backupFreqEl) backupFreqEl.addEventListener('change', toggleBackupScheduleExtra);
 

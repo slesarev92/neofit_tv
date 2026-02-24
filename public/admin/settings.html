@@ -328,12 +328,48 @@
                 <div class="hint">Числа 1–31 через запятую. Например: 1, 10, 20.</div>
               </div>
             </div>
-            <p class="hint" style="margin-top: 1rem;">Запуск вручную: кнопка «Сделать бэкап» или <code>npm run backup</code>. Подробнее — DEPLOY.md.</p>
+            <p class="hint" style="margin-top: 1rem;">Запуск вручную: кнопка «Сделать бэкап» (можно задать имя) или <code>npm run backup</code>. Подробнее — DEPLOY.md.</p>
             <div class="section-actions">
               <button type="button" class="btn btn-primary" id="backupRunBtn">Сделать бэкап</button>
+              <button type="button" class="btn btn-secondary" id="backupLoadBtn">Загрузить бэкап</button>
               <button type="submit" class="btn btn-primary">Сохранить</button>
             </div>
           </form>
+        </div>
+      </div>
+      <div class="modal-overlay" id="backupCreateModal">
+        <div class="modal" style="max-width: 420px;">
+          <div class="modal-header">
+            <h2>Создать бэкап</h2>
+            <button type="button" class="close-btn" id="backupCreateModalClose" aria-label="Закрыть">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="backupCreateName">Название архива</label>
+              <input type="text" id="backupCreateName" placeholder="backup-2026-02-24-18-30" maxlength="80" autocomplete="off">
+              <div class="hint">Будет сохранён как имя файла (к имени добавится .tar.gz, если не указано).</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="backupCreateCancel">Отмена</button>
+            <button type="button" class="btn btn-primary" id="backupCreateSubmit">Создать</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-overlay" id="backupRestoreModal">
+        <div class="modal" style="max-width: 520px;">
+          <div class="modal-header">
+            <h2>Загрузить бэкап</h2>
+            <button type="button" class="close-btn" id="backupRestoreModalClose" aria-label="Закрыть">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="hint" style="margin-bottom: 1rem;">Выберите архив для восстановления настроек. Текущие данные будут заменены.</p>
+            <div id="backupRestoreList" class="backup-list"></div>
+            <p id="backupRestoreEmpty" class="hint" style="display: none;">Нет сохранённых бэкапов.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="backupRestoreCancel">Закрыть</button>
+          </div>
         </div>
       </div>
       <div id="section-security" class="settings-section" data-section="security" role="tabpanel">

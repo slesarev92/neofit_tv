@@ -82,6 +82,13 @@ function getBackupFilename() {
   return `backup-${y}-${m}-${d}-${h}-${min}.tar.gz`;
 }
 
+/** Санитизация имени архива: только буквы, цифры, дефис, подчёркивание; макс 80 символов. */
+function sanitizeBackupName(name) {
+  if (typeof name !== 'string' || !name.trim()) return null;
+  const s = name.trim().replace(/[^\w\u0400-\u04FF\-]/g, '-').replace(/-+/g, '-').slice(0, 80);
+  return s || null;
+}
+
 async function main() {
   const now = new Date().toISOString();
 
@@ -102,7 +109,10 @@ async function main() {
   }
 
   const keepLast = await getKeepLast();
-  const archiveName = getBackupFilename();
+  const customName = sanitizeBackupName(process.env.BACKUP_NAME);
+  const archiveName = customName
+    ? (customName.endsWith('.tar.gz') ? customName : customName + '.tar.gz')
+    : getBackupFilename();
   const archivePath = path.join(BACKUPS_DIR, archiveName);
   const parentDir = path.dirname(DATA_DIR);
   const dataFolderName = path.basename(DATA_DIR);
@@ -138,16 +148,17 @@ async function main() {
 
   const entries = await fs.readdir(BACKUPS_DIR);
   const backups = entries
-    .filter((n) => n.startsWith('backup-') && n.endsWith('.tar.gz'))
+    .filter((n) => n.endsWith('.tar.gz'))
     .map((n) => path.join(BACKUPS_DIR, n));
-  const sorted = backups.sort((a, b) => {
-    const at = path.basename(a);
-    const bt = path.basename(b);
-    return at.localeCompare(bt);
-  });
+  const withStat = await Promise.all(
+    backups.map(async (p) => ({ path: p, mtime: (await fs.stat(p).catch(() => null))?.mtime?.getTime() ?? 0 }))
+  );
+  const sorted = withStat
+    .filter((x) => x.mtime)
+    .sort((a, b) => a.mtime - b.mtime);
 
   if (sorted.length > keepLast) {
-    const toRemove = sorted.slice(0, sorted.length - keepLast);
+    const toRemove = sorted.slice(0, sorted.length - keepLast).map((x) => x.path);
     for (const file of toRemove) {
       try {
         await fs.unlink(file);
