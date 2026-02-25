@@ -149,6 +149,13 @@ npm install --production
 pm2 restart signage
 ```
 
+Если в репозитории обновлялся **nginx.conf** (например, добавлен `location = /neofit_tv2.apk`), после `git pull` примените конфиг и перезагрузите Nginx:
+
+```bash
+sudo cp /opt/digital-signage/nginx.conf /etc/nginx/sites-available/signage
+sudo nginx -t && sudo systemctl reload nginx
+```
+
 Файл **neofit_tv2.apk** лежит в корне репозитория; после `git pull` на сервере подтягивается актуальная версия, и «Загрузить APK» в админке отдаёт её.
 
 ### Релиз новой версии (с обновлением APK)
