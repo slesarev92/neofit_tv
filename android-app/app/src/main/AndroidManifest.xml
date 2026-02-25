@@ -6,13 +6,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- POST_NOTIFICATIONS нужен для Android 13+ при показе уведомления FGS; для shortService отдельный permission не требуется -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 
     <application
         android:allowBackup="true"
-        android:icon="@android:drawable/ic_media_play"
+        android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+        android:theme="@style/Theme.NeoFitTV">
 
         <activity
             android:name=".MainActivity"
@@ -20,7 +21,7 @@
             android:launchMode="singleInstance"
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            android:theme="@style/Theme.NeoFitTV.FullScreen">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -36,7 +37,13 @@
             android:name=".SettingsActivity"
             android:exported="false"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.AppCompat.Light.DarkActionBar" />
+            android:theme="@style/Theme.SettingsTV" />
+
+        <activity
+            android:name=".BindingActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.SettingsTV" />
 
         <receiver
             android:name=".BootReceiver"
@@ -44,6 +51,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.HTC_QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 

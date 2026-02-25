@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="settings_label_text_size">20sp</dimen>
+    <dimen name="settings_input_text_size">18sp</dimen>
+    <dimen name="settings_hint_text_size">16sp</dimen>
+    <dimen name="settings_button_text_size">18sp</dimen>
+    <dimen name="settings_button_min_height">56dp</dimen>
+</resources>

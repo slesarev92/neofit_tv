@@ -1,6 +1,8 @@
 package com.signage.player
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -9,18 +11,17 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
-import android.webkit.WebResourceRequest
 import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 
 @SuppressLint("SetJavaScriptEnabled")
 class MainActivity : AppCompatActivity() {
@@ -31,13 +32,17 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_PIN = "pin"
         private const val KEY_PIN_CHANGED = "pin_changed"
         private const val DEFAULT_PIN = "1234"
-        private const val LONG_PRESS_MS = 5000
+        private const val LONG_PRESS_MS = 5000L
+        private const val KEY_LAST_VERSION = "last_version_code"
     }
 
     private lateinit var webView: WebView
     private var reloadPending = false
     private var longPressRunnable: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var retryCountdownRunnable: Runnable? = null
+    private var reloadAfterErrorRunnable: Runnable? = null
+    private var errorCountdownSeconds = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,31 +50,82 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_main)
 
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        handleFirstRunOrUpdate(prefs)
+
         webView = findViewById(R.id.webView)
         setupWebView()
 
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val loadingOverlay = findViewById<View>(R.id.loadingOverlay)
+        val errorOverlay = findViewById<View>(R.id.errorOverlay)
+        val loadingText = findViewById<android.widget.TextView>(R.id.loadingText)
+        val errorCountdownText = findViewById<android.widget.TextView>(R.id.errorCountdownText)
+        findViewById<Button>(R.id.btnErrorRetry).setOnClickListener {
+            cancelErrorCountdown()
+            errorOverlay.visibility = View.GONE
+            loadingOverlay.visibility = View.VISIBLE
+            loadingOverlay.alpha = 1f
+            reloadPending = false
+            webView.reload()
+        }
+        findViewById<Button>(R.id.btnErrorSettings).setOnClickListener {
+            showPinDialog()
+        }
+
         val playerUrl = prefs.getString(KEY_PLAYER_URL, null)?.trim()
 
         if (playerUrl.isNullOrEmpty()) {
-            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            startActivity(Intent(this, BindingActivity::class.java))
             finish()
             return
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String?) {
+                cancelErrorCountdown()
+                loadingOverlay.animate().alpha(0f).withEndAction {
+                    loadingOverlay.visibility = View.GONE
+                }.start()
+                errorOverlay.visibility = View.GONE
+                reloadPending = false
+            }
+
             override fun onReceivedError(
                 view: WebView,
                 request: WebResourceRequest,
                 error: WebResourceError
             ) {
-                if (request.isForMainFrame && !reloadPending) {
-                    reloadPending = true
-                    handler.postDelayed({
-                        reloadPending = false
-                        view.reload()
-                    }, 10_000)
+                if (!request.isForMainFrame || reloadPending) return
+                reloadPending = true
+                loadingText.setText(R.string.msg_no_connection)
+                loadingOverlay.visibility = View.GONE
+                errorOverlay.visibility = View.VISIBLE
+                errorCountdownSeconds = 10
+                errorCountdownText.text = getString(R.string.msg_retry_in_seconds, errorCountdownSeconds)
+                cancelErrorCountdown()
+                retryCountdownRunnable = object : Runnable {
+                    override fun run() {
+                        if (errorCountdownSeconds <= 0) return
+                        errorCountdownSeconds--
+                        if (errorCountdownSeconds > 0) {
+                            errorCountdownText.text = getString(R.string.msg_retry_in_seconds, errorCountdownSeconds)
+                            handler.postDelayed(this, 1000)
+                        }
+                    }
                 }
+                handler.postDelayed(retryCountdownRunnable!!, 1000)
+                reloadAfterErrorRunnable = Runnable {
+                    reloadAfterErrorRunnable = null
+                    retryCountdownRunnable?.let { handler.removeCallbacks(it) }
+                    retryCountdownRunnable = null
+                    errorOverlay.visibility = View.GONE
+                    loadingOverlay.visibility = View.VISIBLE
+                    loadingOverlay.alpha = 1f
+                    loadingText.setText(R.string.msg_loading)
+                    reloadPending = false
+                    view.reload()
+                }
+                handler.postDelayed(reloadAfterErrorRunnable!!, 10_000)
             }
 
             override fun shouldOverrideUrlLoading(
@@ -84,6 +140,16 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { /* киоск: игнорируем Back */ }
         })
+    }
+
+    private fun handleFirstRunOrUpdate(prefs: SharedPreferences) {
+        val currentVersion = BuildConfig.VERSION_CODE
+        val lastVersion = prefs.getInt(KEY_LAST_VERSION, -1)
+
+        if (currentVersion > lastVersion) {
+            prefs.edit().clear().apply() // Сбрасываем все настройки
+            prefs.edit().putInt(KEY_LAST_VERSION, currentVersion).apply()
+        }
     }
 
     private fun setupWebView() {
@@ -128,6 +194,24 @@ class MainActivity : AppCompatActivity() {
         if (hasFocus) hideSystemUI()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        cancelErrorCountdown()
+        longPressRunnable?.let { handler.removeCallbacks(it) }
+        longPressRunnable = null
+        webView.stopLoading()
+        webView.clearHistory()
+        webView.removeAllViews()
+        webView.destroy()
+    }
+
+    private fun cancelErrorCountdown() {
+        retryCountdownRunnable?.let { handler.removeCallbacks(it) }
+        retryCountdownRunnable = null
+        reloadAfterErrorRunnable?.let { handler.removeCallbacks(it) }
+        reloadAfterErrorRunnable = null
+    }
+
     private fun setupLongPressForSettings() {
         var longPressTriggered = false
         longPressRunnable = Runnable {
@@ -168,7 +252,7 @@ class MainActivity : AppCompatActivity() {
                     if (!pinChanged) {
                         showChangePinDialogThenOpenSettings()
                     } else {
-                        startActivity(android.content.Intent(this, SettingsActivity::class.java))
+                        startActivity(Intent(this, SettingsActivity::class.java))
                     }
                 } else {
                     Toast.makeText(this, R.string.pin_incorrect, Toast.LENGTH_SHORT).show()
@@ -195,10 +279,9 @@ class MainActivity : AppCompatActivity() {
                         .putString(KEY_PIN, newPin)
                         .putBoolean(KEY_PIN_CHANGED, true)
                         .apply()
-                    startActivity(android.content.Intent(this, SettingsActivity::class.java))
+                    startActivity(Intent(this, SettingsActivity::class.java))
                 } else {
                     Toast.makeText(this, R.string.pin_too_short, Toast.LENGTH_SHORT).show()
-                    showChangePinDialogThenOpenSettings()
                 }
             }
             .setCancelable(false)

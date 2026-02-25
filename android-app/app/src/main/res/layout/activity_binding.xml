@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/settings_bg"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/binding_title"
+            android:textColor="@color/settings_text"
+            android:textSize="@dimen/settings_label_text_size"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/server_url"
+            android:textColor="@color/settings_text"
+            android:textSize="@dimen/settings_hint_text_size"
+            android:layout_marginBottom="4dp" />
+        <EditText
+            android:id="@+id/bindingServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/settings_button_min_height"
+            android:hint="@string/hint_server_url"
+            android:textColor="@color/settings_text"
+            android:textColorHint="@color/settings_text_hint"
+            android:textSize="@dimen/settings_input_text_size"
+            android:inputType="textUri"
+            android:background="?android:attr/editTextBackground"
+            android:layout_marginBottom="12dp" />
+        <Button
+            android:id="@+id/bindingGetCode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/settings_button_min_height"
+            android:text="@string/binding_get_code"
+            android:textSize="@dimen/settings_button_text_size"
+            android:backgroundTint="@color/settings_accent"
+            android:textColor="@android:color/white"
+            android:layout_marginBottom="24dp" />
+
+        <ImageView
+            android:id="@+id/bindingQr"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:visibility="gone"
+            android:contentDescription="@string/binding_title"
+            android:layout_marginBottom="12dp" />
+        <TextView
+            android:id="@+id/bindingCodeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/settings_text"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.2"
+            android:visibility="gone"
+            android:layout_marginBottom="4dp" />
+        <TextView
+            android:id="@+id/bindingCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/settings_text_hint"
+            android:textSize="@dimen/settings_hint_text_size"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+        <TextView
+            android:id="@+id/bindingInstruction"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/binding_instruction"
+            android:textColor="@color/settings_text_hint"
+            android:textSize="@dimen/settings_hint_text_size"
+            android:visibility="gone"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <Button
+            android:id="@+id/bindingManual"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/settings_button_min_height"
+            android:text="@string/binding_manual"
+            android:textSize="@dimen/settings_button_text_size"
+            android:textColor="@color/settings_text" />
+    </LinearLayout>
+</ScrollView>

@@ -74,9 +74,36 @@
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + item.svg + '</svg>' +
         item.label + '</a>';
     }).join('');
-    html += '<a href="/NeoFit_TV.apk" download="NeoFit_TV.apk">' +
+    html += '<a href="#" class="nav-apk-download" data-apk-url="/neofit_tv2.apk" data-apk-filename="neofit_tv2.apk">' +
       '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + SVG_APK + '</svg>Загрузить APK</a>';
     nav.innerHTML = html;
+    nav.querySelectorAll('.nav-apk-download').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var url = this.getAttribute('data-apk-url');
+        var filename = this.getAttribute('data-apk-filename');
+        if (!url || !filename) return;
+        fetch(url, { credentials: 'include' })
+          .then(function (r) {
+            if (!r.ok) {
+              return r.text().then(function (body) {
+                throw new Error(r.status === 401 ? 'Войдите в админку' : (body || 'Ошибка загрузки'));
+              });
+            }
+            return r.blob();
+          })
+          .then(function (blob) {
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+          })
+          .catch(function (err) {
+            alert(err.message || 'Не удалось скачать файл');
+          });
+      });
+    });
   }
 
   function renderThemeToggle() {

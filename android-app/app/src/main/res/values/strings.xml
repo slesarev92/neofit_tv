@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">NeoFit TV Player</string>
+    <string name="app_name">NeoFit TV</string>
 
     <string name="enter_pin">Введите PIN</string>
     <string name="pin_hint">PIN</string>
@@ -17,5 +17,29 @@
     <string name="change_pin">Сменить PIN</string>
     <string name="connection_ok">Соединение: %1$d, время %2$d мс</string>
     <string name="connection_error">Ошибка: %1$s</string>
+    <string name="connection_error_unknown">Неизвестная ошибка</string>
     <string name="notification_channel_name">Запуск плеера</string>
+    <string name="hint_server_url">https://s9a.ru</string>
+    <string name="hint_screen_id">ID экрана</string>
+    <string name="hint_current_pin">Текущий PIN</string>
+    <string name="msg_pin_changed">PIN изменён</string>
+    <string name="msg_server_url_required">Укажите адрес сервера</string>
+    <string name="msg_screen_id_required">Укажите ID экрана</string>
+    <string name="msg_invalid_url">Неверный формат URL (должен начинаться с http:// или https://)</string>
+    <string name="label_settings_hint">ID экрана можно найти в разделе «Экраны» в админ-панели</string>
+    <string name="msg_usb_config_applied">✅ Конфигурация применена. Запуск плеера…</string>
+    <string name="msg_usb_file_not_found">❌ Файл signage.txt не найден на флешке</string>
+    <string name="msg_usb_invalid_format">❌ Неверный формат файла конфигурации</string>
+    <string name="msg_loading">Загрузка…</string>
+    <string name="msg_no_connection">Нет соединения с сервером</string>
+    <string name="msg_retry">Повторить</string>
+    <string name="msg_open_settings">Настройки</string>
+    <string name="msg_retry_in_seconds">Повтор через %d сек…</string>
+    <string name="binding_title">Привязка к экрану</string>
+    <string name="binding_get_code">Получить код</string>
+    <string name="binding_manual">Ручная настройка</string>
+    <string name="binding_code_valid">Код действителен ещё %1$d мин</string>
+    <string name="binding_code_expired">Код истёк</string>
+    <string name="binding_instruction">Откройте ссылку по QR или введите код в админ-панели в разделе «Привязка»</string>
+    <string name="binding_error">Не удалось получить код. Проверьте URL сервера.</string>
 </resources>

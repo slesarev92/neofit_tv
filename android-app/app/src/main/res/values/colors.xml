@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="settings_bg">#1a1a2e</color>
+    <color name="settings_text">#E8E8E8</color>
+    <color name="settings_text_hint">#888888</color>
+    <color name="settings_accent">#4f46e5</color>
+</resources>

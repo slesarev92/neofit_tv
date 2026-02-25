@@ -15,6 +15,7 @@ import java.util.concurrent.Executors
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
+        const val EXTRA_CLEAR_FIELDS = "clear_fields"
         private const val PREFS_NAME = "player"
         private const val KEY_PLAYER_URL = "player_url"
         private const val KEY_SERVER_URL = "server_url"
@@ -30,14 +31,20 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        val clearFields = intent.getBooleanExtra(EXTRA_CLEAR_FIELDS, false)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        findViewById<EditText>(R.id.editServerUrl).setText(
-            prefs.getString(KEY_SERVER_URL, "http://s9a.ru")
-        )
-        val savedUrl = prefs.getString(KEY_PLAYER_URL, null)
-        if (!savedUrl.isNullOrBlank()) {
-            val id = savedUrl.substringAfter("id=").substringBefore("&").ifEmpty { null }
-            if (id != null) findViewById<EditText>(R.id.editScreenId).setText(id)
+        val serverEdit = findViewById<EditText>(R.id.editServerUrl)
+        val screenEdit = findViewById<EditText>(R.id.editScreenId)
+        if (clearFields) {
+            serverEdit.setText("")
+            screenEdit.setText("")
+        } else {
+            serverEdit.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
+            val savedUrl = prefs.getString(KEY_PLAYER_URL, null)
+            if (!savedUrl.isNullOrBlank()) {
+                val id = savedUrl.substringAfter("id=").substringBefore("&").ifEmpty { null }
+                if (id != null) screenEdit.setText(id)
+            }
         }
 
         findViewById<Button>(R.id.btnCheckConnection).setOnClickListener { checkConnection() }
@@ -48,7 +55,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun checkConnection() {
         val serverUrl = findViewById<EditText>(R.id.editServerUrl).text.toString().trim().trimEnd('/')
         if (serverUrl.isBlank()) {
-            Toast.makeText(this, getString(R.string.server_url).plus(" не указан"), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.msg_server_url_required), Toast.LENGTH_SHORT).show()
             return
         }
         val urlToCheck = "$serverUrl/player/index.html"
@@ -74,7 +81,7 @@ class SettingsActivity : AppCompatActivity() {
                 handler.post {
                     Toast.makeText(
                         this@SettingsActivity,
-                        getString(R.string.connection_error, e.message ?: "Unknown"),
+                        getString(R.string.connection_error, e.message ?: getString(R.string.connection_error_unknown)),
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -86,7 +93,7 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val currentPin = prefs.getString(KEY_PIN, DEFAULT_PIN) ?: DEFAULT_PIN
         val editCurrent = EditText(this).apply {
-            hint = "Текущий PIN"
+            hint = getString(R.string.hint_current_pin)
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
         }
         AlertDialog.Builder(this)
@@ -118,7 +125,7 @@ class SettingsActivity : AppCompatActivity() {
                         .putString(KEY_PIN, newPin)
                         .putBoolean(KEY_PIN_CHANGED, true)
                         .apply()
-                    Toast.makeText(this, "PIN изменён", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.msg_pin_changed), Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, R.string.pin_too_short, Toast.LENGTH_SHORT).show()
                 }
@@ -130,8 +137,16 @@ class SettingsActivity : AppCompatActivity() {
     private fun saveAndLaunch() {
         val serverUrl = findViewById<EditText>(R.id.editServerUrl).text.toString().trim().trimEnd('/')
         val screenId = findViewById<EditText>(R.id.editScreenId).text.toString().trim()
+        if (serverUrl.isEmpty()) {
+            Toast.makeText(this, getString(R.string.msg_server_url_required), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!isValidUrl(serverUrl)) {
+            Toast.makeText(this, getString(R.string.msg_invalid_url), Toast.LENGTH_SHORT).show()
+            return
+        }
         if (screenId.isBlank()) {
-            Toast.makeText(this, getString(R.string.screen_id).plus(" не указан"), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.msg_screen_id_required), Toast.LENGTH_SHORT).show()
             return
         }
         val playerUrl = "$serverUrl/player/index.html?id=$screenId"
@@ -144,5 +159,19 @@ class SettingsActivity : AppCompatActivity() {
             flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
         })
         finish()
+    }
+
+    private fun isValidUrl(url: String): Boolean {
+        return try {
+            val parsed = URL(url)
+            parsed.protocol == "http" || parsed.protocol == "https"
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        executor.shutdown()
     }
 }

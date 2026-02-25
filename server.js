@@ -63,15 +63,16 @@ app.use(
 app.get('/', (req, res) => res.redirect('/admin'));
 app.get('/admin', (req, res) => res.redirect('/admin/index.html'));
 
-// Скачивание APK (файл NeoFit_TV.apk в корне проекта или на уровень выше)
-app.get('/NeoFit_TV.apk', requireAuth, (req, res) => {
-  const apkPath = fs.existsSync(path.join(__dirname, 'NeoFit_TV.apk'))
-    ? path.join(__dirname, 'NeoFit_TV.apk')
-    : path.join(__dirname, '..', 'NeoFit_TV.apk');
+// Скачивание APK — один файл neofit_tv2.apk в корне проекта (папка с server.js)
+app.get('/neofit_tv2.apk', requireAuth, (req, res) => {
+  const apkPath = path.join(__dirname, 'neofit_tv2.apk');
   if (!fs.existsSync(apkPath)) {
-    return res.status(404).send('Файл не найден');
+    return res.status(404).send('Файл не найден. Положите neofit_tv2.apk в корень проекта (папку с server.js).');
   }
-  res.download(apkPath, 'NeoFit_TV.apk');
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="neofit_tv2.apk"');
+  res.setHeader('Cache-Control', 'no-store, no-cache');
+  res.sendFile(path.resolve(apkPath));
 });
 
 // Public API routes (до static, иначе POST к /api/* отдаёт 404)
