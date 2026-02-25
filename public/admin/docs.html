@@ -25,10 +25,18 @@
     </div>
   </aside>
   <main class="main-content">
-    <header class="page-header"><h1>Инструкция</h1></header>
-    <div class="docs-search"><input type="text" id="docsSearch" placeholder="Поиск по разделам..." aria-label="Поиск"></div>
-    <div class="docs-wrap">
-      <nav class="docs-toc" id="docsToc"></nav>
+    <header class="page-header">
+      <h1>Инструкция</h1>
+      <button type="button" class="btn btn-secondary btn-sm docs-nav-toggle" id="docsNavToggle" aria-label="Открыть разделы" style="display: none;">☰ Разделы</button>
+    </header>
+    <div class="docs-search-wrap">
+      <input type="text" id="docsSearch" class="docs-search-input" placeholder="Поиск по разделам..." aria-label="Поиск по документации" autocomplete="off">
+      <span class="docs-search-count" id="docsSearchCount" aria-live="polite"></span>
+    </div>
+    <div class="docs-layout">
+      <nav class="docs-sidebar" id="docsSidebar" aria-label="Навигация по разделам">
+        <div class="docs-sidebar-inner" id="docsSidebarInner"></div>
+      </nav>
       <div class="docs-content" id="docsContent"></div>
     </div>
   </main>
@@ -38,36 +46,15 @@
   <script src="/js/docs-content.js"></script>
   <script>
 (function(){
-var sections = window.DOCS_SECTIONS || [];
-var toc = document.getElementById('docsToc');
-var content = document.getElementById('docsContent');
-var searchEl = document.getElementById('docsSearch');
-sections.forEach(function(s){
-  toc.innerHTML += '<a href="#'+s.id+'" data-id="'+s.id+'">'+s.title+'</a>';
-  var div = document.createElement('section');
-  div.id = s.id;
-  div.className = 'docs-section';
-  div.setAttribute('data-search', (s.title+' '+s.body.replace(/<[^>]+>/g,'')).toLowerCase());
-  div.innerHTML = '<h2>'+s.title+'</h2>'+s.body.trim();
-  content.appendChild(div);
-});
-function filter(){
-  var q = (searchEl.value||'').trim().toLowerCase();
-  content.querySelectorAll('.docs-section').forEach(function(el){
-    var show = !q || el.getAttribute('data-search').indexOf(q)!==-1;
-    el.classList.toggle('hidden-by-search', !show);
-  });
-  toc.querySelectorAll('a').forEach(function(a){
-    var id = a.getAttribute('data-id');
-    var sec = content.querySelector('#'+id);
-    a.style.display = (sec&&!sec.classList.contains('hidden-by-search')) ? '' : 'none';
-  });
-}
-searchEl.addEventListener('input', filter);
-var logoutBtn = document.getElementById('sidebarLogoutBtn');
-if (logoutBtn && typeof API !== 'undefined') {
-  logoutBtn.addEventListener('click', function() { API.logout().then(function() { location.href = '/login.html'; }); });
-}
+  if (typeof window.initDocsPage === 'function') {
+    document.addEventListener('DOMContentLoaded', function() {
+      window.initDocsPage();
+    });
+  }
+  var logoutBtn = document.getElementById('sidebarLogoutBtn');
+  if (logoutBtn && typeof API !== 'undefined') {
+    logoutBtn.addEventListener('click', function() { API.logout().then(function() { location.href = '/login.html'; }); });
+  }
 })();
   </script>
 </body>
