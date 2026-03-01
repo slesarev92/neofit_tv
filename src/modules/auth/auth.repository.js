@@ -3,20 +3,31 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const config = require('../../config');
 const logger = require('../../utils/logger');
+const { writeJsonAtomic } = require('../../utils/atomicWrite');
 
 const AUTH_FILE = () => path.resolve(config.dataDir, 'auth.json');
 
+let cache = null;
+let loaded = false;
+
 async function readData() {
+  if (loaded) return cache;
   try {
     const raw = await fs.readFile(AUTH_FILE(), 'utf-8');
-    return JSON.parse(raw);
+    cache = JSON.parse(raw);
+    loaded = true;
+    return cache;
   } catch {
-    return null;
+    cache = null;
+    loaded = true;
+    return cache;
   }
 }
 
 async function writeData(data) {
-  await fs.writeFile(AUTH_FILE(), JSON.stringify(data, null, 2), 'utf-8');
+  await writeJsonAtomic(AUTH_FILE(), data);
+  cache = data;
+  loaded = true;
 }
 
 async function initAuth() {

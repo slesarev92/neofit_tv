@@ -16,6 +16,19 @@ function sanitizeFilename(name) {
     .replace(/^\.+/, '');
 }
 
+/**
+ * Восстанавливает UTF-8 имя файла: multer часто приходит как Latin-1.
+ * Безопасно для ASCII и уже корректных имён.
+ */
+function decodeFilename(originalname) {
+  if (typeof originalname !== 'string' || !originalname) return originalname || '';
+  try {
+    return Buffer.from(originalname, 'latin1').toString('utf8');
+  } catch (_) {
+    return originalname;
+  }
+}
+
 function isAllowedMimeType(mimeType) {
   return ALLOWED_MIME_TYPES.has(mimeType);
 }
@@ -42,6 +55,7 @@ function isPathSafe(filePath, baseDir) {
 
 module.exports = {
   sanitizeFilename,
+  decodeFilename,
   isAllowedMimeType,
   getMimeType,
   isPathSafe,

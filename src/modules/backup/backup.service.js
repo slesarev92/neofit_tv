@@ -1,10 +1,13 @@
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const { spawnSync } = require('child_process');
+const config = require('../../config');
 
 const PROJECT_ROOT = path.resolve(path.join(__dirname, '..', '..', '..'));
 const BACKUP_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'backup.js');
 const BACKUPS_DIR = path.join(PROJECT_ROOT, 'backups');
+const DATA_DIR = path.resolve(config.dataDir);
 const RUN_TIMEOUT_MS = 5 * 60 * 1000; // 5 минут
 const MAX_BUFFER = 10 * 1024 * 1024; // 10 МБ
 
@@ -48,12 +51,12 @@ function runBackup(customName) {
  */
 async function listBackups() {
   try {
-    const names = await fs.readdir(BACKUPS_DIR);
+    const names = await fsPromises.readdir(BACKUPS_DIR);
     const tar = names.filter((n) => n.endsWith('.tar.gz'));
     const list = await Promise.all(
       tar.map(async (fileName) => {
         const p = path.join(BACKUPS_DIR, fileName);
-        const stat = await fs.stat(p).catch(() => null);
+        const stat = await fsPromises.stat(p).catch(() => null);
         return {
           fileName,
           sizeBytes: stat ? stat.size : 0,
@@ -71,6 +74,8 @@ async function listBackups() {
 
 /**
  * Восстанавливает настройки из архива (распаковка в корень проекта).
+ * Перед распаковкой копирует текущую data/ в data.pre-restore-{timestamp};
+ * при ошибке распаковки откатывает data/ из этой копии.
  * @param {string} fileName - только имя файла (backup-xxx.tar.gz)
  * @returns {{ ok: true } | { ok: false, error: string }}
  */
@@ -85,12 +90,36 @@ function restoreBackup(fileName) {
   if (!resolvedArchive.startsWith(resolvedDir)) {
     return { ok: false, error: 'Недопустимое имя файла' };
   }
+
+  const timestamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
+  const dataDirName = path.basename(DATA_DIR);
+  const backupPath = path.join(path.dirname(DATA_DIR), `${dataDirName}.pre-restore-${timestamp}`);
+  let backupCreated = false;
+
+  if (fs.existsSync(DATA_DIR)) {
+    try {
+      fs.cpSync(DATA_DIR, backupPath, { recursive: true });
+      backupCreated = true;
+    } catch (err) {
+      return { ok: false, error: 'Не удалось создать копию data перед восстановлением: ' + (err.message || '') };
+    }
+  }
+
   const tar = spawnSync('tar', ['-xzf', archivePath, '-C', PROJECT_ROOT], {
     stdio: 'pipe',
     maxBuffer: 50 * 1024 * 1024,
   });
+
   if (tar.status !== 0) {
     const msg = (tar.stderr && tar.stderr.toString()) || 'Ошибка распаковки';
+    if (backupCreated) {
+      try {
+        fs.rmSync(DATA_DIR, { recursive: true, force: true });
+        fs.renameSync(backupPath, DATA_DIR);
+      } catch (rollbackErr) {
+        return { ok: false, error: msg.slice(0, 500) + '. Откат не удался: ' + (rollbackErr.message || '') };
+      }
+    }
     return { ok: false, error: msg.slice(0, 500) };
   }
   return { ok: true };

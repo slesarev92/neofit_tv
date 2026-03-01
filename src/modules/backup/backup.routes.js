@@ -34,7 +34,7 @@ router.post('/restore', async (req, res, next) => {
     }
     const result = backupService.restoreBackup(fileName);
     if (result.ok) {
-      res.json({ ok: true, message: 'Настройки восстановлены' });
+      res.json({ ok: true, message: 'Настройки восстановлены. Рекомендуется перезапустить сервер (pm2 restart).' });
     } else {
       res.status(400).json({ ok: false, error: result.error });
     }

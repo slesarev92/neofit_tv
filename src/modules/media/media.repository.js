@@ -1,20 +1,27 @@
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('../../config');
+const { writeJsonAtomic } = require('../../utils/atomicWrite');
 
 const MEDIA_FILE = () => path.resolve(config.dataDir, 'media.json');
 
+let cache = null;
+
 async function readAll() {
+  if (cache !== null) return cache;
   try {
     const raw = await fs.readFile(MEDIA_FILE(), 'utf-8');
-    return JSON.parse(raw);
+    cache = JSON.parse(raw);
+    return cache;
   } catch {
-    return [];
+    cache = [];
+    return cache;
   }
 }
 
 async function writeAll(items) {
-  await fs.writeFile(MEDIA_FILE(), JSON.stringify(items, null, 2), 'utf-8');
+  await writeJsonAtomic(MEDIA_FILE(), items);
+  cache = items;
 }
 
 async function findAll() {

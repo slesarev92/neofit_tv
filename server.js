@@ -2,6 +2,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 const path = require('path');
 const fs = require('fs');
 const config = require('./src/config');
@@ -19,7 +20,8 @@ const settingsRoutes = require('./src/modules/settings/settings.routes');
 const app = express();
 
 // Ensure directories exist
-[config.uploadsDir, config.dataDir].forEach((dir) => {
+const sessionsDir = path.resolve(config.dataDir, 'sessions');
+[config.uploadsDir, config.dataDir, sessionsDir].forEach((dir) => {
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     fs.mkdirSync(resolved, { recursive: true });
@@ -47,6 +49,7 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use(
   session({
+    store: new FileStore({ path: sessionsDir, ttl: config.sessionMaxAge ? Math.floor(config.sessionMaxAge / 1000) : 86400 }),
     secret: config.sessionSecret || 'dev-fallback-secret',
     resave: false,
     saveUninitialized: false,

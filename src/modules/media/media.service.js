@@ -5,7 +5,7 @@ const FileType = require('file-type');
 const config = require('../../config');
 const mediaRepository = require('./media.repository');
 const playlistsRepository = require('../playlists/playlists.repository');
-const { sanitizeFilename, isAllowedMimeType } = require('../../utils/fileUtils');
+const { sanitizeFilename, isAllowedMimeType, decodeFilename } = require('../../utils/fileUtils');
 const logger = require('../../utils/logger');
 const processor = require('./media.processor');
 
@@ -43,7 +43,8 @@ async function upload(file) {
   }
 
   const id = uuidv4();
-  const sanitized = sanitizeFilename(file.originalname);
+  const originalName = decodeFilename(file.originalname);
+  const sanitized = sanitizeFilename(originalName);
   const ext = path.extname(sanitized) || (typeResult ? `.${typeResult.ext}` : '');
   const filename = `${id}_${path.basename(sanitized, path.extname(sanitized))}${ext}`;
   const destPath = path.join(path.resolve(config.uploadsDir), filename);
@@ -53,7 +54,7 @@ async function upload(file) {
   const media = {
     id,
     filename,
-    originalName: file.originalname,
+    originalName,
     mimeType: detectedMime,
     size: file.size,
     originalSize: file.size,

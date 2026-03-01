@@ -1,21 +1,30 @@
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('../../config');
+const { writeJsonAtomic } = require('../../utils/atomicWrite');
 
 const PAIRING_FILE = () => path.resolve(config.dataDir, 'pairing.json');
 
+let cache = null;
+
 async function readAll() {
+  if (cache !== null) return cache;
   try {
     const raw = await fs.readFile(PAIRING_FILE(), 'utf-8');
-    return JSON.parse(raw);
+    cache = JSON.parse(raw);
+    return cache;
   } catch (err) {
-    if (err.code === 'ENOENT') return [];
+    if (err.code === 'ENOENT') {
+      cache = [];
+      return cache;
+    }
     throw err;
   }
 }
 
 async function writeAll(items) {
-  await fs.writeFile(PAIRING_FILE(), JSON.stringify(items, null, 2), 'utf-8');
+  await writeJsonAtomic(PAIRING_FILE(), items);
+  cache = items;
 }
 
 async function findAll() {

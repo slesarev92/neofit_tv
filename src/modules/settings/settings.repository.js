@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('../../config');
+const { writeJsonAtomic } = require('../../utils/atomicWrite');
 
 const SETTINGS_FILE = () => path.resolve(config.dataDir, 'settings.json');
 
@@ -37,13 +38,22 @@ const DEFAULTS = {
   backupScheduleMonthDays: '1,10,20',
 };
 
+let cache = null;
+
 async function get() {
+  if (cache !== null) {
+    const merged = { ...DEFAULTS, ...cache };
+    if (merged.maxFileSizeMb == null) merged.maxFileSizeMb = config.maxFileSizeMb || 500;
+    return merged;
+  }
   try {
     const raw = await fs.readFile(SETTINGS_FILE(), 'utf-8');
-    const merged = { ...DEFAULTS, ...JSON.parse(raw) };
+    cache = JSON.parse(raw);
+    const merged = { ...DEFAULTS, ...cache };
     if (merged.maxFileSizeMb == null) merged.maxFileSizeMb = config.maxFileSizeMb || 500;
     return merged;
   } catch {
+    cache = {};
     const out = { ...DEFAULTS };
     if (out.maxFileSizeMb == null) out.maxFileSizeMb = config.maxFileSizeMb || 500;
     return out;
@@ -56,7 +66,8 @@ async function save(settings) {
   saveQueue = saveQueue.then(async () => {
     const current = await get();
     const merged = { ...current, ...settings };
-    await fs.writeFile(SETTINGS_FILE(), JSON.stringify(merged, null, 2), 'utf-8');
+    await writeJsonAtomic(SETTINGS_FILE(), merged);
+    cache = merged;
     return merged;
   });
   return saveQueue;

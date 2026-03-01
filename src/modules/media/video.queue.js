@@ -2,6 +2,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const config = require('../../config');
 const logger = require('../../utils/logger');
+const { writeJsonAtomic } = require('../../utils/atomicWrite');
 
 const QUEUE_FILE = () => path.resolve(config.dataDir, 'processing-queue.json');
 
@@ -19,7 +20,7 @@ async function loadQueue() {
 }
 
 async function saveQueue() {
-  await fs.writeFile(QUEUE_FILE(), JSON.stringify(queue, null, 2), 'utf-8');
+  await writeJsonAtomic(QUEUE_FILE(), queue);
 }
 
 async function add(task) {

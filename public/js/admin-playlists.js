@@ -150,7 +150,7 @@
             (m) => `
           <label class="media-select-item" data-media-id="${m.id}" data-media-name="${escapeHtml(m.originalName || m.filename || '')}" data-mime="${escapeHtml(m.mimeType || '')}">
             <input type="checkbox" class="media-select-checkbox">
-            ${m.mimeType && m.mimeType.startsWith('video/') ? `<div style="position:relative;"><video src="${getMediaThumbUrl(m)}#t=0.5" preload="metadata" muted style="width:100%;height:80px;object-fit:cover;"></video><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;font-size:.6rem;padding:1px 4px;border-radius:3px;">VIDEO</span></div>` : `<img src="${getMediaThumbUrl(m) || ''}" alt="">`}
+            ${m.mimeType && m.mimeType.startsWith('video/') ? `<div style="position:relative;"><video src="${getMediaThumbUrl(m)}#t=2" preload="metadata" muted style="width:100%;height:80px;object-fit:cover;"></video><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;font-size:.6rem;padding:1px 4px;border-radius:3px;">VIDEO</span></div>` : `<img src="${getMediaThumbUrl(m) || ''}" alt="">`}
             <div class="name">${escapeHtml(m.originalName || m.filename || '')}</div>
           </label>
         `

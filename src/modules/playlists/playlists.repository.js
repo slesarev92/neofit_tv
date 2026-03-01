@@ -1,20 +1,27 @@
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('../../config');
+const { writeJsonAtomic } = require('../../utils/atomicWrite');
 
 const PLAYLISTS_FILE = () => path.resolve(config.dataDir, 'playlists.json');
 
+let cache = null;
+
 async function readAll() {
+  if (cache !== null) return cache;
   try {
     const raw = await fs.readFile(PLAYLISTS_FILE(), 'utf-8');
-    return JSON.parse(raw);
+    cache = JSON.parse(raw);
+    return cache;
   } catch {
-    return [];
+    cache = [];
+    return cache;
   }
 }
 
 async function writeAll(items) {
-  await fs.writeFile(PLAYLISTS_FILE(), JSON.stringify(items, null, 2), 'utf-8');
+  await writeJsonAtomic(PLAYLISTS_FILE(), items);
+  cache = items;
 }
 
 async function findAll() {
