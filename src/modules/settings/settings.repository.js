@@ -8,7 +8,7 @@ const SETTINGS_FILE = () => path.resolve(config.dataDir, 'settings.json');
 const DEFAULTS = {
   imageDuration: 10,
   pollInterval: 10,
-  onlineThreshold: 15,
+  onlineThreshold: 30,
   requestTimeout: 10,
   maxRetries: 3,
   prefetchEnabled: true,

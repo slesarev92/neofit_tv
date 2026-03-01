@@ -13,9 +13,12 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.google.zxing.qrcode.QRCodeWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -37,6 +40,16 @@ class BindingActivity : AppCompatActivity() {
     private var countdownRunnable: Runnable? = null
     private var expiresAtMs = 0L
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) launchQrScanner() else Toast.makeText(this, getString(R.string.qr_scan_camera_permission), Toast.LENGTH_SHORT).show()
+    }
+
+    private val scanQrLauncher = registerForActivityResult(ScanContract()) { result ->
+        result.contents?.let { applyScannedUrl(it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_binding)
@@ -49,11 +62,41 @@ class BindingActivity : AppCompatActivity() {
         serverUrlEdit.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
 
         findViewById<Button>(R.id.bindingGetCode).setOnClickListener { fetchCode() }
+        findViewById<Button>(R.id.bindingScanQr).setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+            } else {
+                launchQrScanner()
+            }
+        }
         findViewById<Button>(R.id.bindingManual).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java).apply {
                 putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
             })
             finish()
+        }
+
+        findViewById<TextView>(R.id.bindingVersionFooter).text =
+            getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
+    }
+
+    private fun launchQrScanner() {
+        scanQrLauncher.launch(
+            ScanOptions().apply {
+                setDesiredBarcodeFormats(listOf(BarcodeFormat.QR_CODE))
+            }
+        )
+    }
+
+    private fun applyScannedUrl(contents: String) {
+        val s = contents.trim()
+        if (!s.startsWith("http://") && !s.startsWith("https://")) return
+        val serverEdit = findViewById<EditText>(R.id.bindingServerUrl)
+        if (s.contains("/player/index.html?id=")) {
+            val base = s.substringBefore("/player/index.html").trimEnd('/')
+            serverEdit.setText(base)
+        } else {
+            serverEdit.setText(s.trimEnd('/'))
         }
     }
 

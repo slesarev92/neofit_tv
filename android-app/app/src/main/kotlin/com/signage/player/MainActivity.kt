@@ -145,9 +145,7 @@ class MainActivity : AppCompatActivity() {
     private fun handleFirstRunOrUpdate(prefs: SharedPreferences) {
         val currentVersion = BuildConfig.VERSION_CODE
         val lastVersion = prefs.getInt(KEY_LAST_VERSION, -1)
-
         if (currentVersion > lastVersion) {
-            prefs.edit().clear().apply() // Сбрасываем все настройки
             prefs.edit().putInt(KEY_LAST_VERSION, currentVersion).apply()
         }
     }

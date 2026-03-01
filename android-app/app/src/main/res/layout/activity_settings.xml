@@ -96,5 +96,14 @@
             android:textSize="@dimen/settings_button_text_size"
             android:backgroundTint="@color/settings_accent"
             android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/settingsVersionFooter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:textColor="@color/settings_text_hint"
+            android:textSize="12sp"
+            tools:text="NeoFit TV 1.0 (1)" />
     </LinearLayout>
 </ScrollView>

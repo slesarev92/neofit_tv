@@ -26,6 +26,10 @@
   let scheduleCheckTimer = null;
   let lastScheduleInside = null;
 
+  let preloadedNextEl = null;
+  let preloadedNextIndex = -1;
+  let preloadedReady = false;
+
   // =========================================================
   //  Work schedule — black screen outside configured hours
   // =========================================================
@@ -235,6 +239,21 @@
 
   function clearMediaElements() {
     clearTimeout(imageTimer);
+    if (preloadedNextEl) {
+      if (preloadedNextEl.tagName === 'VIDEO') {
+        preloadedNextEl.onended = null;
+        preloadedNextEl.onerror = null;
+        preloadedNextEl.onstalled = null;
+        preloadedNextEl.oncanplay = null;
+        preloadedNextEl.pause();
+        preloadedNextEl.removeAttribute('src');
+        preloadedNextEl.load();
+      }
+      preloadedNextEl.remove();
+      preloadedNextEl = null;
+      preloadedNextIndex = -1;
+      preloadedReady = false;
+    }
     container.querySelectorAll('img, video').forEach((el) => {
       if (el.tagName === 'VIDEO') {
         el.onended = null;
@@ -252,8 +271,76 @@
   function playNext() {
     if (!currentPlaylist || !currentPlaylist.items.length) return;
 
-    currentIndex = (currentIndex + 1) % currentPlaylist.items.length;
-    const item = currentPlaylist.items[currentIndex];
+    const nextIndex = (currentIndex + 1) % currentPlaylist.items.length;
+    const item = currentPlaylist.items[nextIndex];
+    const prefetchOk = settings.prefetchEnabled !== false;
+
+    if (prefetchOk && preloadedNextEl && preloadedNextIndex === nextIndex && preloadedReady) {
+      const oldCurrent = container.querySelector('img, video');
+      if (oldCurrent && oldCurrent !== preloadedNextEl) {
+        if (oldCurrent.tagName === 'VIDEO') {
+          oldCurrent.onended = null;
+          oldCurrent.onerror = null;
+          oldCurrent.onstalled = null;
+          oldCurrent.oncanplay = null;
+          oldCurrent.pause();
+          oldCurrent.removeAttribute('src');
+          oldCurrent.load();
+        }
+        oldCurrent.remove();
+      }
+      preloadedNextEl.style.visibility = '';
+      preloadedNextEl.style.opacity = '';
+      preloadedNextEl.style.position = '';
+      preloadedNextEl.style.zIndex = '';
+      preloadedNextEl.classList.remove('preload-slot');
+      if (preloadedNextEl.tagName === 'VIDEO') {
+        const video = preloadedNextEl;
+        currentIndex = nextIndex;
+        const MAX_VIDEO_FALLBACK = 600;
+        resetWatchdog(MAX_VIDEO_FALLBACK * 2 * 1000);
+        video.onloadedmetadata = () => {
+          if (video.duration && isFinite(video.duration)) {
+            resetWatchdog(video.duration * 2 * 1000);
+          }
+        };
+        video.onended = () => { clearWatchdog(); playNext(); };
+        video.onerror = () => {
+          if (DEBUG) console.error('[Player] Video error (preloaded):', item.media.url);
+          clearWatchdog();
+          setTimeout(playNext, 2000);
+        };
+        video.onstalled = () => {
+          if (DEBUG) console.warn('[Player] Video stalled (preloaded):', item.media.url);
+          setTimeout(() => {
+            if (video.paused && !video.ended) {
+              video.play().catch(() => playNext());
+            }
+          }, 5000);
+        };
+        video.play().catch(() => {
+          video.muted = true;
+          video.play().catch(() => setTimeout(playNext, 2000));
+        });
+      } else {
+        const duration = (item.duration || settings.imageDuration || 10) * 1000;
+        resetWatchdog(duration * 2);
+        currentIndex = nextIndex;
+        imageTimer = setTimeout(() => {
+          if (currentPlaylist && currentPlaylist.items[currentIndex] === item) {
+            clearWatchdog();
+            playNext();
+          }
+        }, duration);
+      }
+      preloadedNextEl = null;
+      preloadedNextIndex = -1;
+      preloadedReady = false;
+      startPreloadNext();
+      return;
+    }
+
+    currentIndex = nextIndex;
     placeholder.style.display = 'none';
     clearMediaElements();
     clearWatchdog();
@@ -262,6 +349,51 @@
       playVideo(item);
     } else {
       playImage(item);
+    }
+    startPreloadNext();
+  }
+
+  function startPreloadNext() {
+    if (settings.prefetchEnabled === false || !currentPlaylist || !currentPlaylist.items.length) return;
+    const nextIndex = (currentIndex + 1) % currentPlaylist.items.length;
+    const nextItem = currentPlaylist.items[nextIndex];
+    if (!nextItem || !nextItem.media || !nextItem.media.url) return;
+
+    if (preloadedNextEl) {
+      if (preloadedNextEl.tagName === 'VIDEO') {
+        preloadedNextEl.pause();
+        preloadedNextEl.removeAttribute('src');
+        preloadedNextEl.load();
+      }
+      preloadedNextEl.remove();
+      preloadedNextEl = null;
+    }
+    preloadedNextIndex = nextIndex;
+    preloadedReady = false;
+
+    if (nextItem.media.mimeType.startsWith('video/')) {
+      const video = document.createElement('video');
+      video.classList.add('preload-slot');
+      video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;visibility:hidden;opacity:0;z-index:-1;pointer-events:none;';
+      video.src = nextItem.media.url;
+      video.muted = true;
+      video.preload = 'auto';
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      video.oncanplay = () => { preloadedReady = true; };
+      video.onerror = () => { preloadedReady = false; };
+      container.appendChild(video);
+      preloadedNextEl = video;
+    } else {
+      const img = document.createElement('img');
+      img.classList.add('preload-slot');
+      img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;visibility:hidden;opacity:0;z-index:-1;pointer-events:none;';
+      img.src = nextItem.media.url;
+      img.alt = '';
+      img.onload = () => { preloadedReady = true; };
+      img.onerror = () => { preloadedReady = false; };
+      container.appendChild(img);
+      preloadedNextEl = img;
     }
   }
 
@@ -402,6 +534,8 @@
       if (!wakeLock) requestWakeLock();
       const vid = container.querySelector('video');
       if (vid && vid.paused && !vid.ended) vid.play().catch(() => {});
+      clearTimeout(pollTimer);
+      poll();
     }
   });
 

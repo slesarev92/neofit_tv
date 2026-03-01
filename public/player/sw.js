@@ -61,7 +61,15 @@ self.addEventListener('message', (e) => {
 
 async function precacheUrls(urls, currentUrls) {
   const cache = await caches.open(CACHE_NAME);
-  const currentSet = new Set(currentUrls);
+  const currentSet = new Set(
+    (currentUrls || []).map((u) => {
+      try {
+        return new URL(u, self.location.origin).pathname;
+      } catch {
+        return u;
+      }
+    })
+  );
 
   for (const url of urls) {
     const exists = await cache.match(url);

@@ -4,10 +4,15 @@ const settingsRepository = require('../settings/settings.repository');
 const playlistsRepository = require('../playlists/playlists.repository');
 
 function getThresholdSec(settings) {
+  const pollInterval = settings.pollInterval || 10;
+  let thresholdSec;
   if (settings.onlineThresholdMultiplier != null && Number(settings.onlineThresholdMultiplier) > 0) {
-    return (settings.pollInterval || 10) * Number(settings.onlineThresholdMultiplier);
+    thresholdSec = pollInterval * Number(settings.onlineThresholdMultiplier);
+  } else {
+    thresholdSec = settings.onlineThreshold || pollInterval + 5;
   }
-  return settings.onlineThreshold || (settings.pollInterval || 10) + 5;
+  const minThreshold = pollInterval * 2;
+  return Math.max(thresholdSec, minThreshold);
 }
 
 function isOnline(screen, settings) {

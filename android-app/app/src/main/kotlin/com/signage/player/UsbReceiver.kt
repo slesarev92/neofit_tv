@@ -3,8 +3,10 @@ package com.signage.player
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.storage.StorageManager
 import android.util.Log
 import android.widget.Toast
 import java.io.File
@@ -15,8 +17,14 @@ class UsbReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MEDIA_MOUNTED) return
 
+        val possiblePaths = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            getRemovableVolumeRoots(context)
+        } else {
+            emptyList()
+        }
+
         val pathFromIntent = intent.data?.path
-        val possiblePaths = listOfNotNull(
+        val fallbackPaths = listOfNotNull(
             pathFromIntent,
             "/mnt/usb",
             "/mnt/usb_storage",
@@ -25,7 +33,8 @@ class UsbReceiver : BroadcastReceiver() {
             "/storage/usbdisk"
         ).distinct()
 
-        val configFile = possiblePaths
+        val allPaths = (possiblePaths + fallbackPaths).distinct()
+        val configFile = allPaths
             .map { File("$it/signage.txt") }
             .firstOrNull { it.exists() && it.canRead() }
 
@@ -86,6 +95,28 @@ class UsbReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e("UsbReceiver", "Ошибка чтения signage.txt", e)
             showError(context, R.string.msg_usb_invalid_format)
+        }
+    }
+
+    /**
+     * На API 24+ возвращает корни съёмных томов через StorageManager.
+     * На старых API или при ошибке — пустой список (используется fallback по путям).
+     */
+    private fun getRemovableVolumeRoots(context: Context): List<String> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return emptyList()
+        return try {
+            val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager ?: return emptyList()
+            sm.storageVolumes
+                ?.filter { it.isRemovable }
+                ?.mapNotNull { vol ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) vol.directory?.absolutePath
+                    else vol.path?.absolutePath
+                }
+                ?.filter { it.isNotEmpty() }
+                ?: emptyList()
+        } catch (e: Exception) {
+            Log.w("UsbReceiver", "StorageManager volumes", e)
+            emptyList()
         }
     }
 

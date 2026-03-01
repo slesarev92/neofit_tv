@@ -39,17 +39,32 @@
             android:inputType="textUri"
             android:background="?android:attr/editTextBackground"
             android:layout_marginBottom="12dp" />
-        <Button
-            android:id="@+id/bindingGetCode"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="@dimen/settings_button_min_height"
-            android:text="@string/binding_get_code"
-            android:textSize="@dimen/settings_button_text_size"
-            android:backgroundTint="@color/settings_accent"
-            android:textColor="@android:color/white"
-            android:layout_marginBottom="24dp" />
-
+            android:orientation="horizontal"
+            android:layout_marginBottom="12dp">
+            <Button
+                android:id="@+id/bindingGetCode"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:minHeight="@dimen/settings_button_min_height"
+                android:layout_weight="1"
+                android:text="@string/binding_get_code"
+                android:textSize="@dimen/settings_button_text_size"
+                android:backgroundTint="@color/settings_accent"
+                android:textColor="@android:color/white"
+                android:layout_marginEnd="8dp" />
+            <Button
+                android:id="@+id/bindingScanQr"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:minHeight="@dimen/settings_button_min_height"
+                android:layout_weight="1"
+                android:text="@string/scan_qr"
+                android:textSize="@dimen/settings_button_text_size"
+                android:textColor="@color/settings_text" />
+        </LinearLayout>
         <ImageView
             android:id="@+id/bindingQr"
             android:layout_width="200dp"
@@ -94,5 +109,13 @@
             android:text="@string/binding_manual"
             android:textSize="@dimen/settings_button_text_size"
             android:textColor="@color/settings_text" />
+
+        <TextView
+            android:id="@+id/bindingVersionFooter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:textColor="@color/settings_text_hint"
+            android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

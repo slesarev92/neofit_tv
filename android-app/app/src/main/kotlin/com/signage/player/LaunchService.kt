@@ -13,6 +13,11 @@ import androidx.core.app.NotificationCompat
 
 class LaunchService : Service() {
 
+    companion object {
+        /** Задержка (мс) перед запуском MainActivity после boot. Увеличьте на медленных устройствах. */
+        private const val BOOT_LAUNCH_DELAY_MS = 3000L
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(1, buildNotification())
         Handler(Looper.getMainLooper()).postDelayed({
@@ -20,7 +25,7 @@ class LaunchService : Service() {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
             stopSelf()
-        }, 3000)
+        }, BOOT_LAUNCH_DELAY_MS)
         return START_NOT_STICKY
     }
 

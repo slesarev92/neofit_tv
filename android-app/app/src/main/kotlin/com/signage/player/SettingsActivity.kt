@@ -50,6 +50,9 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnCheckConnection).setOnClickListener { checkConnection() }
         findViewById<Button>(R.id.btnChangePin).setOnClickListener { showChangePinDialog() }
         findViewById<Button>(R.id.btnSaveAndLaunch).setOnClickListener { saveAndLaunch() }
+
+        findViewById<android.widget.TextView>(R.id.settingsVersionFooter).text =
+            getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
     }
 
     private fun checkConnection() {
