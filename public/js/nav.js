@@ -74,7 +74,7 @@
         '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + item.svg + '</svg>' +
         item.label + '</a>';
     }).join('');
-    html += '<a href="#" class="nav-apk-download" data-apk-url="/neofit_tv2.apk" data-apk-filename="neofit_tv2.apk">' +
+    html += '<a href="#" class="nav-apk-download" data-apk-url="/neofit_tv.apk" data-apk-filename="neofit_tv.apk">' +
       '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + SVG_APK + '</svg>Загрузить APK</a>';
     nav.innerHTML = html;
     nav.querySelectorAll('.nav-apk-download').forEach(function (a) {

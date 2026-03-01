@@ -149,30 +149,30 @@ npm install --production
 pm2 restart signage
 ```
 
-Если в репозитории обновлялся **nginx.conf** (например, добавлен `location = /neofit_tv2.apk`), после `git pull` примените конфиг и перезагрузите Nginx:
+Если в репозитории обновлялся **nginx.conf** (например, добавлен `location = /neofit_tv.apk`), после `git pull` примените конфиг и перезагрузите Nginx:
 
 ```bash
 sudo cp /opt/digital-signage/nginx.conf /etc/nginx/sites-available/signage
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Файл **neofit_tv2.apk** лежит в корне репозитория; после `git pull` на сервере подтягивается актуальная версия, и «Загрузить APK» в админке отдаёт её.
+Файл **neofit_tv.apk** лежит в корне репозитория; после `git pull` на сервере подтягивается актуальная версия, и «Загрузить APK» в админке отдаёт её.
 
 ### Релиз новой версии (с обновлением APK)
 
 Чтобы при пуше на GitHub на сервере автоматически оказывалась новая версия APK:
 
 1. Соберите APK в Android Studio (Build → Build Bundle(s) / APK(s) → Build APK(s)).
-2. Скопируйте собранный файл (например `android-app/app/build/outputs/apk/release/app-release.apk` или подписанный) в **корень проекта** и переименуйте в **neofit_tv2.apk** (рядом с `server.js`).
+2. Скопируйте собранный файл (например `android-app/app/build/outputs/apk/release/app-release.apk` или подписанный) в **корень проекта** и переименуйте в **neofit_tv.apk** (рядом с `server.js`).
 3. Закоммитьте и запушьте:
    ```bash
-   git add neofit_tv2.apk
+   git add neofit_tv.apk
    git commit -m "chore: APK 3.0"
    git push
    ```
 4. На сервере выполните обновление (см. выше): `git pull`, при необходимости `npm install --production`, `pm2 restart signage`.
 
-После этого в админке по кнопке «Загрузить APK» будет раздаваться новый neofit_tv2.apk.
+После этого в админке по кнопке «Загрузить APK» будет раздаваться новый neofit_tv.apk.
 
 ### Сброс пароля администратора
 
