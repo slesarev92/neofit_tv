@@ -48,10 +48,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(R.layout.activity_main)
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         handleFirstRunOrUpdate(prefs)
+        val playerUrl = prefs.getString(KEY_PLAYER_URL, null)?.trim()
+
+        if (playerUrl.isNullOrEmpty()) {
+            startActivity(Intent(this, BindingActivity::class.java))
+            finish()
+            return
+        }
+
+        setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webView)
         setupWebView()
@@ -70,14 +78,6 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnErrorSettings).setOnClickListener {
             showPinDialog()
-        }
-
-        val playerUrl = prefs.getString(KEY_PLAYER_URL, null)?.trim()
-
-        if (playerUrl.isNullOrEmpty()) {
-            startActivity(Intent(this, BindingActivity::class.java))
-            finish()
-            return
         }
 
         webView.webViewClient = object : WebViewClient() {
@@ -166,19 +166,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideSystemUI() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.let {
-                it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.let {
+                    it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                    it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                )
             }
-        } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            )
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "hideSystemUI", e)
         }
     }
 

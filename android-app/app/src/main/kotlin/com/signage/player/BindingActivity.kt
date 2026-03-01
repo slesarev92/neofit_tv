@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -27,6 +28,7 @@ import java.util.concurrent.Executors
 class BindingActivity : AppCompatActivity() {
 
     companion object {
+        private const val TAG = "BindingActivity"
         private const val PREFS_NAME = "player"
         private const val KEY_PLAYER_URL = "player_url"
         private const val KEY_SERVER_URL = "server_url"
@@ -59,25 +61,36 @@ class BindingActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val serverUrlEdit = findViewById<EditText>(R.id.bindingServerUrl)
-        serverUrlEdit.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
+        serverUrlEdit?.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
 
-        findViewById<Button>(R.id.bindingGetCode).setOnClickListener { fetchCode() }
-        findViewById<Button>(R.id.bindingScanQr).setOnClickListener {
+        findViewById<Button>(R.id.bindingGetCode)?.setOnClickListener { fetchCode() }
+        findViewById<Button>(R.id.bindingScanQr)?.setOnClickListener {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(android.Manifest.permission.CAMERA)
             } else {
                 launchQrScanner()
             }
         }
-        findViewById<Button>(R.id.bindingManual).setOnClickListener {
+        findViewById<Button>(R.id.bindingManual)?.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java).apply {
                 putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
             })
             finish()
         }
 
-        findViewById<TextView>(R.id.bindingVersionFooter).text =
+        findViewById<TextView>(R.id.bindingVersionFooter)?.text =
             getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
+
+        handler.postDelayed({
+            if (isFinishing) return@postDelayed
+            if (isUrlFieldValid()) fetchCode()
+        }, 400)
+    }
+
+    private fun isUrlFieldValid(): Boolean {
+        val edit = findViewById<EditText>(R.id.bindingServerUrl) ?: return false
+        val url = edit.text?.toString()?.trim()?.trimEnd('/') ?: ""
+        return url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))
     }
 
     private fun launchQrScanner() {
@@ -91,7 +104,7 @@ class BindingActivity : AppCompatActivity() {
     private fun applyScannedUrl(contents: String) {
         val s = contents.trim()
         if (!s.startsWith("http://") && !s.startsWith("https://")) return
-        val serverEdit = findViewById<EditText>(R.id.bindingServerUrl)
+        val serverEdit = findViewById<EditText>(R.id.bindingServerUrl) ?: return
         if (s.contains("/player/index.html?id=")) {
             val base = s.substringBefore("/player/index.html").trimEnd('/')
             serverEdit.setText(base)
@@ -108,7 +121,7 @@ class BindingActivity : AppCompatActivity() {
     }
 
     private fun fetchCode() {
-        val baseUrl = findViewById<EditText>(R.id.bindingServerUrl).text.toString().trim().trimEnd('/')
+        val baseUrl = findViewById<EditText>(R.id.bindingServerUrl)?.text?.toString()?.trim()?.trimEnd('/') ?: ""
         if (baseUrl.isEmpty()) {
             Toast.makeText(this, getString(R.string.msg_server_url_required), Toast.LENGTH_SHORT).show()
             return
@@ -117,7 +130,7 @@ class BindingActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.msg_invalid_url), Toast.LENGTH_SHORT).show()
             return
         }
-        findViewById<Button>(R.id.bindingGetCode).isEnabled = false
+        findViewById<Button>(R.id.bindingGetCode)?.isEnabled = false
         executor.execute {
             try {
                 val url = URL("$baseUrl/api/pair/init")
@@ -127,20 +140,26 @@ class BindingActivity : AppCompatActivity() {
                 conn.readTimeout = 10_000
                 conn.connect()
                 val code = conn.responseCode
-                val body = conn.inputStream?.bufferedReader()?.readText() ?: ""
+                val body = conn.inputStream?.bufferedReader()?.readText()
+                    ?: conn.errorStream?.bufferedReader()?.readText() ?: ""
                 conn.disconnect()
                 handler.post {
+                    if (isFinishing) return@post
                     if (code in 200..299) {
                         parseInitResponse(body, baseUrl)
                     } else {
-                        showBindingError()
+                        Log.e(TAG, "pair/init HTTP $code: ${body.take(300)}")
+                        showBindingErrorServer(code)
                     }
-                    findViewById<Button>(R.id.bindingGetCode).isEnabled = true
+                    findViewById<Button>(R.id.bindingGetCode)?.isEnabled = true
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "pair/init request failed", e)
                 handler.post {
-                    showBindingError()
-                    findViewById<Button>(R.id.bindingGetCode).isEnabled = true
+                    if (!isFinishing) {
+                        showBindingErrorNetwork(e)
+                        findViewById<Button>(R.id.bindingGetCode)?.isEnabled = true
+                    }
                 }
             }
         }
@@ -152,32 +171,35 @@ class BindingActivity : AppCompatActivity() {
             val code = obj.optString("code")
             val expiresIn = obj.optInt("expiresIn", 600)
             if (code.isBlank()) {
+                Log.e(TAG, "pair/init response: code is empty, body=${json.take(200)}")
                 showBindingError()
                 return
             }
             expiresAtMs = System.currentTimeMillis() + expiresIn * 1000L
             val pairUrl = "$baseUrl/pair?code=$code"
             handler.post {
+                if (isFinishing) return@post
                 showCodeAndQr(code, pairUrl)
                 startCountdown()
                 startPolling(baseUrl, code)
             }
         } catch (e: Exception) {
-            showBindingError()
+            Log.e(TAG, "parseInitResponse failed", e)
+            showBindingErrorParse()
         }
     }
 
     private fun showCodeAndQr(code: String, pairUrl: String) {
-        findViewById<ImageView>(R.id.bindingQr).apply {
+        findViewById<ImageView>(R.id.bindingQr)?.apply {
             setImageBitmap(qrBitmap(pairUrl, 400))
             visibility = View.VISIBLE
         }
-        findViewById<TextView>(R.id.bindingCodeText).apply {
+        findViewById<TextView>(R.id.bindingCodeText)?.apply {
             text = code
             visibility = View.VISIBLE
         }
-        findViewById<TextView>(R.id.bindingCountdown).visibility = View.VISIBLE
-        findViewById<TextView>(R.id.bindingInstruction).visibility = View.VISIBLE
+        findViewById<TextView>(R.id.bindingCountdown)?.visibility = View.VISIBLE
+        findViewById<TextView>(R.id.bindingInstruction)?.visibility = View.VISIBLE
     }
 
     private fun qrBitmap(content: String, sizePx: Int): Bitmap {
@@ -200,7 +222,7 @@ class BindingActivity : AppCompatActivity() {
 
     private fun startCountdown() {
         countdownRunnable?.let { handler.removeCallbacks(it) }
-        val countdownView = findViewById<TextView>(R.id.bindingCountdown)
+        val countdownView = findViewById<TextView>(R.id.bindingCountdown) ?: return
         countdownRunnable = object : Runnable {
             override fun run() {
                 val remaining = (expiresAtMs - System.currentTimeMillis()) / 1000
@@ -267,5 +289,17 @@ class BindingActivity : AppCompatActivity() {
 
     private fun showBindingError() {
         Toast.makeText(this, getString(R.string.binding_error), Toast.LENGTH_LONG).show()
+    }
+
+    private fun showBindingErrorNetwork(e: Exception) {
+        Toast.makeText(this, getString(R.string.binding_error_network), Toast.LENGTH_LONG).show()
+    }
+
+    private fun showBindingErrorServer(httpCode: Int) {
+        Toast.makeText(this, getString(R.string.binding_error_server, httpCode), Toast.LENGTH_LONG).show()
+    }
+
+    private fun showBindingErrorParse() {
+        Toast.makeText(this, getString(R.string.binding_error_parse), Toast.LENGTH_LONG).show()
     }
 }

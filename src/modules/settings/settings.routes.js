@@ -3,7 +3,9 @@ const multer = require('multer');
 const path = require('path');
 const os = require('os');
 const settingsService = require('./settings.service');
+const settingsRepository = require('./settings.repository');
 const backupScheduler = require('../backup/backup.scheduler');
+const { sendTelegram } = require('../../utils/telegram');
 
 const router = Router();
 const uploadDir = path.join(os.tmpdir(), 'signage-logo-uploads');
@@ -102,6 +104,24 @@ router.post('/off-hours-image', (req, res, next) => {
     res.json({ url: result.url });
   } catch (err) {
     next(err);
+  }
+});
+
+router.post('/telegram-test', async (req, res, next) => {
+  try {
+    const settings = await settingsRepository.get();
+    const token = (settings.telegramBotToken || '').trim();
+    const chatId = (settings.telegramChatId || '').trim();
+    if (!token || !chatId) {
+      return res.status(400).json({ error: 'Укажите токен бота и Chat ID и сохраните настройки.' });
+    }
+    const text = '✅ <b>NeoFit TV</b>: тест уведомлений.\n\nЕсли вы видите это сообщение, настройка работает.';
+    await sendTelegram(token, chatId, text, { retries: 1 });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message || 'Не удалось отправить сообщение. Проверьте токен, Chat ID и что бот добавлен в канал как администратор (для каналов).',
+    });
   }
 });
 

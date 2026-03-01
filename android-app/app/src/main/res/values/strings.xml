@@ -42,6 +42,9 @@
     <string name="binding_code_expired">Код истёк</string>
     <string name="binding_instruction">Откройте ссылку по QR или введите код в админ-панели в разделе «Привязка»</string>
     <string name="binding_error">Не удалось получить код. Проверьте URL сервера.</string>
+    <string name="binding_error_network">Сервер недоступен. Проверьте адрес и интернет (эмулятор: 10.0.2.2 для localhost).</string>
+    <string name="binding_error_server">Ошибка сервера: %1$d</string>
+    <string name="binding_error_parse">Неверный ответ сервера. Проверьте версию сервера.</string>
     <string name="scan_qr">Сканировать QR</string>
     <string name="qr_scan_camera_permission">Для сканирования QR нужен доступ к камере</string>
 </resources>

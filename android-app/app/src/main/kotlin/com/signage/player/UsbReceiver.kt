@@ -17,11 +17,7 @@ class UsbReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MEDIA_MOUNTED) return
 
-        val possiblePaths = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            getRemovableVolumeRoots(context)
-        } else {
-            emptyList()
-        }
+        val possiblePaths = getRemovableVolumeRoots(context)
 
         val pathFromIntent = intent.data?.path
         val fallbackPaths = listOfNotNull(
@@ -39,8 +35,10 @@ class UsbReceiver : BroadcastReceiver() {
             .firstOrNull { it.exists() && it.canRead() }
 
         if (configFile == null) {
-            Handler(Looper.getMainLooper()).post {
-                Toast.makeText(context, context.getString(R.string.msg_usb_file_not_found), Toast.LENGTH_LONG).show()
+            if (pathFromIntent != null) {
+                Handler(Looper.getMainLooper()).post {
+                    Toast.makeText(context, context.getString(R.string.msg_usb_file_not_found), Toast.LENGTH_LONG).show()
+                }
             }
             return
         }
@@ -98,26 +96,33 @@ class UsbReceiver : BroadcastReceiver() {
         }
     }
 
-    /**
-     * На API 24+ возвращает корни съёмных томов через StorageManager.
-     * На старых API или при ошибке — пустой список (используется fallback по путям).
-     */
     private fun getRemovableVolumeRoots(context: Context): List<String> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return emptyList()
-        return try {
-            val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager ?: return emptyList()
-            sm.storageVolumes
-                ?.filter { it.isRemovable }
-                ?.mapNotNull { vol ->
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) vol.directory?.absolutePath
-                    else vol.path?.absolutePath
+        val roots = mutableListOf<String>()
+        try {
+            val sm = context.getSystemService(Context.STORAGE_SERVICE) as? StorageManager
+            if (sm != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    sm.storageVolumes?.forEach { vol ->
+                        if (vol.isRemovable) {
+                            val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                vol.directory?.absolutePath
+                            } else {
+                                try {
+                                    val getPath = vol.javaClass.getMethod("getPath")
+                                    getPath.invoke(vol) as? String
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }
+                            path?.let { roots.add(it) }
+                        }
+                    }
                 }
-                ?.filter { it.isNotEmpty() }
-                ?: emptyList()
+            }
         } catch (e: Exception) {
-            Log.w("UsbReceiver", "StorageManager volumes", e)
-            emptyList()
+            Log.w("UsbReceiver", "Error getting storage volumes", e)
         }
+        return roots
     }
 
     private fun showError(context: Context, stringResId: Int) {

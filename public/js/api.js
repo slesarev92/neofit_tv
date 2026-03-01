@@ -108,6 +108,9 @@ const API = {
   updateSettings(data) {
     return this.request('/api/settings', { method: 'PUT', body: data });
   },
+  sendTelegramTest() {
+    return this.request('/api/settings/telegram-test', { method: 'POST' });
+  },
   uploadLogo(file, onProgress) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

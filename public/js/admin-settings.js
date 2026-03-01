@@ -474,6 +474,22 @@
       }
     });
 
+    var btnTelegramTest = document.getElementById('btnTelegramTest');
+    if (btnTelegramTest) {
+      btnTelegramTest.addEventListener('click', async function () {
+        if (btnTelegramTest.disabled) return;
+        btnTelegramTest.disabled = true;
+        try {
+          await API.sendTelegramTest();
+          showToast('Тестовое сообщение отправлено', 'success');
+        } catch (err) {
+          showToast(err.message || 'Не удалось отправить', 'error');
+        } finally {
+          btnTelegramTest.disabled = false;
+        }
+      });
+    }
+
     document.getElementById('formBackup').addEventListener('submit', async function (e) {
       e.preventDefault();
       if (saveInProgress) return;

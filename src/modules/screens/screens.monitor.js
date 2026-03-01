@@ -1,36 +1,38 @@
-const https = require('https');
 const screensRepository = require('./screens.repository');
 const settingsRepository = require('../settings/settings.repository');
+const playlistsRepository = require('../playlists/playlists.repository');
+const config = require('../../config');
 const logger = require('../../utils/logger');
+const { escapeForTelegramHtml, sendTelegram } = require('../../utils/telegram');
 
 const previousStates = new Map();
 let initialized = false;
 
-function sendTelegram(token, chatId, text) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' });
-    const req = https.request({
-      hostname: 'api.telegram.org',
-      path: `/bot${token}/sendMessage`,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
-    }, (res) => {
-      let body = '';
-      res.on('data', (c) => body += c);
-      res.on('end', () => {
-        if (res.statusCode === 200) resolve(body);
-        else reject(new Error(`Telegram API ${res.statusCode}: ${body}`));
-      });
-    });
-    req.on('error', reject);
-    req.write(data);
-    req.end();
-  });
-}
-
 function getIsOnline(screen, thresholdSec) {
   if (!screen.lastSeenAt) return false;
   return (Date.now() - new Date(screen.lastSeenAt).getTime()) <= thresholdSec * 1000;
+}
+
+function shortId(id) {
+  if (!id || typeof id !== 'string') return '—';
+  return id.length > 8 ? id.slice(-8) : id;
+}
+
+async function getPlaylistName(playlistId) {
+  if (!playlistId) return null;
+  try {
+    const p = await playlistsRepository.findById(playlistId);
+    return p ? p.name : null;
+  } catch {
+    return null;
+  }
+}
+
+function adminLinkLine() {
+  const base = (config.baseUrl || '').trim();
+  if (!base) return '';
+  const url = base.replace(/\/$/, '') + '/admin/screens.html';
+  return `\n\n🔗 <a href="${escapeForTelegramHtml(url)}">Открыть экраны в админке</a>`;
 }
 
 async function checkScreens() {
@@ -43,6 +45,9 @@ async function checkScreens() {
     } else {
       thresholdSec = settings.onlineThreshold || (settings.pollInterval || 10) + 5;
     }
+
+    const offlineScreens = [];
+    const onlineScreens = [];
 
     for (const screen of screens) {
       const wasOnline = previousStates.get(screen.id);
@@ -59,34 +64,60 @@ async function checkScreens() {
           from: wasOnline ? 'online' : 'offline',
           to: isOnline ? 'online' : 'offline',
         });
-      }
-
-      if (settings.telegramEnabled && settings.telegramBotToken && settings.telegramChatId) {
-        if (wasOnline && !isOnline) {
-          const lastSeen = screen.lastSeenAt
-            ? new Date(screen.lastSeenAt).toLocaleString('ru-RU')
-            : 'никогда';
-          const msg = `⚠️ <b>Экран оффлайн</b>\n\n📺 ${screen.name}\n🕐 Последняя активность: ${lastSeen}`;
-          try {
-            await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg);
-            logger.info('Telegram: screen offline alert sent', { screen: screen.name });
-          } catch (err) {
-            logger.error('Telegram send failed', { error: err.message });
-          }
-        }
-
-        if (!wasOnline && isOnline) {
-          const msg = `✅ <b>Экран онлайн</b>\n\n📺 ${screen.name}`;
-          try {
-            await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg);
-            logger.info('Telegram: screen online alert sent', { screen: screen.name });
-          } catch (err) {
-            logger.error('Telegram send failed', { error: err.message });
-          }
-        }
+        if (wasOnline && !isOnline) offlineScreens.push(screen);
+        if (!wasOnline && isOnline) onlineScreens.push(screen);
       }
 
       previousStates.set(screen.id, isOnline);
+    }
+
+    if (settings.telegramEnabled && settings.telegramBotToken && settings.telegramChatId) {
+      const linkLine = adminLinkLine();
+
+      if (offlineScreens.length > 0) {
+        const lines = [];
+        for (const screen of offlineScreens) {
+          const name = escapeForTelegramHtml(screen.name);
+          const idShort = shortId(screen.id);
+          const playlist = await getPlaylistName(screen.playlistId);
+          const playlistStr = playlist ? escapeForTelegramHtml(playlist) : '—';
+          const lastSeen = screen.lastSeenAt
+            ? new Date(screen.lastSeenAt).toLocaleString('ru-RU')
+            : 'никогда';
+          lines.push(`📺 ${name}\n   ID: <code>${idShort}</code>   Плейлист: ${playlistStr}\n   🕐 Последняя активность: ${lastSeen}`);
+        }
+        const title = offlineScreens.length === 1
+          ? '⚠️ <b>Экран оффлайн</b>'
+          : `⚠️ <b>Экраны оффлайн (${offlineScreens.length})</b>`;
+        const msg = title + '\n\n' + lines.join('\n\n') + linkLine;
+        try {
+          await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg, { retries: 2 });
+          logger.info('Telegram: screen offline alert sent', { count: offlineScreens.length, screens: offlineScreens.map((s) => s.name) });
+        } catch (err) {
+          logger.error('Telegram send failed', { error: err.message });
+        }
+      }
+
+      if (onlineScreens.length > 0) {
+        const lines = [];
+        for (const screen of onlineScreens) {
+          const name = escapeForTelegramHtml(screen.name);
+          const idShort = shortId(screen.id);
+          const playlist = await getPlaylistName(screen.playlistId);
+          const playlistStr = playlist ? escapeForTelegramHtml(playlist) : '—';
+          lines.push(`📺 ${name}   ID: <code>${idShort}</code>   Плейлист: ${playlistStr}`);
+        }
+        const title = onlineScreens.length === 1
+          ? '✅ <b>Экран онлайн</b>'
+          : `✅ <b>Экраны онлайн (${onlineScreens.length})</b>`;
+        const msg = title + '\n\n' + lines.join('\n') + linkLine;
+        try {
+          await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg, { retries: 2 });
+          logger.info('Telegram: screen online alert sent', { count: onlineScreens.length, screens: onlineScreens.map((s) => s.name) });
+        } catch (err) {
+          logger.error('Telegram send failed', { error: err.message });
+        }
+      }
     }
 
     if (!initialized) {

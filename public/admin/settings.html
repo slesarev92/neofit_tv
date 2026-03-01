@@ -259,6 +259,7 @@
         <div class="card-body">
           <form id="formTelegram" class="settings-form">
             <p class="hint" style="margin-bottom: 1rem;">При смене статуса экрана (онлайн/офлайн) бот отправит сообщение. Бот создаётся в <a href="https://t.me/BotFather" target="_blank">@BotFather</a>, Chat ID — через <a href="https://t.me/userinfobot" target="_blank">@userinfobot</a>.</p>
+            <p class="hint" style="margin-bottom: 1rem;">Для канала: укажите ID вида <code>-1001234567890</code> и добавьте бота в канал как администратора (право «Публикация сообщений»).</p>
             <label style="display: flex; align-items: center; gap: .5rem; cursor: pointer; margin-bottom: 1rem;"><input type="checkbox" id="telegramEnabled"> Включить уведомления</label>
             <div class="form-row">
               <div class="form-group">
@@ -272,6 +273,7 @@
             </div>
             <div class="section-actions">
               <button type="submit" class="btn btn-primary">Сохранить</button>
+              <button type="button" id="btnTelegramTest" class="btn btn-secondary" style="margin-left: 0.5rem;">Тестовое сообщение</button>
             </div>
           </form>
         </div>
