@@ -18,6 +18,8 @@ async function cleanExpired() {
   await pairRepository.removeExpired();
 }
 
+const MAX_CODE_ATTEMPTS = 50;
+
 async function init() {
   await cleanExpired();
   const existing = await pairRepository.findAll();
@@ -27,9 +29,9 @@ async function init() {
     code = generateCode();
     if (existing.some((r) => r.code === code)) code = null;
     attempts++;
-  } while (!code && attempts < 20);
+  } while (!code && attempts < MAX_CODE_ATTEMPTS);
   if (!code) {
-    code = generateCode();
+    return { ok: false, error: 'Не удалось сгенерировать код, попробуйте позже' };
   }
   const now = new Date();
   const expiresAt = new Date(now.getTime() + TTL_SEC * 1000).toISOString();

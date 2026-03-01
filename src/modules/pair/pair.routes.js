@@ -9,6 +9,9 @@ const router = Router();
 router.post('/init', async (req, res, next) => {
   try {
     const result = await pairService.init();
+    if (result.ok === false) {
+      return res.status(503).json({ error: result.error });
+    }
     res.status(201).json(result);
   } catch (err) {
     next(err);

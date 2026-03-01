@@ -50,11 +50,16 @@ async function get() {
   }
 }
 
+let saveQueue = Promise.resolve();
+
 async function save(settings) {
-  const current = await get();
-  const merged = { ...current, ...settings };
-  await fs.writeFile(SETTINGS_FILE(), JSON.stringify(merged, null, 2), 'utf-8');
-  return merged;
+  saveQueue = saveQueue.then(async () => {
+    const current = await get();
+    const merged = { ...current, ...settings };
+    await fs.writeFile(SETTINGS_FILE(), JSON.stringify(merged, null, 2), 'utf-8');
+    return merged;
+  });
+  return saveQueue;
 }
 
 module.exports = { get, save, DEFAULTS };

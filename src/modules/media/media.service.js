@@ -124,7 +124,7 @@ async function remove(id) {
     }
   }
 
-  const filePath = path.resolve(media.path);
+  const filePath = path.join(path.resolve(config.uploadsDir), media.filename);
   await fs.unlink(filePath).catch(() => {});
   await fs.unlink(filePath + '.tmp.mp4').catch(() => {});
   await mediaRepository.remove(id);

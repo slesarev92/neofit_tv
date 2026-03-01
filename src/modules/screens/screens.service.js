@@ -1,10 +1,18 @@
 const { v4: uuidv4 } = require('uuid');
 const screensRepository = require('./screens.repository');
 const settingsRepository = require('../settings/settings.repository');
+const playlistsRepository = require('../playlists/playlists.repository');
+
+function getThresholdSec(settings) {
+  if (settings.onlineThresholdMultiplier != null && Number(settings.onlineThresholdMultiplier) > 0) {
+    return (settings.pollInterval || 10) * Number(settings.onlineThresholdMultiplier);
+  }
+  return settings.onlineThreshold || (settings.pollInterval || 10) + 5;
+}
 
 function isOnline(screen, settings) {
   if (!screen.lastSeenAt) return false;
-  const thresholdSec = settings.onlineThreshold || (settings.pollInterval || 10) + 5;
+  const thresholdSec = getThresholdSec(settings);
   return (Date.now() - new Date(screen.lastSeenAt).getTime()) <= thresholdSec * 1000;
 }
 
@@ -26,13 +34,14 @@ async function getById(id) {
 }
 
 async function create(data) {
-  if (!data.name || !data.name.trim()) {
+  const name = data.name != null ? String(data.name).trim() : '';
+  if (!name) {
     return { ok: false, status: 400, error: 'Название обязательно' };
   }
 
   const screen = {
     id: uuidv4(),
-    name: data.name.trim(),
+    name,
     playlistId: data.playlistId || null,
     createdAt: new Date().toISOString(),
     lastSeenAt: null,
@@ -48,9 +57,16 @@ async function update(id, data) {
     return { ok: false, status: 404, error: 'Экран не найден' };
   }
 
+  if (data.playlistId != null && data.playlistId !== '') {
+    const playlist = await playlistsRepository.findById(data.playlistId);
+    if (!playlist) {
+      return { ok: false, status: 400, error: 'Плейлист не найден' };
+    }
+  }
+
   const updated = await screensRepository.update(id, {
-    name: data.name ? data.name.trim() : existing.name,
-    playlistId: data.playlistId !== undefined ? data.playlistId : existing.playlistId,
+    name: data.name !== undefined ? (String(data.name || '').trim() || existing.name) : existing.name,
+    playlistId: data.playlistId !== undefined ? (data.playlistId || null) : existing.playlistId,
   });
 
   return { ok: true, item: await enrichScreen(updated) };

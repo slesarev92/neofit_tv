@@ -34,7 +34,8 @@ async function getPasswordHash() {
 }
 
 async function savePasswordHash(hash) {
-  await writeData({ passwordHash: hash });
+  const data = (await readData()) || {};
+  await writeData({ ...data, passwordHash: hash });
 }
 
 module.exports = { initAuth, getPasswordHash, savePasswordHash };

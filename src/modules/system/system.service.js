@@ -99,7 +99,7 @@ async function getSystemStats() {
     cpu: { cores },
     disk,
     network,
-    uptimeSeconds: Math.floor(os.uptime()),
+    uptimeSeconds: Math.floor(process.uptime()),
     backupStatus,
   };
 }

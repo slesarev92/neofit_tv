@@ -12,7 +12,8 @@ const uploadDest = path.join(os.tmpdir(), 'signage-uploads');
 async function uploadSingle(req, res, next) {
   try {
     const settings = await settingsRepository.get();
-    const limitMb = settings.maxFileSizeMb != null ? settings.maxFileSizeMb : config.maxFileSizeMb;
+    const rawMb = settings.maxFileSizeMb != null ? settings.maxFileSizeMb : config.maxFileSizeMb;
+    const limitMb = Math.min(2000, Math.max(10, Number(rawMb) || config.maxFileSizeMb || 500));
     const upload = multer({
       dest: uploadDest,
       limits: { fileSize: limitMb * 1024 * 1024 },

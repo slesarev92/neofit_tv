@@ -6,6 +6,12 @@ function errorHandler(err, req, res, _next) {
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: 'Файл слишком большой' });
   }
+  if (err.code === 'LIMIT_FILE_COUNT') {
+    return res.status(400).json({ error: 'Слишком много файлов' });
+  }
+  if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ error: 'Недопустимое поле загрузки файла' });
+  }
 
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'Некорректный JSON' });

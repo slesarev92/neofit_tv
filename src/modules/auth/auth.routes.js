@@ -37,7 +37,7 @@ router.post('/logout', requireAuth, (req, res, next) => {
 
 router.put('/password', requireAuth, validate([
   body('currentPassword').notEmpty().withMessage('Текущий пароль обязателен'),
-  body('newPassword').notEmpty().withMessage('Новый пароль обязателен').isLength({ min: 6 }).withMessage('Новый пароль не менее 6 символов'),
+  body('newPassword').notEmpty().withMessage('Новый пароль обязателен').isLength({ min: 8 }).withMessage('Новый пароль не менее 8 символов'),
 ]), async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;

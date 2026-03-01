@@ -25,6 +25,20 @@
     return isCheckbox ? el.checked : el.value;
   }
 
+  function padTimePart(num) {
+    return num != null && num !== '' ? String(num).padStart(2, '0') : '';
+  }
+  function normalizeTimeHHMM(str) {
+    if (!str || typeof str !== 'string') return '';
+    var s = str.trim().slice(0, 5);
+    var m = /^(\d{1,2}):(\d{2})$/.exec(s);
+    if (!m) return s;
+    var h = parseInt(m[1], 10);
+    var min = parseInt(m[2], 10);
+    if (!Number.isInteger(h) || !Number.isInteger(min)) return s;
+    return padTimePart(h) + ':' + padTimePart(min);
+  }
+
   function applyToForm(s) {
     setValue('imageDuration', s.imageDuration ?? 10);
     setValue('pollInterval', s.pollInterval ?? 10);
@@ -35,8 +49,8 @@
     setValue('showLastOnError', s.showLastOnError !== false, true);
     setValue('autoReloadAt', s.autoReloadAt || '');
     setValue('workScheduleEnabled', !!s.workScheduleEnabled, true);
-    setValue('workScheduleFrom', (s.workScheduleFrom || '').slice(0, 5));
-    setValue('workScheduleTo', (s.workScheduleTo || '').slice(0, 5));
+    setValue('workScheduleFrom', normalizeTimeHHMM(s.workScheduleFrom));
+    setValue('workScheduleTo', normalizeTimeHHMM(s.workScheduleTo));
     setTimezoneSelect(s.timezone || 'Europe/Moscow');
     setOffHoursImagePreview(s.workScheduleOffImageUrl || null);
     setValue('onlineThreshold', s.onlineThreshold ?? 15);
@@ -58,7 +72,7 @@
     setValue('telegramChatId', s.telegramChatId || '');
     setValue('backupKeepCount', s.backupKeepCount != null ? s.backupKeepCount : 30);
     setValue('backupScheduleEnabled', !!s.backupScheduleEnabled, true);
-    setValue('backupScheduleTime', (s.backupScheduleTime || '03:00').slice(0, 5));
+    setValue('backupScheduleTime', normalizeTimeHHMM(s.backupScheduleTime || '03:00'));
     setValue('backupScheduleFrequency', s.backupScheduleFrequency || 'daily');
     setValue('backupScheduleWeekday', s.backupScheduleWeekday != null ? String(s.backupScheduleWeekday) : '0');
     setValue('backupScheduleMonthDays', s.backupScheduleMonthDays || '1,10,20');
@@ -166,10 +180,11 @@
   }
   function collectMedia() {
     var w = getValue('videoMaxWidth').trim();
+    var parsed = w === '' ? null : parseInt(w, 10);
     return {
       maxFileSizeMb: parseInt(getValue('maxFileSizeMb'), 10) || 500,
       videoCrf: parseInt(getValue('videoCrf'), 10) || 23,
-      videoMaxWidth: w === '' ? null : parseInt(w, 10),
+      videoMaxWidth: (parsed === 0 || parsed === null || Number.isNaN(parsed)) ? null : parsed,
     };
   }
   function collectBackup() {

@@ -10,8 +10,9 @@ const uploadDir = path.join(os.tmpdir(), 'signage-logo-uploads');
 const uploadLogoFile = multer({
   dest: uploadDir,
   limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (req, file, cb) => {
     const ok = file.mimetype && file.mimetype.startsWith('image/');
+    if (!ok) req._fileRejectedWrongType = true;
     cb(null, !!ok);
   },
 }).single('logo');
@@ -19,8 +20,9 @@ const uploadLogoFile = multer({
 const uploadOffHoursImageFile = multer({
   dest: uploadDir,
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (req, file, cb) => {
     const ok = file.mimetype && file.mimetype.startsWith('image/');
+    if (!ok) req._fileRejectedWrongType = true;
     cb(null, !!ok);
   },
 }).single('offHoursImage');
@@ -55,6 +57,12 @@ router.post('/logo', (req, res, next) => {
       }
       return next(err);
     }
+    if (req._fileRejectedWrongType) {
+      return res.status(400).json({ error: 'Недопустимый тип файла. Выберите изображение (PNG, JPG, WebP или SVG).' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не загружен' });
+    }
     next();
   });
 }, async (req, res, next) => {
@@ -76,6 +84,12 @@ router.post('/off-hours-image', (req, res, next) => {
         return res.status(413).json({ error: 'Изображение не более 5 МБ' });
       }
       return next(err);
+    }
+    if (req._fileRejectedWrongType) {
+      return res.status(400).json({ error: 'Недопустимый тип файла. Выберите изображение (PNG, JPG или WebP).' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Файл не загружен' });
     }
     next();
   });

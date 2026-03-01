@@ -61,7 +61,7 @@ function validate(data) {
     const v = Number(data.videoCrf);
     if (!Number.isInteger(v) || v < 18 || v > 28) errors.push('videoCrf: 18–28');
   }
-  if (data.videoMaxWidth !== undefined && data.videoMaxWidth !== null && data.videoMaxWidth !== '') {
+  if (data.videoMaxWidth !== undefined && data.videoMaxWidth !== null && data.videoMaxWidth !== '' && Number(data.videoMaxWidth) !== 0) {
     const v = Number(data.videoMaxWidth);
     if (!Number.isInteger(v) || v < 320 || v > 4096) errors.push('videoMaxWidth: 320–4096');
   }
@@ -109,11 +109,18 @@ async function update(data) {
   }
 
   const sanitized = {};
-  if (data.imageDuration !== undefined) sanitized.imageDuration = Number(data.imageDuration);
-  if (data.pollInterval !== undefined) sanitized.pollInterval = Number(data.pollInterval);
-  if (data.onlineThreshold !== undefined) sanitized.onlineThreshold = Number(data.onlineThreshold);
-  if (data.requestTimeout !== undefined) sanitized.requestTimeout = Number(data.requestTimeout);
-  if (data.maxRetries !== undefined) sanitized.maxRetries = Number(data.maxRetries);
+  function setNum(key, val, min, max) {
+    const v = Number(val);
+    if (!Number.isFinite(v)) return;
+    if (min != null && v < min) return;
+    if (max != null && v > max) return;
+    sanitized[key] = min != null && max != null && Number.isInteger(min) && Number.isInteger(max) ? Math.round(v) : v;
+  }
+  if (data.imageDuration !== undefined) setNum('imageDuration', data.imageDuration, 1, 3600);
+  if (data.pollInterval !== undefined) setNum('pollInterval', data.pollInterval, 5, 3600);
+  if (data.onlineThreshold !== undefined) setNum('onlineThreshold', data.onlineThreshold, 5, 300);
+  if (data.requestTimeout !== undefined) setNum('requestTimeout', data.requestTimeout, 1, 120);
+  if (data.maxRetries !== undefined) setNum('maxRetries', data.maxRetries, 0, 10);
   if (data.prefetchEnabled !== undefined) sanitized.prefetchEnabled = Boolean(data.prefetchEnabled);
   if (data.cacheEnabled !== undefined) sanitized.cacheEnabled = Boolean(data.cacheEnabled);
   if (data.showLastOnError !== undefined) sanitized.showLastOnError = Boolean(data.showLastOnError);
@@ -128,12 +135,26 @@ async function update(data) {
   if (data.systemName !== undefined) sanitized.systemName = String(data.systemName || '').trim() || 'NeoFit TV';
   if (data.logoUrl !== undefined) sanitized.logoUrl = data.logoUrl === null || data.logoUrl === '' ? null : String(data.logoUrl).trim();
   if (data.timezone !== undefined) sanitized.timezone = String(data.timezone || '').trim() || 'Europe/Moscow';
-  if (data.videoCrf !== undefined) sanitized.videoCrf = Number(data.videoCrf);
-  if (data.videoMaxWidth !== undefined) sanitized.videoMaxWidth = data.videoMaxWidth === null || data.videoMaxWidth === '' ? null : Number(data.videoMaxWidth);
-  if (data.monitorCheckIntervalSec !== undefined) sanitized.monitorCheckIntervalSec = Number(data.monitorCheckIntervalSec);
-  if (data.onlineThresholdMultiplier !== undefined) sanitized.onlineThresholdMultiplier = data.onlineThresholdMultiplier === null || data.onlineThresholdMultiplier === '' ? null : Number(data.onlineThresholdMultiplier);
-  if (data.maxFileSizeMb !== undefined) sanitized.maxFileSizeMb = Number(data.maxFileSizeMb);
-  if (data.backupKeepCount !== undefined) sanitized.backupKeepCount = Math.min(90, Math.max(10, Number(data.backupKeepCount) || 30));
+  if (data.videoCrf !== undefined) setNum('videoCrf', data.videoCrf, 18, 28);
+  if (data.videoMaxWidth !== undefined) {
+    if (data.videoMaxWidth === null || data.videoMaxWidth === '' || Number(data.videoMaxWidth) === 0) {
+      sanitized.videoMaxWidth = null;
+    } else {
+      const v = Number(data.videoMaxWidth);
+      if (Number.isInteger(v) && v >= 320 && v <= 4096) sanitized.videoMaxWidth = v;
+    }
+  }
+  if (data.monitorCheckIntervalSec !== undefined) setNum('monitorCheckIntervalSec', data.monitorCheckIntervalSec, 5, 120);
+  if (data.onlineThresholdMultiplier !== undefined) {
+    if (data.onlineThresholdMultiplier === null || data.onlineThresholdMultiplier === '') {
+      sanitized.onlineThresholdMultiplier = null;
+    } else {
+      const v = Number(data.onlineThresholdMultiplier);
+      if (Number.isFinite(v) && v >= 1 && v <= 5) sanitized.onlineThresholdMultiplier = v;
+    }
+  }
+  if (data.maxFileSizeMb !== undefined) setNum('maxFileSizeMb', data.maxFileSizeMb, 10, 2000);
+  if (data.backupKeepCount !== undefined) sanitized.backupKeepCount = Math.min(90, Math.max(10, Math.round(Number(data.backupKeepCount)) || 30));
   if (data.backupScheduleEnabled !== undefined) sanitized.backupScheduleEnabled = Boolean(data.backupScheduleEnabled);
   if (data.backupScheduleTime !== undefined) sanitized.backupScheduleTime = (data.backupScheduleTime === null || data.backupScheduleTime === '') ? '03:00' : String(data.backupScheduleTime).trim();
   if (data.backupScheduleFrequency !== undefined) sanitized.backupScheduleFrequency = ['daily', 'weekly', 'monthly'].includes(data.backupScheduleFrequency) ? data.backupScheduleFrequency : 'daily';

@@ -58,8 +58,8 @@ async function update(id, data) {
     return { ok: false, status: 404, error: 'Плейлист не найден' };
   }
 
-  if (data.name !== undefined && !data.name.trim()) {
-    return { ok: false, status: 400, error: 'Название обязательно' };
+  if (data.name !== undefined && (!data.name || !String(data.name).trim())) {
+    return { ok: false, status: 400, error: 'Название не может быть пустым' };
   }
 
   if (data.items) {
@@ -70,7 +70,7 @@ async function update(id, data) {
   }
 
   const updated = await playlistsRepository.update(id, {
-    name: data.name ? data.name.trim() : existing.name,
+    name: data.name !== undefined ? (String(data.name || '').trim() || existing.name) : existing.name,
     items: data.items ? buildItems(data.items) : existing.items,
   });
 
