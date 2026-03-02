@@ -45,6 +45,8 @@ async function checkScreens() {
     } else {
       thresholdSec = settings.onlineThreshold || (settings.pollInterval || 10) + 5;
     }
+    const minThreshold = (settings.pollInterval || 10) * 2;
+    thresholdSec = Math.max(thresholdSec, minThreshold);
 
     const offlineScreens = [];
     const onlineScreens = [];

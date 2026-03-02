@@ -7,34 +7,6 @@
 
   window.DOCS_SECTIONS = [
     {
-      id: 'about',
-      title: 'О проекте',
-      icon: '🏠',
-      group: 'Начало работы',
-      content: '<p>NeoFit TV — система управления контентом на цифровых экранах. Администратор загружает медиафайлы, собирает плейлисты и назначает их на экраны; устройства (браузер или Android APK) воспроизводят контент по кругу.</p>' +
-        '<h4>Схема работы</h4>' +
-        '<p>Администратор загружает медиафайлы в разделе «Медиа» → собирает плейлисты в разделе «Плейлисты» → создаёт экраны и назначает им плейлисты в разделе «Экраны» → на каждом устройстве открывается ссылка плеера; Android-приставки или браузер воспроизводят контент.</p>' +
-        '<h4>Две роли</h4>' +
-        '<ul><li><strong>Администратор</strong> — эта панель: вход по паролю, управление медиа, плейлистами, экранами и настройками.</li>' +
-        '<li><strong>Плеер</strong> — страница на TV или приставке: без входа, только воспроизведение контента по назначенному плейлисту.</li></ul>' +
-        '<h4>Тёмная тема</h4>' +
-        '<p>Переключатель светлой/тёмной темы находится в левой панели (внизу, над кнопкой «Выйти»). Выбор сохраняется и применяется ко всем страницам админки, включая эту инструкцию.</p>'
-    },
-    {
-      id: 'quickstart',
-      title: 'Быстрый старт',
-      icon: '🚀',
-      group: 'Начало работы',
-      content: '<p>Минимальный сценарий запуска за 5 шагов:</p>' +
-        '<div class="docs-steps">' +
-        '<div class="docs-step"><div class="docs-step-content">Загрузите медиафайлы в разделе <strong>Медиа</strong> (изображения или видео). Дождитесь статуса «Готово» у видео, если включена оптимизация.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Создайте плейлист в разделе <strong>Плейлисты</strong>, добавьте в него файлы и при необходимости измените порядок перетаскиванием.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Создайте экран в разделе <strong>Экраны</strong> и назначьте ему только что созданный плейлист.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Откройте ссылку плеера на устройстве (кнопка «Скопировать ссылку» на карточке экрана). Вставьте URL в браузер на приставке или откройте через APK.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Убедитесь, что в разделе «Экраны» у этого экрана отображается статус 🟢 Онлайн — значит плеер успешно подключился.</div></div>' +
-        '</div>'
-    },
-    {
       id: 'media',
       title: 'Медиафайлы',
       icon: '🎬',
@@ -110,80 +82,92 @@
       icon: '📱',
       group: 'Устройства',
       content: '<h4>Зачем нужен APK</h4>' +
-        '<p>Нативное приложение обеспечивает автозапуск при включении питания, киоск-режим (блокировка кнопки «Назад»), надёжный Wake Lock (экран не гаснет) и загрузку URL с флешки.</p>' +
+        '<p>Нативное приложение обеспечивает автозапуск при включении питания, киоск-режим (блокировка кнопки «Назад»), удержание экрана включённым (FLAG_KEEP_SCREEN_ON), привязку к экрану по коду/QR и загрузку конфигурации с флешки.</p>' +
         '<h4>Установка</h4>' +
-        '<p>Скачайте <code>neofit_tv.apk</code> из админки (ссылка «Загрузить APK» в меню) или скопируйте файл на флешку и установите на приставке через файловый менеджер.</p>' +
-        '<h4>Первый запуск</h4>' +
-        '<p>Откроется экран настроек (SettingsActivity): введите <strong>URL сервера</strong> (например <code>https://ваш-сервер</code>) и <strong>ID экрана</strong> (скопируйте из раздела «Экраны»). Сохраните и запустите плеер.</p>' +
-        '<h4>Привязка через флешку</h4>' +
-        '<p>Создайте на флешке текстовый файл <code>.txt</code> с одной строкой — полный URL плеера (например <code>https://ваш-сервер/player/index.html?id=uuid-экрана</code>). Вставьте флешку в приставку, откройте файл через файловый менеджер и выберите приложение NeoFit TV — URL применится автоматически.</p>' +
+        '<p>Скачайте <code>neofit_tv.apk</code> из админки (ссылка «Загрузить APK» в меню; требуется авторизация) или скопируйте файл на флешку и установите на приставке через файловый менеджер. Рекомендуется устанавливать как обычное приложение (не в системный раздел).</p>' +
+        '<h4>Первый запуск и привязка к экрану</h4>' +
+        '<p>Откроется экран <strong>привязки</strong>: введите <strong>URL сервера</strong> (например <code>https://ваш-сервер</code>) и нажмите <strong>«Получить код»</strong>. На экране появятся шестизначный код и QR-код. В админ-панели откройте страницу <strong>«Привязка»</strong>, введите этот код (или отсканируйте QR с телефона — откроется страница привязки в браузере), выберите экран и нажмите «Привязать». Приложение на приставке автоматически получит ссылку плеера и откроет воспроизведение.</p>' +
+        '<p>Либо нажмите <strong>«Ручная настройка»</strong> — откроется экран, где можно ввести URL сервера и ID экрана вручную (ID берётся из раздела «Экраны» в админке), затем «Сохранить и запустить».</p>' +
+        '<h4>Конфигурация с флешки (USB)</h4>' +
+        '<p>Создайте в корне флешки файл <strong><code>signage.txt</code></strong>. Поддерживаются форматы:</p>' +
+        '<ul>' +
+        '<li><strong>Одна строка</strong> — полный URL плеера, например: <code>https://ваш-сервер/player/index.html?id=uuid-экрана</code>.</li>' +
+        '<li><strong>Properties (key=value)</strong>: строка <code>player_url=полный_URL</code> либо пары <code>server_url=URL_сервера</code> и <code>screen_id=ID_экрана</code>.</li>' +
+        '</ul>' +
+        '<p>Вставьте флешку в приставку при запущенном приложении — конфигурация применится автоматически (приложение перезапустит плеер с новым URL). Если файл не найден или формат неверный, появится сообщение об ошибке.</p>' +
         '<h4>Автозапуск</h4>' +
-        '<p>После настройки приложение автоматически запускается при включении питания (если на приставке включён автозапуск при загрузке системы).</p>' +
+        '<p>После настройки приложение автоматически запускается при включении питания (BootReceiver + LaunchService; на части приставок может потребоваться включить автозапуск приложений в прошивке).</p>' +
         '<h4>Киоск-режим</h4>' +
-        '<p>Кнопка «Назад» заблокирована, приложение работает как единственный активный экран.</p>' +
+        '<p>Кнопка «Назад» заблокирована на главном экране плеера. Выход из приложения — через настройки Android (смена приложения) или перезагрузка.</p>' +
         '<h4>PIN и вход в настройки</h4>' +
-        '<p>Приложение используется на ТВ (приставка выводит изображение на экран по HDMI). У ТВ нет сенсорного экрана, поэтому способ «удержание пальца 5 секунд» на таком устройстве недоступен.</p>' +
+        '<p>На главном экране плеера: <strong>удержание 5 секунд</strong> по экрану открывает запрос PIN; после ввода правильного PIN — экран настроек (URL, ID экрана, смена PIN). На ТВ без сенсора используйте пульт или ADB.</p>' +
         '<p><strong>Как попасть в настройки на ТВ/приставке:</strong></p>' +
         '<ul>' +
-        '<li><strong>Через ADB</strong> — подключитесь к приставке по USB или по сети и выполните: <code>adb shell am start -n com.signage.player/.SettingsActivity</code>. Откроется экран настроек (URL сервера, ID экрана, смена PIN).</li>' +
-        '<li><strong>Через сброс</strong> — удалите данные приложения NeoFit TV в настройках Android или переустановите APK. При следующем запуске откроется экран настроек (приложение не найдёт сохранённый URL). После ввода URL и screenId можно снова сохранить и запустить плеер.</li>' +
+        '<li><strong>Через ADB</strong> — выполните: <code>adb shell am start -n com.signage.player/.SettingsActivity</code>. Откроется экран настроек.</li>' +
+        '<li><strong>Через сброс</strong> — удалите данные приложения или переустановите APK. При следующем запуске снова откроется экран привязки.</li>' +
         '</ul>' +
-        '<p><strong>Про PIN:</strong></p>' +
-        '<ul>' +
-        '<li><strong>PIN по умолчанию</strong>: <code>1234</code>. Хранится только на устройстве, на сервер не передаётся. Нужен для входа в настройки при открытии через ADB (если ранее уже заходили и сменили PIN).</li>' +
-        '<li><strong>При первом входе в настройки</strong> (например после сброса или первого запуска через ADB) приложение может потребовать сменить PIN (минимум 4 цифры).</li>' +
-        '<li><strong>Смена PIN</strong>: в экране настроек есть кнопка «Сменить PIN» — вводится текущий PIN, затем новый (не короче 4 цифр).</li>' +
-        '<li><strong>Если PIN забыт</strong> — снова откройте настройки через ADB (команда выше) или удалите данные приложения / переустановите APK; после этого PIN станет 1234.</li>' +
-        '</ul>'
+        '<p><strong>Про PIN:</strong> по умолчанию <code>1234</code> (хранится только на устройстве). При первом входе в настройки может потребоваться сменить PIN (минимум 4 цифры). Смена PIN — кнопка «Сменить PIN» в настройках. Если PIN забыт — откройте настройки через ADB или сбросьте данные приложения.</p>' +
+        '<h4>Если приложение вылетает на приставке</h4>' +
+        '<p>На некоторых TV-приставках возможны падения (часто из‑за WebView). Приложение пишет лог краша в файл. Чтобы получить его: <code>adb pull /data/data/com.signage.player/files/crash_log.txt</code>. По стеку ошибки можно понять причину. Рекомендуется установить приложение как обычное (не системное) и при необходимости обновить «Android System WebView» в магазине приложений. При ошибке инициализации может показываться экран с кнопкой «Открыть настройки» вместо вылета.</p>'
     },
     {
       id: 'pairing',
       title: 'Привязка через QR',
       icon: '🔗',
       group: 'Устройства',
-      content: '<p>Привязка устройства к экрану по QR-коду без ручного ввода URL и ID:</p>' +
+      content: '<p>Привязка устройства к экрану по коду или QR без ручного ввода URL и ID экрана.</p>' +
+        '<h4>Если привязываете приставку с установленным APK</h4>' +
         '<div class="docs-steps">' +
-        '<div class="docs-step"><div class="docs-step-content">Откройте в админ-панели страницу <strong>Привязка</strong> (или перейдите по ссылке из раздела «Экраны»).</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Система сгенерирует шестизначный код и покажет QR. Код действует <strong>10 минут</strong>.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Отсканируйте QR-код телефоном — откроется страница привязки.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Если потребуется — войдите в панель (логин по паролю).</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Выберите существующий экран из списка или создайте новый, введя название.</div></div>' +
-        '<div class="docs-step"><div class="docs-step-content">Нажмите «Привязать» — устройство будет связано с выбранным экраном. На приставке откройте полученную ссылку плеера.</div></div>' +
+        '<div class="docs-step"><div class="docs-step-content">На приставке откройте приложение NeoFit TV. На экране привязки введите URL сервера и нажмите <strong>«Получить код»</strong> — появятся шестизначный код и QR.</div></div>' +
+        '<div class="docs-step"><div class="docs-step-content">В админ-панели откройте страницу <strong>Привязка</strong>. Введите код с приставки или отсканируйте QR телефоном (откроется страница привязки в браузере с подставленным кодом).</div></div>' +
+        '<div class="docs-step"><div class="docs-step-content">При необходимости войдите в панель. Выберите существующий экран или создайте новый, нажмите <strong>«Привязать»</strong>.</div></div>' +
+        '<div class="docs-step"><div class="docs-step-content">Приложение на приставке само получит связь с экраном и откроет плеер (опрос сервера идёт автоматически).</div></div>' +
         '</div>' +
-        '<div class="docs-warning"><strong>Если код истёк</strong> — обновите страницу привязки в админке, чтобы получить новый код и новый QR.</div>'
+        '<h4>Если открываете привязку из админки (без приставки)</h4>' +
+        '<div class="docs-steps">' +
+        '<div class="docs-step"><div class="docs-step-content">Откройте страницу <strong>Привязка</strong>. Система сгенерирует шестизначный код и покажет QR. Код действует <strong>10 минут</strong>.</div></div>' +
+        '<div class="docs-step"><div class="docs-step-content">Отсканируйте QR или перейдите по ссылке с кодом, войдите в панель при необходимости, выберите экран и нажмите «Привязать». Ссылку плеера нужно будет открыть на устройстве вручную (браузер или APK с ручной настройкой).</div></div>' +
+        '</div>' +
+        '<div class="docs-warning"><strong>Если код истёк</strong> — на приставке снова нажмите «Получить код» или обновите страницу привязки в админке.</div>'
     },
     {
       id: 'settings',
       title: 'Настройки',
       icon: '⚙️',
       group: 'Система',
-      content: '<h4>Воспроизведение</h4>' +
-        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>По умолчанию</th></tr></thead><tbody>' +
-        '<tr><td>Длительность картинок</td><td>Секунды показа одного изображения</td><td>10</td></tr>' +
-        '<tr><td>Интервал опроса</td><td>Как часто плеер запрашивает обновления (сек)</td><td>10</td></tr>' +
-        '<tr><td>Порог онлайна</td><td>Через сколько секунд без ответа экран считается офлайн</td><td>15</td></tr>' +
-        '<tr><td>Таймаут запроса</td><td>Таймаут HTTP-запроса плеера (сек)</td><td>10</td></tr>' +
-        '<tr><td>Макс. повторов</td><td>Попыток при ошибке сети</td><td>3</td></tr>' +
-        '<tr><td>Предзагрузка</td><td>Загружать следующий файл заранее</td><td>Вкл</td></tr>' +
-        '<tr><td>Кэширование</td><td>Service Worker кэш</td><td>Вкл</td></tr>' +
-        '<tr><td>Показ при ошибке</td><td>Показывать последний успешный кадр при ошибке</td><td>Вкл</td></tr>' +
+      content: '<h4>Воспроизведение (плеер)</h4>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>Типичные значения</th></tr></thead><tbody>' +
+        '<tr><td>Длительность картинок</td><td>Сколько секунд показывать каждое изображение. Для видео не используется — длительность берётся из файла.</td><td>5–15 сек</td></tr>' +
+        '<tr><td>Интервал опроса</td><td>Как часто плеер ходит на <code>/api/player/:screenId</code> за плейлистом и настройками. Чем меньше — тем быстрее реакция на изменения, но выше нагрузка. Новый интервал применяется после следующего успешного ответа.</td><td>10–60 сек</td></tr>' +
+        '<tr><td>Таймаут запроса</td><td>Сколько секунд ждать ответа от сервера перед ошибкой. При превышении плеер повторяет запрос с экспоненциальной задержкой.</td><td>10–20 сек</td></tr>' +
+        '<tr><td>Макс. повторов</td><td>Сколько раз подряд повторять неудачный запрос, прежде чем показать плейсхолдер или последний плейлист.</td><td>3–5</td></tr>' +
+        '<tr><td>Предзагрузка следующего слайда</td><td>Включает prefetch следующей картинки/видео в фоне, чтобы при переключении не было задержки.</td><td>Обычно включено</td></tr>' +
+        '<tr><td>Кэширование контента</td><td>Service Worker кэширует файлы из <code>/uploads/</code> по стратегии Cache First. При повторном показе загрузка идёт из кэша, без обращения к серверу.</td><td>Обычно включено</td></tr>' +
+        '<tr><td>При потере связи показывать последний плейлист</td><td>Если сервер недоступен, плеер продолжает крутить последний успешно полученный плейлист вместо пустого экрана.</td><td>Обычно включено</td></tr>' +
         '</tbody></table></div>' +
-        '<h4>Расписание</h4>' +
+        '<h4>Мониторинг экранов</h4>' +
+        '<p>Статус онлайн/офлайн определяется по разнице между текущим временем и полем <code>lastSeenAt</code> экрана. Поле обновляется при каждом успешном запросе плеера к <code>/api/player/:screenId</code>.</p>' +
         '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>По умолчанию</th></tr></thead><tbody>' +
-        '<tr><td>Время перезагрузки</td><td>Ночная перезагрузка страницы плеера (ЧЧ:ММ)</td><td>04:00</td></tr>' +
-        '<tr><td>Начало работы</td><td>Экран «включается» в это время</td><td>—</td></tr>' +
-        '<tr><td>Конец работы</td><td>Экран «выключается» в это время</td><td>—</td></tr>' +
-        '<tr><td>Часовой пояс</td><td>Для расчёта расписания (IANA)</td><td>Europe/Moscow</td></tr>' +
+        '<tr><td>Порог онлайна (сек)</td><td>Если от экрана не было heartbeat дольше этого порога, он считается офлайн. Внутри системы фактический порог не меньше чем <code>2 × интервал опроса</code>, чтобы избежать мигания.</td><td>30</td></tr>' +
+        '<tr><td>Множитель порога</td><td>Если задан (1–5): порог = <code>интервал опроса × множитель</code>. Удобно: при смене интервала порог подстраивается автоматически.</td><td>—</td></tr>' +
+        '</tbody></table></div>' +
+        '<h4>Расписание работы</h4>' +
+        '<p>Позволяет «гасить» экраны вне рабочего времени, показывая чёрный экран или заставку.</p>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>Замечания</th></tr></thead><tbody>' +
+        '<tr><td>Время перезагрузки плеера</td><td>Раз в сутки страница плеера перезагружается в указанное время. Очищает утечки памяти браузера.</td><td>По умолчанию 04:00</td></tr>' +
+        '<tr><td>Начало / конец работы</td><td>Интервал ЧЧ:ММ, в который экран считается «рабочим». Вне окна — чёрный экран или заставка.</td><td>Если не указаны — расписание не используется</td></tr>' +
+        '<tr><td>Часовой пояс</td><td>IANA‑таймзона для расчёта текущего времени расписания.</td><td>Europe/Moscow</td></tr>' +
+        '<tr><td>Заставка «вне часов»</td><td>Изображение вместо чёрного экрана, когда экран «выключен» по расписанию.</td><td>Загружается через настройки, хранится в <code>uploads/</code></td></tr>' +
         '</tbody></table></div>' +
         '<h4>Медиа</h4>' +
-        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>По умолчанию</th></tr></thead><tbody>' +
-        '<tr><td>CRF видео</td><td>Качество сжатия (18 = лучше качество, 28 = меньше размер)</td><td>23</td></tr>' +
-        '<tr><td>Макс. размер файла</td><td>МБ</td><td>500</td></tr>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>Рекомендации</th></tr></thead><tbody>' +
+        '<tr><td>CRF видео</td><td>Качество перекодирования ffmpeg (H.264): чем ниже — тем выше качество и размер; чем выше — тем сильнее сжатие.</td><td>18–26; 23 — компромисс по умолчанию</td></tr>' +
+        '<tr><td>Макс. размер файла (МБ)</td><td>Ограничение на загрузку медиа. Отсекает слишком тяжёлые файлы на этапе upload.</td><td>500 МБ по умолчанию</td></tr>' +
         '</tbody></table></div>' +
         '<h4>Система</h4>' +
-        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>По умолчанию</th></tr></thead><tbody>' +
-        '<tr><td>Название системы</td><td>Отображается в шапке админки</td><td>NeoFit TV</td></tr>' +
-        '<tr><td>Логотип</td><td>URL или загрузка файла</td><td>—</td></tr>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>Примечания</th></tr></thead><tbody>' +
+        '<tr><td>Название системы</td><td>Текст в шапке админки и заголовках вкладок.</td><td>Можно поставить название компании / сети экранов</td></tr>' +
+        '<tr><td>Логотип</td><td>Картинка в левой панели админки.</td><td>Хранится в <code>uploads/</code>, путь в <code>settings.json</code></td></tr>' +
         '</tbody></table></div>'
     },
     {
@@ -208,16 +192,16 @@
       icon: '💾',
       group: 'Система',
       content: '<h4>Что копируется</h4>' +
-        '<p>Папка <code>data/</code> (все JSON: настройки, медиа-метаданные, плейлисты, экраны, авторизация, очередь обработки, привязки) и файлы логотипа и заставки «вне часов» из <code>uploads/</code>.</p>' +
+        '<p>Папка <code>data/</code> (настройки, медиа-метаданные, плейлисты, экраны, авторизация, очередь обработки видео, привязки) и служебные изображения (логотип, заставка «вне часов») из <code>uploads/</code>. Сами медиафайлы в бэкап не входят — хранятся в <code>uploads/</code> на диске.</p>' +
         '<h4>Ручной запуск</h4>' +
         '<div class="docs-code-wrap"><pre class="docs-code">npm run backup</pre></div>' +
-        '<p>Создаётся архив в папке <code>backups/</code> с именем <code>backup-YYYY-MM-DD-HH-mm.tar.gz</code>.</p>' +
+        '<p>Создаётся архив в папке <code>backups/</code> с именем <code>backup-YYYY-MM-DD-HH-mm.tar.gz</code>. Либо из панели: Настройки → Бэкапы → кнопка создания бэкапа.</p>' +
         '<h4>Автоматический бэкап</h4>' +
-        '<p>В настройках во вкладке «Бэкапы» можно включить расписание: время запуска, частота (ежедневно / еженедельно / по дням месяца). Используется часовой пояс из раздела «Расписание». Расписание выполняется пока запущен сервер (например под PM2).</p>' +
+        '<p>В настройках во вкладке «Бэкапы»: включите расписание, укажите время (ЧЧ:ММ) и частоту — <strong>ежедневно</strong>, <strong>еженедельно</strong> (день недели) или <strong>по дням месяца</strong> (например 1, 10, 20). Используется часовой пояс из раздела «Расписание». Расписание выполняется, пока запущен сервер (PM2 и т.п.).</p>' +
         '<h4>Хранение</h4>' +
-        '<p>Архивы лежат в папке <code>backups/</code>. Количество хранимых архивов настраивается (10–90). Старые удаляются автоматически.</p>' +
+        '<p>Архивы в папке <code>backups/</code>. Количество хранимых архивов: 10–90 (настраивается). Старые удаляются автоматически.</p>' +
         '<h4>Восстановление</h4>' +
-        '<p>Из панели: Настройки → Бэкапы → «Загрузить бэкап» → выбрать архив → восстановить. Либо на сервере: <code>tar -xzf backups/backup-YYYY-MM-DD-HH-mm.tar.gz -C /путь/к/проекту</code>. После восстановления перезапустите приложение.</p>'
+        '<p>Из панели: Настройки → Бэкапы → выберите архив и нажмите «Восстановить». Либо на сервере: <code>tar -xzf backups/backup-YYYY-MM-DD-HH-mm.tar.gz -C /путь/к/проекту</code>. После восстановления перезапустите приложение.</p>'
     },
     {
       id: 'reset-password',
@@ -267,58 +251,133 @@
       title: 'Техническая архитектура',
       icon: '🔧',
       group: 'Разработчику',
-      content: '<h4>Схема</h4>' +
-        '<p>Браузер или APK → Nginx (порт 443, HTTPS) → Node.js (порт 3000).</p>' +
-        '<h4>Три слоя бэкенда</h4>' +
-        '<ul><li><strong>Routes</strong> — валидация входных данных, вызов сервисов, формирование ответа.</li>' +
-        '<li><strong>Services</strong> — бизнес-логика (проверки, расчёты, оркестрация).</li>' +
-        '<li><strong>Repositories</strong> — чтение и запись JSON-файлов на диске.</li></ul>' +
-        '<h4>Модули</h4>' +
-        '<p>auth, media, playlists, screens, player, pair, settings, system, backup.</p>'
+      content: '<h4>Общая схема</h4>' +
+        '<p><strong>Клиенты</strong>: браузерный плеер (<code>/player/index.html</code>) и Android APK. Оба периодически обращаются к API плеера <code>/api/player/:screenId</code> за плейлистом и настройками и обновляют <code>lastSeenAt</code> экрана.</p>' +
+        '<p><strong>Сервер</strong>: Node.js (Express) на порту 3000, за ним — Nginx (443/HTTPS). Данные хранятся в JSON‑файлах в папке <code>data/</code>, медиафайлы — в <code>uploads/</code>.</p>' +
+        '<h4>Слои бэкенда</h4>' +
+        '<ul>' +
+        '<li><strong>Routes</strong> — Express‑роутеры: принимают HTTP‑запросы, валидируют входные данные (<code>express-validator</code>), вызывают сервисы, формируют JSON‑ответ.</li>' +
+        '<li><strong>Services</strong> — бизнес‑логика: проверки, расчёты, оркестрация нескольких репозиториев, обновление heartbeat, запуск бэкапов и т.п.</li>' +
+        '<li><strong>Repositories</strong> — работа с диском: чтение/запись JSON через <code>fs</code> и атомарную запись (<code>writeJsonAtomic</code>), плюс in‑memory кэш (данные перечитываются из файла только при холодном старте).</li>' +
+        '</ul>' +
+        '<h4>Основные модули</h4>' +
+        '<ul>' +
+        '<li><code>auth</code> — авторизация по одному паролю администратора (bcrypt‑хеш в <code>data/auth.json</code>). Сессии хранятся в файлах (<code>session-file-store</code>).</li>' +
+        '<li><code>media</code> — загрузка и обработка медиа: <code>media.processor.js</code> (sharp для изображений, ffmpeg для видео), <code>video.queue.js</code> (очередь перекодирования, восстановление при рестарте).</li>' +
+        '<li><code>playlists</code> — CRUD плейлистов, порядок элементов, связь с медиа. При удалении медиафайла он автоматически убирается из всех плейлистов.</li>' +
+        '<li><code>screens</code> — экраны, назначение плейлистов, <code>screens.service.getThresholdSec()</code> для расчёта онлайн‑статуса, <code>screens.monitor.js</code> — периодическая проверка + Telegram‑уведомления.</li>' +
+        '<li><code>player</code> — API, который отдаёт плееру текущий плейлист и настройки, и обновляет <code>lastSeenAt</code> (heartbeat). Один маршрут: <code>GET /api/player/:screenId</code>.</li>' +
+        '<li><code>pair</code> — привязка устройств: генерация 6‑символьных кодов с TTL 10 минут, подтверждение с выбором/созданием экрана, хранение в <code>data/pairing.json</code>.</li>' +
+        '<li><code>settings</code> — глобальные настройки плеера и системы (интервалы, расписание, Telegram, бэкап, логотип). При сохранении перепланируется расписание бэкапа.</li>' +
+        '<li><code>system</code> — системная статистика для дашборда: нагрузка CPU, память (RSS процесса + системная ОЗУ), свободное место на диске.</li>' +
+        '<li><code>backup</code> — запуск, расписание (<code>node-cron</code>) и восстановление бэкапов. Скрипт <code>scripts/backup.js</code> создаёт tar.gz‑архив, планировщик вызывает его по расписанию из настроек.</li>' +
+        '</ul>' +
+        '<h4>Жизненный цикл обновления плейлиста</h4>' +
+        '<ol>' +
+        '<li>Админ меняет плейлист или назначение плейлиста экрану → сохраняются <code>data/playlists.json</code> и/или <code>data/screens.json</code> (и обновляется in‑memory кэш репозитория).</li>' +
+        '<li>Плеер при следующем опросе вызывает <code>GET /api/player/:screenId</code> → <code>player.service.getPlayerData()</code> читает актуальный плейлист и настройки из кэша и обновляет <code>lastSeenAt</code>.</li>' +
+        '<li>В <code>player.js</code> сравнивается <code>JSON.stringify</code> старого и нового плейлиста; если есть различия — плейлист перезапускается с первого элемента.</li>' +
+        '<li>Новый <code>pollInterval</code> из настроек применяется к следующему циклу опроса (не к текущему).</li>' +
+        '</ol>' +
+        '<h4>Переменные окружения (<code>.env</code>)</h4>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Переменная</th><th>Описание</th><th>По умолчанию</th></tr></thead><tbody>' +
+        '<tr><td><code>PORT</code></td><td>Порт HTTP‑сервера</td><td>3000</td></tr>' +
+        '<tr><td><code>NODE_ENV</code></td><td>development / production</td><td>development</td></tr>' +
+        '<tr><td><code>BASE_URL</code></td><td>Внешний URL (включая протокол). Если начинается с <code>https</code> — cookie ставится с флагом <code>secure</code>. Для локальной работы используйте <code>http://localhost:3000</code>.</td><td>—</td></tr>' +
+        '<tr><td><code>SESSION_SECRET</code></td><td>Секрет для подписи сессий. Должен быть длинной случайной строкой.</td><td>dev-fallback-secret</td></tr>' +
+        '<tr><td><code>SESSION_MAX_AGE_MS</code></td><td>Время жизни сессии (мс)</td><td>86400000 (24 ч)</td></tr>' +
+        '<tr><td><code>MAX_FILE_SIZE_MB</code></td><td>Макс. размер загружаемого файла</td><td>500</td></tr>' +
+        '<tr><td><code>INITIAL_ADMIN_PASSWORD</code></td><td>Пароль при первом запуске (если <code>auth.json</code> не существует)</td><td>changeme</td></tr>' +
+        '</tbody></table></div>'
     },
     {
       id: 'file-structure',
       title: 'Структура файлов',
       icon: '📁',
       group: 'Разработчику',
-      content: '<p>Ключевые файлы и папки:</p>' +
+      content: '<p>Ключевые файлы и папки бэкенда и фронтенда:</p>' +
         '<ul>' +
-        '<li><code>server.js</code> — точка входа Express</li>' +
-        '<li><code>src/config/index.js</code> — конфигурация (единственное место чтения process.env)</li>' +
-        '<li><code>src/middleware/</code> — auth, rateLimit, validate, errorHandler</li>' +
-        '<li><code>src/modules/auth/</code> — аутентификация (routes, service, repository)</li>' +
-        '<li><code>src/modules/media/</code> — медиафайлы, media.processor.js (sharp, ffmpeg), video.queue.js</li>' +
-        '<li><code>src/modules/playlists/</code> — плейлисты</li>' +
-        '<li><code>src/modules/screens/</code> — экраны, screens.monitor.js (мониторинг и Telegram)</li>' +
-        '<li><code>src/modules/player/</code> — публичный API плеера</li>' +
-        '<li><code>src/modules/pair/</code> — привязка устройств (QR, коды)</li>' +
-        '<li><code>src/modules/settings/</code> — глобальные настройки</li>' +
-        '<li><code>src/modules/system/</code> — системная статистика (память, диск, бэкап)</li>' +
-        '<li><code>src/modules/backup/</code> — резервное копирование (routes, service, scheduler)</li>' +
-        '<li><code>data/</code> — auth.json, media.json, playlists.json, screens.json, settings.json, pairing.json, processing-queue.json, backup-status.json</li>' +
-        '<li><code>uploads/</code> — загруженные медиа и служебные изображения (логотип, заставка)</li>' +
-        '<li><code>public/</code> — статика: admin/, player/, pair/, login.html, js/, css/</li>' +
-        '<li><code>scripts/</code> — backup.js, reset-password.js, setup-cron.sh</li>' +
+        '<li><code>server.js</code> — точка входа Express: инициализация middleware, сессий, роутов, мониторинга экранов и очереди видео.</li>' +
+        '<li><code>.env</code> — переменные окружения (PORT, BASE_URL, SESSION_SECRET и пр.). Не коммитится в git.</li>' +
+        '<li><code>src/config/index.js</code> — единое место чтения <code>process.env</code> и вычисления <code>cookieSecure</code>, путей <code>dataDir</code>/<code>uploadsDir</code>.</li>' +
+        '<li><code>src/middleware/</code> — общие middleware:' +
+        '<ul>' +
+        '<li><code>auth.js</code> — проверка <code>req.session.authenticated</code>, редирект 401.</li>' +
+        '<li><code>rateLimit.js</code> — rate limiter для <code>/api/auth/login</code> (10 попыток / 15 мин).</li>' +
+        '<li><code>validate.js</code> — обёртка над <code>express-validator</code>: собирает ошибки и возвращает 400.</li>' +
+        '<li><code>errorHandler.js</code> — глобальный обработчик ошибок, логирование через winston.</li>' +
+        '</ul>' +
+        '</li>' +
+        '<li><code>src/modules/auth/</code> — аутентификация:' +
+        '<ul>' +
+        '<li><code>auth.routes.js</code> — <code>POST /login</code>, <code>POST /logout</code>, <code>PUT /password</code>.</li>' +
+        '<li><code>auth.service.js</code> — <code>bcrypt.compare</code> для проверки пароля, смена пароля.</li>' +
+        '<li><code>auth.repository.js</code> — чтение/запись <code>data/auth.json</code>, создание первого пароля при инициализации.</li>' +
+        '</ul>' +
+        '</li>' +
+        '<li><code>src/modules/media/</code> — медиафайлы:' +
+        '<ul>' +
+        '<li><code>media.routes.js</code> — загрузка (multer), список, удаление.</li>' +
+        '<li><code>media.service.js</code> — проверки типа файла (magic bytes), связь с плейлистами при удалении, запуск очереди обработки.</li>' +
+        '<li><code>media.repository.js</code> — хранение метаданных в <code>data/media.json</code>.</li>' +
+        '<li><code>media.processor.js</code> — перекодирование: sharp (сжатие изображений), ffmpeg (H.264, удаление звука).</li>' +
+        '<li><code>video.queue.js</code> — очередь задач перекодирования видео, восстановление незавершённых задач после рестарта.</li>' +
+        '</ul>' +
+        '</li>' +
+        '<li><code>src/modules/playlists/</code> — CRUD плейлистов, порядок элементов, дублирование. При удалении проверяет назначение на экраны.</li>' +
+        '<li><code>src/modules/screens/</code> — экраны:' +
+        '<ul>' +
+        '<li><code>screens.service.js</code> — CRUD, назначение плейлиста, <code>getThresholdSec()</code> для расчёта онлайна, <code>updateHeartbeat()</code>.</li>' +
+        '<li><code>screens.monitor.js</code> — периодическая проверка статусов + отправка Telegram‑уведомлений при переходе онлайн/офлайн.</li>' +
+        '</ul>' +
+        '</li>' +
+        '<li><code>src/modules/player/</code> — публичный API плеера: <code>GET /api/player/:screenId</code> → плейлист + настройки + heartbeat.</li>' +
+        '<li><code>src/modules/pair/</code> — привязка устройств: генерация кодов, TTL 10 мин, подтверждение с выбором/созданием экрана.</li>' +
+        '<li><code>src/modules/settings/</code> — глобальные настройки: валидация, сохранение, триггер перепланировки бэкапа при сохранении.</li>' +
+        '<li><code>src/modules/system/</code> — статистика для дашборда: CPU, память, диск, статус последнего бэкапа.</li>' +
+        '<li><code>src/modules/backup/</code> — бэкапы:' +
+        '<ul>' +
+        '<li><code>backup.service.js</code> — запуск <code>scripts/backup.js</code>, список архивов, восстановление.</li>' +
+        '<li><code>backup.scheduler.js</code> — cron‑планировщик (<code>node-cron</code>), перепланировка при смене настроек.</li>' +
+        '</ul>' +
+        '</li>' +
+        '<li><code>src/utils/</code> — утилиты:' +
+        '<ul>' +
+        '<li><code>logger.js</code> — winston‑логгер (консоль + файл).</li>' +
+        '<li><code>telegram.js</code> — отправка сообщений в Telegram (HTML‑формат, retry).</li>' +
+        '<li><code>atomicWrite.js</code> — запись JSON с промежуточным файлом (защита от потери данных при краше).</li>' +
+        '</ul>' +
+        '</li>' +
+        '</ul>' +
+        '<h4>Папка <code>data/</code></h4>' +
+        '<p>Хранилище JSON‑данных (в git не коммитится):</p>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Файл</th><th>Содержимое</th></tr></thead><tbody>' +
+        '<tr><td><code>auth.json</code></td><td>Хеш пароля администратора</td></tr>' +
+        '<tr><td><code>media.json</code></td><td>Список медиафайлов и метаданные (путь, тип, размер, статус обработки)</td></tr>' +
+        '<tr><td><code>playlists.json</code></td><td>Плейлисты и порядок элементов</td></tr>' +
+        '<tr><td><code>screens.json</code></td><td>Экраны, назначенные плейлисты, <code>lastSeenAt</code></td></tr>' +
+        '<tr><td><code>settings.json</code></td><td>Глобальные настройки системы и плеера</td></tr>' +
+        '<tr><td><code>pairing.json</code></td><td>Активные коды привязки (с TTL)</td></tr>' +
+        '<tr><td><code>processing-queue.json</code></td><td>Очередь видео на перекодирование (восстанавливается при рестарте)</td></tr>' +
+        '<tr><td><code>backup-status.json</code></td><td>Служебная информация о последних бэкапах</td></tr>' +
+        '</tbody></table></div>' +
+        '<h4>Папка <code>public/</code></h4>' +
+        '<ul>' +
+        '<li><code>admin/</code> — HTML‑страницы админки: дашборд, медиа, плейлисты, экраны, настройки, инструкция.</li>' +
+        '<li><code>player/</code> — HTML/JS плеера + Service Worker (<code>sw.js</code>): Cache First для медиа, Network Only для API.</li>' +
+        '<li><code>pair/</code> — страница привязки по коду (публичная, но подтверждение требует авторизации).</li>' +
+        '<li><code>login.html</code> — страница входа.</li>' +
+        '<li><code>js/</code> — клиентский JS: <code>api.js</code> (обёртка над fetch), <code>nav.js</code>, <code>player.js</code>, <code>admin-*.js</code>, <code>docs-content.js</code>.</li>' +
+        '<li><code>css/</code> — стили: <code>style.css</code> (основные), <code>docs.css</code> (страница инструкции).</li>' +
+        '</ul>' +
+        '<h4>Папка <code>scripts/</code></h4>' +
+        '<ul>' +
+        '<li><code>backup.js</code> — создание tar.gz‑архива <code>data/</code> + служебных изображений из <code>uploads/</code>. Вызывается из <code>backup.service</code> или напрямую через <code>npm run backup</code>.</li>' +
+        '<li><code>reset-password.js</code> — CLI‑сброс пароля: <code>npm run reset-password НовыйПароль</code>.</li>' +
+        '<li><code>setup-cron.sh</code> — установка cron‑задания для бэкапа (альтернатива расписанию из панели).</li>' +
+        '<li><code>upload-apk.ps1</code> — PowerShell‑скрипт загрузки <code>neofit_tv.apk</code> на сервер по SCP.</li>' +
         '</ul>'
     },
-    {
-      id: 'faq',
-      title: 'Часто задаваемые вопросы',
-      icon: '❓',
-      group: 'Помощь',
-      content: '<ul class="docs-faq-list">' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Экран показывает «Нет контента»<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Плейлист не назначен экрану или в URL плеера указан неверный ID экрана. Проверьте в разделе «Экраны», что у экрана выбран плейлист, и что в ссылке плеера параметр <code>id</code> совпадает с ID этого экрана.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Экран офлайн, хотя плеер открыт<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Проверьте, что в URL плеера правильный <code>id</code> экрана. Увеличьте «Порог онлайна» в настройках (раздел Мониторинг), если сеть медленная.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Видео оптимизируется очень долго<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Для больших файлов это нормально. Обработка идёт в одном потоке. Статус «Обрабатывается» можно обновлять вручную на странице медиафайла.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Как назначить один плейлист на несколько экранов?<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Откройте каждый экран для редактирования и в выпадающем списке выберите один и тот же плейлист.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Что происходит при обновлении плейлиста?<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Плеер получает изменения при следующем опросе сервера (интервал задаётся в настройках, по умолчанию 10 секунд). Смена контента происходит после текущего элемента.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Как работает офлайн-режим?<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Service Worker отдаёт медиа из кэша браузера. После восстановления интернета плеер при следующем запросе получает обновлённый плейлист и при необходимости подгружает новые файлы.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Не приходят уведомления в Telegram<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Проверьте токен бота и chat ID в настройках (вкладка Telegram). Нажмите «Тестовое сообщение» — если оно не пришло, исправьте данные или убедитесь, что боту уже писали (для получения chat ID).</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Как изменить время перезагрузки плеера?<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Настройки → Расписание → поле «Время перезагрузки плеера» (формат ЧЧ:ММ).</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Экран не включается по расписанию<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Проверьте часовой пояс в настройках и что время начала/окончания работы указано в формате ЧЧ:ММ. Убедитесь, что расписание включено и границы времени заданы корректно.</div></div></li>' +
-        '<li class="docs-faq-item"><button type="button" class="docs-faq-q" aria-expanded="false">Как сбросить PIN в APK?<span class="docs-faq-chevron">▼</span></button><div class="docs-faq-a"><div class="docs-faq-a-inner">Подключите приставку по ADB и выполните: <code>adb shell am start -n com.signage.player/.SettingsActivity</code> — откроется экран настроек, где можно сменить PIN. Либо переустановите APK.</div></div></li>' +
-        '</ul>'
-    }
   ];
 
   function renderDocs() {
@@ -333,7 +392,7 @@
       groups[g].push(s);
     });
 
-    var groupOrder = ['Начало работы', 'Контент', 'Устройства', 'Система', 'Разработчику', 'Помощь'];
+    var groupOrder = ['Контент', 'Устройства', 'Система', 'Разработчику'];
     groupOrder.forEach(function (groupName) {
       var items = groups[groupName];
       if (!items || items.length === 0) return;

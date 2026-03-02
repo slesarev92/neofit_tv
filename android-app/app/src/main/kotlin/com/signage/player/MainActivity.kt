@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_LAST_VERSION = "last_version_code"
     }
 
-    private lateinit var webView: WebView
+    private var webView: WebView? = null
     private var reloadPending = false
     private var longPressRunnable: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -59,28 +59,29 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        setContentView(R.layout.activity_main)
+        try {
+            setContentView(R.layout.activity_main)
+            val wv = findViewById<WebView>(R.id.webView)
+            webView = wv
+            setupWebView(wv)
 
-        webView = findViewById(R.id.webView)
-        setupWebView()
+            val loadingOverlay = findViewById<View>(R.id.loadingOverlay)
+            val errorOverlay = findViewById<View>(R.id.errorOverlay)
+            val loadingText = findViewById<android.widget.TextView>(R.id.loadingText)
+            val errorCountdownText = findViewById<android.widget.TextView>(R.id.errorCountdownText)
+            findViewById<Button>(R.id.btnErrorRetry).setOnClickListener {
+                cancelErrorCountdown()
+                errorOverlay.visibility = View.GONE
+                loadingOverlay.visibility = View.VISIBLE
+                loadingOverlay.alpha = 1f
+                reloadPending = false
+                webView?.reload()
+            }
+            findViewById<Button>(R.id.btnErrorSettings).setOnClickListener {
+                showPinDialog()
+            }
 
-        val loadingOverlay = findViewById<View>(R.id.loadingOverlay)
-        val errorOverlay = findViewById<View>(R.id.errorOverlay)
-        val loadingText = findViewById<android.widget.TextView>(R.id.loadingText)
-        val errorCountdownText = findViewById<android.widget.TextView>(R.id.errorCountdownText)
-        findViewById<Button>(R.id.btnErrorRetry).setOnClickListener {
-            cancelErrorCountdown()
-            errorOverlay.visibility = View.GONE
-            loadingOverlay.visibility = View.VISIBLE
-            loadingOverlay.alpha = 1f
-            reloadPending = false
-            webView.reload()
-        }
-        findViewById<Button>(R.id.btnErrorSettings).setOnClickListener {
-            showPinDialog()
-        }
-
-        webView.webViewClient = object : WebViewClient() {
+            wv.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String?) {
                 cancelErrorCountdown()
                 loadingOverlay.animate().alpha(0f).withEndAction {
@@ -134,12 +135,21 @@ class MainActivity : AppCompatActivity() {
             ): Boolean = false
         }
 
-        webView.loadUrl(playerUrl)
-        setupLongPressForSettings()
+            wv.loadUrl(playerUrl)
+            setupLongPressForSettings(wv)
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { /* киоск: игнорируем Back */ }
-        })
+            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() { /* киоск: игнорируем Back */ }
+            })
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "Startup failed", e)
+            App.logCrash(applicationContext, e)
+            setContentView(R.layout.activity_main_error)
+            findViewById<Button>(R.id.btnOpenSettingsFallback).setOnClickListener {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                finish()
+            }
+        }
     }
 
     private fun handleFirstRunOrUpdate(prefs: SharedPreferences) {
@@ -150,8 +160,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupWebView() {
-        webView.settings.apply {
+    private fun setupWebView(wv: WebView) {
+        wv.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
@@ -201,10 +211,13 @@ class MainActivity : AppCompatActivity() {
         cancelErrorCountdown()
         longPressRunnable?.let { handler.removeCallbacks(it) }
         longPressRunnable = null
-        webView.stopLoading()
-        webView.clearHistory()
-        webView.removeAllViews()
-        webView.destroy()
+        webView?.apply {
+            stopLoading()
+            clearHistory()
+            removeAllViews()
+            destroy()
+        }
+        webView = null
     }
 
     private fun cancelErrorCountdown() {
@@ -214,14 +227,14 @@ class MainActivity : AppCompatActivity() {
         reloadAfterErrorRunnable = null
     }
 
-    private fun setupLongPressForSettings() {
+    private fun setupLongPressForSettings(wv: WebView) {
         var longPressTriggered = false
         longPressRunnable = Runnable {
             longPressTriggered = true
             showPinDialog()
         }
 
-        webView.setOnTouchListener { _, event ->
+        wv.setOnTouchListener { _, event ->
             if (event.action == android.view.MotionEvent.ACTION_DOWN) {
                 longPressTriggered = false
                 handler.postDelayed(longPressRunnable!!, LONG_PRESS_MS)

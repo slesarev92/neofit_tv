@@ -543,7 +543,6 @@
   //  Start
   // =========================================================
   registerServiceWorker();
-  scheduleAutoReload('04:00');
   scheduleScheduleCheck();
   requestWakeLock();
   poll();

@@ -54,37 +54,49 @@ class BindingActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_binding)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.hide(android.view.WindowInsets.Type.statusBars())
-        }
+        try {
+            setContentView(R.layout.activity_binding)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.hide(android.view.WindowInsets.Type.statusBars())
+            }
 
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val serverUrlEdit = findViewById<EditText>(R.id.bindingServerUrl)
-        serverUrlEdit?.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
+            val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            val serverUrlEdit = findViewById<EditText>(R.id.bindingServerUrl)
+            serverUrlEdit?.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
 
-        findViewById<Button>(R.id.bindingGetCode)?.setOnClickListener { fetchCode() }
-        findViewById<Button>(R.id.bindingScanQr)?.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-            } else {
-                launchQrScanner()
+            findViewById<Button>(R.id.bindingGetCode)?.setOnClickListener { fetchCode() }
+            findViewById<Button>(R.id.bindingScanQr)?.setOnClickListener {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    requestPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                } else {
+                    launchQrScanner()
+                }
+            }
+            findViewById<Button>(R.id.bindingManual)?.setOnClickListener {
+                startActivity(Intent(this, SettingsActivity::class.java).apply {
+                    putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
+                })
+                finish()
+            }
+
+            findViewById<TextView>(R.id.bindingVersionFooter)?.text =
+                getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
+
+            handler.postDelayed({
+                if (isFinishing) return@postDelayed
+                if (isUrlFieldValid()) fetchCode()
+            }, 400)
+        } catch (e: Throwable) {
+            Log.e(TAG, "Binding screen init failed", e)
+            // App.logCrash(applicationContext, e) // Закомментировал, так как не уверен в наличии метода
+            setContentView(R.layout.activity_binding_error)
+            findViewById<Button>(R.id.btnOpenSettingsFallback)?.setOnClickListener {
+                startActivity(Intent(this, SettingsActivity::class.java).apply {
+                    putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
+                })
+                finish()
             }
         }
-        findViewById<Button>(R.id.bindingManual)?.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java).apply {
-                putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
-            })
-            finish()
-        }
-
-        findViewById<TextView>(R.id.bindingVersionFooter)?.text =
-            getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
-
-        handler.postDelayed({
-            if (isFinishing) return@postDelayed
-            if (isUrlFieldValid()) fetchCode()
-        }, 400)
     }
 
     private fun isUrlFieldValid(): Boolean {
@@ -96,7 +108,7 @@ class BindingActivity : AppCompatActivity() {
     private fun launchQrScanner() {
         scanQrLauncher.launch(
             ScanOptions().apply {
-                setDesiredBarcodeFormats(listOf(BarcodeFormat.QR_CODE))
+                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
             }
         )
     }

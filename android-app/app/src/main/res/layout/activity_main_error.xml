@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/msg_startup_error"
+        android:textColor="#E8E8E8"
+        android:textSize="18sp"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/btnOpenSettingsFallback"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minHeight="56dp"
+        android:text="@string/btn_open_settings_fallback"
+        android:textSize="18sp" />
+</LinearLayout>
