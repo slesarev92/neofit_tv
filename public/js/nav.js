@@ -124,6 +124,22 @@
     }
   }
 
+  function showAppVersion() {
+    var footer = document.querySelector('.sidebar-footer');
+    if (!footer) return;
+    fetch('/api/system/health', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.version) return;
+        var el = document.createElement('div');
+        el.className = 'sidebar-version';
+        el.style.cssText = 'font-size:11px;color:var(--gray-500);text-align:center;padding:0.35rem 0 0;';
+        el.textContent = 'v' + d.version;
+        footer.appendChild(el);
+      })
+      .catch(function () {});
+  }
+
   function init() {
     fetch('/api/settings', { credentials: 'include' })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -137,6 +153,7 @@
       .then(function () {
         renderNav();
         renderThemeToggle();
+        showAppVersion();
       });
   }
 

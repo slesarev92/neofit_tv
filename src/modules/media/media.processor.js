@@ -122,4 +122,4 @@ videoQueue.init(async (task) => {
   return compressVideo(task.filePath);
 });
 
-module.exports = { processImage, enqueueVideo, compressVideo };
+module.exports = { processImage, enqueueVideo, compressVideo, getVideoDuration };

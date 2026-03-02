@@ -3,6 +3,8 @@ const logger = require('../utils/logger');
 function errorHandler(err, req, res, _next) {
   logger.error('Unhandled error', { error: err.message, stack: err.stack, url: req.url });
 
+  if (res.headersSent) return;
+
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: 'Файл слишком большой' });
   }

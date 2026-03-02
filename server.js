@@ -78,6 +78,12 @@ app.get('/neofit_tv.apk', requireAuth, (req, res) => {
   res.sendFile(path.resolve(apkPath));
 });
 
+// Health check (без авторизации — для мониторинга и отображения версии)
+const pkg = require('./package.json');
+app.get('/api/system/health', (req, res) => {
+  res.json({ ok: true, version: pkg.version, env: config.nodeEnv });
+});
+
 // Public API routes (до static, иначе POST к /api/* отдаёт 404)
 app.use('/api/auth', authRoutes);
 app.use('/api/player', playerRoutes);
@@ -125,7 +131,11 @@ app.listen(config.port, '0.0.0.0', () => {
     if (result.error) {
       await mediaRepository.update(mediaId, { status: 'error', statusMessage: result.error });
     } else {
-      await mediaRepository.update(mediaId, { status: 'ready', compressedSize: result.compressedSize });
+      await mediaRepository.update(mediaId, {
+        status: 'ready',
+        compressedSize: result.compressedSize,
+        ...(result.durationSeconds != null && { durationSeconds: result.durationSeconds }),
+      });
     }
   }).catch((err) => logger.error('Queue resume failed', { error: err.message }));
 });

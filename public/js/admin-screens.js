@@ -152,7 +152,15 @@
     const statusClass = getStatusClass(screen);
     const statusLabel = getStatusLabel(screen);
     const lastSeenText = timeAgo(screen.lastSeenAt);
-    const playlistName = screen.playlistId ? (playlistMap.get(screen.playlistId)?.name || '—') : '—';
+    let playlistText;
+    if (!screen.playlistId) {
+      playlistText = 'Без плейлиста';
+    } else if (playlistMap.has(screen.playlistId)) {
+      const name = playlistMap.get(screen.playlistId)?.name || '—';
+      playlistText = name;
+    } else {
+      playlistText = 'Плейлист удалён';
+    }
 
     tr.innerHTML = `
       <td data-label="Статус">
@@ -162,14 +170,14 @@
         </span>
       </td>
       <td data-label="Название">${escapeHtml(screen.name)}</td>
-      <td data-label="Плейлист">${escapeHtml(playlistName)}</td>
+      <td data-label="Плейлист">${escapeHtml(playlistText)}</td>
       <td data-label="Последняя активность">${escapeHtml(lastSeenText)}</td>
       <td data-label="Действия" class="screens-actions">
-        <button class="btn btn-secondary btn-sm" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}" onclick="deleteScreen(this)">Удалить</button>
-        <button class="btn btn-secondary btn-sm" onclick="copyLink('${escapeAttr(screen.id)}')">Копировать ссылку</button>
         <button class="btn btn-secondary btn-sm" onclick="openEditModal('${escapeAttr(screen.id)}')">Редактировать</button>
         <a href="${escapeAttr(getPlayerUrl(screen.id))}" target="_blank" class="btn btn-secondary btn-sm">Открыть плеер</a>
+        <button class="btn btn-secondary btn-sm" onclick="copyLink('${escapeAttr(screen.id)}')">Копировать ссылку</button>
         <button class="btn btn-secondary btn-sm" onclick="downloadPlayerFile('${escapeAttr(screen.id)}','${escapeAttr(screen.name)}')">Выгрузить ссылку</button>
+        <button class="btn btn-danger btn-sm" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}" onclick="deleteScreen(this)">Удалить</button>
       </td>
     `;
     return tr;
@@ -338,7 +346,7 @@
   window.copyLink = copyLink;
   window.downloadPlayerFile = downloadPlayerFile;
 
-    document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', function () {
     screenFilter = getFilterFromUrl();
     setFilter(screenFilter);
 
@@ -399,5 +407,16 @@
   const pairByCodeModal = document.getElementById('pairByCodeModal');
   pairByCodeModal?.addEventListener('click', (e) => {
     if (e.target === pairByCodeModal) closePairByCodeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (screenModal && screenModal.classList.contains('active')) {
+      closeScreenModal();
+    }
+    const pairModal = document.getElementById('pairByCodeModal');
+    if (pairModal && pairModal.classList.contains('active')) {
+      closePairByCodeModal();
+    }
   });
 })();

@@ -23,11 +23,44 @@
     return map;
   }
 
+  function formatDurationSeconds(totalSeconds) {
+    if (!totalSeconds || totalSeconds <= 0) return '';
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    if (minutes && seconds) return minutes + ' мин ' + seconds + ' c';
+    if (minutes) return minutes + ' мин';
+    return seconds + ' c';
+  }
+
+  /** Считает длительность цикла: для видео — durationSeconds из media, для изображений — item.duration. mediaMap: Map(mediaId -> { mimeType, durationSeconds }) */
+  function computePlaylistDurationSeconds(items, mediaMap) {
+    if (!items || !items.length) return 0;
+    return items.reduce((sum, it) => {
+      const media = mediaMap && it.mediaId ? mediaMap.get(it.mediaId) : null;
+      const isVid = media && media.mimeType && media.mimeType.startsWith('video/');
+      let sec = 0;
+      if (isVid && media.durationSeconds != null && Number.isFinite(media.durationSeconds)) {
+        sec = Math.max(0, Math.floor(Number(media.durationSeconds)));
+      } else {
+        const d = typeof it.duration === 'number' ? it.duration : (it.duration ? Number(it.duration) : 10);
+        sec = Number.isFinite(d) && d > 0 ? d : 0;
+      }
+      return sum + sec;
+    }, 0);
+  }
+
+  function formatPlaylistDuration(items, mediaMap) {
+    const totalSeconds = computePlaylistDurationSeconds(items, mediaMap);
+    return formatDurationSeconds(totalSeconds);
+  }
+
   function loadPlaylists() {
-    Promise.all([API.getPlaylists(), API.getScreens()])
-      .then(([playlistsRes, screensRes]) => {
+    Promise.all([API.getPlaylists(), API.getScreens(), API.getMedia()])
+      .then(([playlistsRes, screensRes, mediaRes]) => {
         const items = playlistsRes.items || [];
         const screensMap = buildPlaylistScreensMap(screensRes.items || []);
+        const mediaList = mediaRes.items || [];
+        const mediaMap = new Map(mediaList.map((m) => [m.id, { mimeType: m.mimeType, durationSeconds: m.durationSeconds }]));
         const listEl = document.getElementById('playlistsList');
         if (items.length === 0) {
           listEl.innerHTML = `
@@ -46,6 +79,10 @@
           .map((pl) => {
             const screenNames = screensMap[pl.id] || [];
             const screenCount = screenNames.length;
+            const durationText = formatPlaylistDuration(pl.items || [], mediaMap);
+            const durationLine = durationText
+              ? '<div class="stat-label playlist-duration-info">Длительность цикла: ' + escapeHtml(durationText) + '</div>'
+              : '';
             const screensText = screenCount === 0
               ? 'Не назначен экранам'
               : screenCount === 1
@@ -58,6 +95,7 @@
                 <div style="font-weight: 600; margin-bottom: 0.25rem;">${escapeHtml(pl.name)}</div>
                 <div class="stat-label">${(pl.items || []).length} элементов</div>
                 <div class="stat-label playlist-screens-info">${screensText}</div>
+                ${durationLine}
               </div>
               <div style="display: flex; gap: 0.5rem;">
                 <button class="btn btn-secondary btn-sm" onclick="openEditModal('${escapeAttr(pl.id)}')">Редактировать</button>
@@ -254,6 +292,18 @@
       li.addEventListener('dragend', onDragEnd);
       ul.appendChild(li);
     });
+
+    const totalDurationEl = document.getElementById('playlistTotalDuration');
+    if (totalDurationEl) {
+      if (!playlistItems.length) {
+        totalDurationEl.textContent = '';
+        return;
+      }
+      const mediaMapFromCache = new Map(mediaCache.map((m) => [m.id, { mimeType: m.mimeType, durationSeconds: m.durationSeconds }]));
+      const totalSeconds = computePlaylistDurationSeconds(playlistItems, mediaMapFromCache);
+      const text = formatDurationSeconds(totalSeconds);
+      totalDurationEl.textContent = text ? ('Длительность цикла: ' + text) : '';
+    }
   }
 
   window.removePlaylistItem = function (itemId) {
@@ -429,6 +479,18 @@
   });
   document.getElementById('mediaSelectModal').addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) closeMediaSelectModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const playlistModal = document.getElementById('playlistModal');
+    const mediaModal = document.getElementById('mediaSelectModal');
+    if (playlistModal && playlistModal.classList.contains('active')) {
+      closePlaylistModal();
+    }
+    if (mediaModal && mediaModal.classList.contains('active')) {
+      closeMediaSelectModal();
+    }
   });
 
   var logoutBtn = document.getElementById('sidebarLogoutBtn');

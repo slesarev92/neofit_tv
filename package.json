@@ -1,13 +1,14 @@
 {
   "name": "digital-signage",
-  "version": "11.0.0",
+  "version": "100.2.0",
   "description": "NeoFit TV — система управления контентом на экранах",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "reset-password": "node scripts/reset-password.js",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "backfill-video-durations": "node scripts/backfill-video-durations.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
