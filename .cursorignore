@@ -1,0 +1,14 @@
+﻿node_modules/
+uploads/
+backups/
+data/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.mp3
+*.wav
+*.zip
+*.tar
+*.gz
+*.log
