@@ -15,7 +15,7 @@ const API = {
 
     const res = await fetch(url, config);
 
-    if (res.status === 401 && !url.includes('/api/auth/login')) {
+    if (res.status === 401 && !url.includes('/api/auth/login') && !url.includes('/api/auth/verify-totp')) {
       var returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
       window.location.href = '/login.html?returnUrl=' + returnUrl;
       return;

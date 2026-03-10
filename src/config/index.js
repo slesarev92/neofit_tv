@@ -11,6 +11,6 @@ module.exports = {
   sessionMaxAge: Number(process.env.SESSION_MAX_AGE_MS) || 86400000,
   maxFileSizeMb: Number(process.env.MAX_FILE_SIZE_MB) || 500,
   initialAdminPassword: process.env.INITIAL_ADMIN_PASSWORD || 'changeme',
-  /** Cookie secure only when served over HTTPS (BASE_URL starts with https). */
-  cookieSecure: baseUrl.startsWith('https'),
+  /** Cookie secure only when served over HTTPS in production (avoids broken session when testing locally over http). */
+  cookieSecure: process.env.NODE_ENV === 'production' && baseUrl.startsWith('https'),
 };
