@@ -724,5 +724,175 @@
         if (submitBtn) submitBtn.disabled = false;
       }
     });
+
+    // 2FA (TOTP) UI
+    (function initTotp() {
+      var TOTP_PENDING_KEY = 'neofit_totp_pending';
+      var statusText = document.getElementById('totpStatusText');
+      var disabledView = document.getElementById('totpDisabledView');
+      var enabledView = document.getElementById('totpEnabledView');
+      var setupView = document.getElementById('totpSetupView');
+      var setupBtn = document.getElementById('totpSetupBtn');
+      var enableBtn = document.getElementById('totpEnableBtn');
+      var cancelSetupBtn = document.getElementById('totpCancelSetupBtn');
+      var disableBtn = document.getElementById('totpDisableBtn');
+      var qrImg = document.getElementById('totpQrImg');
+      var confirmInput = document.getElementById('totpConfirmCode');
+      var currentSecret = null;
+
+      if (!statusText || !disabledView || !enabledView || !setupView) return;
+
+      function clearPendingStorage() {
+        try { sessionStorage.removeItem(TOTP_PENDING_KEY); } catch (e) {}
+      }
+
+      function setStatus(enabled) {
+        if (enabled) {
+          statusText.textContent = '2FA включена: при входе требуется код из Google Authenticator.';
+          disabledView.style.display = 'none';
+          enabledView.style.display = '';
+          setupView.style.display = 'none';
+          clearPendingStorage();
+        } else {
+          statusText.textContent = '2FA отключена. Для дополнительной защиты включите вход по коду из Google Authenticator.';
+          disabledView.style.display = '';
+          enabledView.style.display = 'none';
+          setupView.style.display = 'none';
+          currentSecret = null;
+          if (qrImg) qrImg.src = '';
+          if (confirmInput) confirmInput.value = '';
+        }
+      }
+
+      function showSetupState(secret, qrCodeUrl) {
+        currentSecret = secret;
+        if (qrImg && qrCodeUrl) qrImg.src = qrCodeUrl;
+        setupView.style.display = '';
+        disabledView.style.display = 'none';
+        if (confirmInput) {
+          confirmInput.value = '';
+          confirmInput.focus();
+        }
+      }
+
+      function loadStatus() {
+        API.getTotpStatus()
+          .then(function (data) {
+            setStatus(!!(data && data.enabled));
+            if (data && !data.enabled) {
+              try {
+                var pending = sessionStorage.getItem(TOTP_PENDING_KEY);
+                if (pending) {
+                  var obj = JSON.parse(pending);
+                  if (obj && obj.secret) {
+                    showSetupState(obj.secret, obj.qrCodeUrl || '');
+                  } else {
+                    clearPendingStorage();
+                  }
+                }
+              } catch (e) {
+                clearPendingStorage();
+              }
+            }
+          })
+          .catch(function () {
+            // если не удалось загрузить статус — ничего не ломаем
+          });
+      }
+
+      loadStatus();
+
+      if (setupBtn) {
+        setupBtn.addEventListener('click', function () {
+          if (saveInProgress) return;
+          saveInProgress = true;
+          setupBtn.disabled = true;
+          API.setupTotp()
+            .then(function (data) {
+              var secret = data && data.secret;
+              var qrCodeUrl = data && data.qrCodeUrl;
+              if (secret) {
+                try {
+                  sessionStorage.setItem(TOTP_PENDING_KEY, JSON.stringify({ secret: secret, qrCodeUrl: qrCodeUrl || '' }));
+                } catch (e) {}
+              }
+              showSetupState(secret, qrCodeUrl);
+            })
+            .catch(function (err) {
+              showToast(err.message || 'Не удалось начать настройку 2FA', 'error');
+            })
+            .finally(function () {
+              saveInProgress = false;
+              setupBtn.disabled = false;
+            });
+        });
+      }
+
+      if (cancelSetupBtn) {
+        cancelSetupBtn.addEventListener('click', function () {
+          clearPendingStorage();
+          setStatus(false);
+        });
+      }
+
+      if (enableBtn) {
+        enableBtn.addEventListener('click', function () {
+          if (saveInProgress) return;
+          var token = (confirmInput && confirmInput.value || '').trim().replace(/\s/g, '');
+          var secret = currentSecret;
+          if (!secret) {
+            try {
+              var pending = sessionStorage.getItem(TOTP_PENDING_KEY);
+              if (pending) {
+                var obj = JSON.parse(pending);
+                if (obj && obj.secret) secret = obj.secret;
+              }
+            } catch (e) {}
+          }
+          if (!secret || !token) {
+            showToast('Введите код из приложения', 'error');
+            if (confirmInput) confirmInput.focus();
+            return;
+          }
+          saveInProgress = true;
+          enableBtn.disabled = true;
+          API.enableTotp(secret, token)
+            .then(function () {
+              clearPendingStorage();
+              showToast('2FA включена', 'success');
+              setStatus(true);
+            })
+            .catch(function (err) {
+              showToast(err.message || 'Не удалось включить 2FA', 'error');
+            })
+            .finally(function () {
+              saveInProgress = false;
+              enableBtn.disabled = false;
+            });
+        });
+      }
+
+      if (disableBtn) {
+        disableBtn.addEventListener('click', function () {
+          if (saveInProgress) return;
+          var password = window.prompt('Для отключения 2FA введите текущий пароль администратора:');
+          if (!password) return;
+          saveInProgress = true;
+          disableBtn.disabled = true;
+          API.disableTotp(password)
+            .then(function () {
+              showToast('2FA отключена', 'success');
+              setStatus(false);
+            })
+            .catch(function (err) {
+              showToast(err.message || 'Не удалось отключить 2FA', 'error');
+            })
+            .finally(function () {
+              saveInProgress = false;
+              disableBtn.disabled = false;
+            });
+        });
+      }
+    })();
   });
 })();

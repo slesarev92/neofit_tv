@@ -49,4 +49,22 @@ async function savePasswordHash(hash) {
   await writeData({ ...data, passwordHash: hash });
 }
 
-module.exports = { initAuth, getPasswordHash, savePasswordHash };
+async function getTotpSecret() {
+  const data = await readData();
+  return data && Object.prototype.hasOwnProperty.call(data, 'totpSecret')
+    ? data.totpSecret
+    : null;
+}
+
+async function saveTotpSecret(secret) {
+  const data = (await readData()) || {};
+  await writeData({ ...data, totpSecret: secret });
+}
+
+module.exports = {
+  initAuth,
+  getPasswordHash,
+  savePasswordHash,
+  getTotpSecret,
+  saveTotpSecret,
+};

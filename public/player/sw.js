@@ -44,7 +44,8 @@ async function cacheFirst(request) {
 
 async function networkOnly(request) {
   try {
-    return await fetch(request);
+    const response = await fetch(request);
+    return response;
   } catch {
     return new Response(JSON.stringify({ error: 'Offline' }), {
       status: 503,
