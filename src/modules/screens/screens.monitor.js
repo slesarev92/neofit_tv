@@ -7,6 +7,7 @@ const { escapeForTelegramHtml, sendTelegram } = require('../../utils/telegram');
 
 const previousStates = new Map();
 let initialized = false;
+let isRunning = false;
 
 function getIsOnline(screen, thresholdSec) {
   if (!screen.lastSeenAt) return false;
@@ -36,6 +37,8 @@ function adminLinkLine() {
 }
 
 async function checkScreens() {
+  if (isRunning) return;
+  isRunning = true;
   try {
     const settings = await settingsRepository.get();
     const screens = await screensRepository.findAll();
@@ -130,6 +133,8 @@ async function checkScreens() {
     }
   } catch (err) {
     logger.error('Screen monitor error', { error: err.message });
+  } finally {
+    isRunning = false;
   }
 }
 

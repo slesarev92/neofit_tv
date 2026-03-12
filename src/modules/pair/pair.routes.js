@@ -3,10 +3,11 @@ const { body } = require('express-validator');
 const pairService = require('./pair.service');
 const { requireAuth } = require('../../middleware/auth');
 const { validate } = require('../../middleware/validate');
+const { pairInitLimiter, pairStatusLimiter } = require('../../middleware/rateLimit');
 
 const router = Router();
 
-router.post('/init', async (req, res, next) => {
+router.post('/init', pairInitLimiter, async (req, res, next) => {
   try {
     const result = await pairService.init();
     if (result.ok === false) {
@@ -18,7 +19,7 @@ router.post('/init', async (req, res, next) => {
   }
 });
 
-router.get('/:code', async (req, res, next) => {
+router.get('/:code', pairStatusLimiter, async (req, res, next) => {
   try {
     const result = await pairService.getStatus(req.params.code);
     res.json(result);

@@ -63,7 +63,7 @@ async function get() {
 let saveQueue = Promise.resolve();
 
 async function save(settings) {
-  saveQueue = saveQueue.then(async () => {
+  saveQueue = saveQueue.catch(() => {}).then(async () => {
     const current = await get();
     const merged = { ...current, ...settings };
     await writeJsonAtomic(SETTINGS_FILE(), merged);

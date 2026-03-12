@@ -2,13 +2,16 @@
 const express = require('express');
 const helmet = require('helmet');
 const session = require('express-session');
-const FileStore = require('session-file-store')(session);
 const path = require('path');
 const fs = require('fs');
 const config = require('./src/config');
 const logger = require('./src/utils/logger');
 const { errorHandler } = require('./src/middleware/errorHandler');
 const { requireAuth } = require('./src/middleware/auth');
+
+// Use in-memory session store in development to avoid Windows EPERM/ENOENT with session-file-store
+const useMemoryStore = config.nodeEnv !== 'production' || process.env.SESSION_USE_MEMORY === '1';
+const FileStore = useMemoryStore ? null : require('session-file-store')(session);
 
 const authRoutes = require('./src/modules/auth/auth.routes');
 const mediaRoutes = require('./src/modules/media/media.routes');
@@ -17,11 +20,18 @@ const screensRoutes = require('./src/modules/screens/screens.routes');
 const playerRoutes = require('./src/modules/player/player.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
 
+const screenMonitor = require('./src/modules/screens/screens.monitor');
+const videoQueue = require('./src/modules/media/video.queue');
+const mediaRepository = require('./src/modules/media/media.repository');
+const settingsRepository = require('./src/modules/settings/settings.repository');
+const backupScheduler = require('./src/modules/backup/backup.scheduler');
+const { initAuth } = require('./src/modules/auth/auth.repository');
+
 const app = express();
 
-// Ensure directories exist
+// Ensure directories exist (sessions dir only needed when using file store)
 const sessionsDir = path.resolve(config.dataDir, 'sessions');
-[config.uploadsDir, config.dataDir, sessionsDir].forEach((dir) => {
+[config.uploadsDir, config.dataDir, ...(useMemoryStore ? [] : [sessionsDir])].forEach((dir) => {
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     fs.mkdirSync(resolved, { recursive: true });
@@ -38,18 +48,38 @@ process.on('uncaughtException', (err) => {
   setTimeout(() => process.exit(1), 1000);
 });
 
-// Initialize auth on first run
-const { initAuth } = require('./src/modules/auth/auth.repository');
-initAuth().catch((err) => logger.error('Auth init failed', { error: err.message }));
+// Warn if SESSION_SECRET is not set in production
+if (config.nodeEnv === 'production' && !config.sessionSecret) {
+  logger.error('SESSION_SECRET is not set! Sessions are insecure. Set SESSION_SECRET in .env and restart.');
+  process.exit(1);
+} else if (!config.sessionSecret) {
+  logger.warn('SESSION_SECRET is not set — using insecure fallback (dev only)');
+}
 
 app.set('trust proxy', 1);
 
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      mediaSrc: ["'self'", 'blob:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+}));
 app.use(express.json({ limit: '1mb' }));
 
 app.use(
   session({
-    store: new FileStore({ path: sessionsDir, ttl: config.sessionMaxAge ? Math.floor(config.sessionMaxAge / 1000) : 86400 }),
+    ...(useMemoryStore ? {} : { store: new FileStore({ path: sessionsDir, ttl: config.sessionMaxAge ? Math.floor(config.sessionMaxAge / 1000) : 86400 }) }),
     secret: config.sessionSecret || 'dev-fallback-secret',
     resave: false,
     saveUninitialized: false,
@@ -114,30 +144,30 @@ app.get('/admin/*', (req, res, next) => {
 
 app.use(errorHandler);
 
-const screenMonitor = require('./src/modules/screens/screens.monitor');
-const videoQueue = require('./src/modules/media/video.queue');
-const mediaRepository = require('./src/modules/media/media.repository');
-const { compressVideo } = require('./src/modules/media/media.processor');
-
-const settingsRepository = require('./src/modules/settings/settings.repository');
-const backupScheduler = require('./src/modules/backup/backup.scheduler');
-
-app.listen(config.port, '0.0.0.0', () => {
-  logger.info(`Server running on 0.0.0.0:${config.port} [${config.nodeEnv}]`);
-  settingsRepository.get().then((s) => backupScheduler.startScheduler(s)).catch(() => {});
-  screenMonitor.start();
-  videoQueue.resumeUnfinished((mediaId) => async (result) => {
-    const fs = require('fs').promises;
-    if (result.error) {
-      await mediaRepository.update(mediaId, { status: 'error', statusMessage: result.error });
-    } else {
-      await mediaRepository.update(mediaId, {
-        status: 'ready',
-        compressedSize: result.compressedSize,
-        ...(result.durationSeconds != null && { durationSeconds: result.durationSeconds }),
-      });
-    }
-  }).catch((err) => logger.error('Queue resume failed', { error: err.message }));
-});
+// Start listening only after auth is initialized to avoid race where a login
+// request arrives before auth.json is read and the default password is set.
+initAuth()
+  .then(() => {
+    app.listen(config.port, '0.0.0.0', () => {
+      logger.info(`Server running on 0.0.0.0:${config.port} [${config.nodeEnv}]`);
+      settingsRepository.get().then((s) => backupScheduler.startScheduler(s)).catch(() => {});
+      screenMonitor.start();
+      videoQueue.resumeUnfinished((mediaId) => async (result) => {
+        if (result.error) {
+          await mediaRepository.update(mediaId, { status: 'error', statusMessage: result.error });
+        } else {
+          await mediaRepository.update(mediaId, {
+            status: 'ready',
+            compressedSize: result.compressedSize,
+            ...(result.durationSeconds != null && { durationSeconds: result.durationSeconds }),
+          });
+        }
+      }).catch((err) => logger.error('Queue resume failed', { error: err.message }));
+    });
+  })
+  .catch((err) => {
+    logger.error('Auth init failed — cannot start server', { error: err.message });
+    process.exit(1);
+  });
 
 module.exports = app;

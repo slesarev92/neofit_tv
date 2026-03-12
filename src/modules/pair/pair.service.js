@@ -81,6 +81,9 @@ async function confirm(code, body) {
     await pairRepository.removeExpired();
     return { ok: false, error: 'Код не найден или истёк' };
   }
+  if (record.screenId != null) {
+    return { ok: false, error: 'Код уже использован' };
+  }
   let screenId;
   let screenName;
   if (body.newScreenName != null && String(body.newScreenName).trim()) {

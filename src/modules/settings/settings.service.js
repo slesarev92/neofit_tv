@@ -3,6 +3,17 @@ const path = require('path');
 const config = require('../../config');
 const settingsRepository = require('./settings.repository');
 
+async function copyFileAtomic(srcPath, destPath) {
+  const tmpPath = destPath + '.' + process.pid + '.' + Date.now() + '.tmp';
+  try {
+    await fs.copyFile(srcPath, tmpPath);
+    await fs.rename(tmpPath, destPath);
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
+}
+
 const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 МБ для логотипа
 const LOGO_BASE_NAME = 'system-logo';
 const OFF_HOURS_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5 МБ для заставки
@@ -193,7 +204,7 @@ async function uploadLogo(file) {
         await fs.unlink(oldPath).catch(() => {});
       }
     }
-    await fs.copyFile(file.path, destPath);
+    await copyFileAtomic(file.path, destPath);
     await fs.unlink(file.path).catch(() => {});
     const url = '/uploads/' + filename;
     await settingsRepository.save({ ...current, logoUrl: url });
@@ -229,7 +240,7 @@ async function uploadOffHoursImage(file) {
         await fs.unlink(oldPath).catch(() => {});
       }
     }
-    await fs.copyFile(file.path, destPath);
+    await copyFileAtomic(file.path, destPath);
     await fs.unlink(file.path).catch(() => {});
     const url = '/uploads/' + filename;
     await settingsRepository.save({ ...current, workScheduleOffImageUrl: url });

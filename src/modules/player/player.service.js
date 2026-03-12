@@ -10,7 +10,22 @@ async function getPlayerData(screenId) {
 
   await screensService.updateHeartbeat(screenId);
 
-  const settings = await settingsRepository.get();
+  const rawSettings = await settingsRepository.get();
+  const settings = {
+    imageDuration: rawSettings.imageDuration,
+    pollInterval: rawSettings.pollInterval,
+    prefetchEnabled: rawSettings.prefetchEnabled,
+    cacheEnabled: rawSettings.cacheEnabled,
+    showLastOnError: rawSettings.showLastOnError,
+    autoReloadAt: rawSettings.autoReloadAt,
+    workScheduleEnabled: rawSettings.workScheduleEnabled,
+    workScheduleFrom: rawSettings.workScheduleFrom,
+    workScheduleTo: rawSettings.workScheduleTo,
+    workScheduleOffImageUrl: rawSettings.workScheduleOffImageUrl,
+    timezone: rawSettings.timezone,
+    systemName: rawSettings.systemName,
+    logoUrl: rawSettings.logoUrl,
+  };
 
   if (!screen.playlistId) {
     return {
@@ -34,14 +49,16 @@ async function getPlayerData(screenId) {
   const enrichedItems = [];
   for (const item of (playlist.items || []).sort((a, b) => a.order - b.order)) {
     const media = await mediaRepository.findById(item.mediaId);
-    if (media) {
+    if (media && media.status === 'ready') {
+      // Cache-buster: compressedSize changes after re-encoding, forcing SW to re-fetch
+      const v = media.compressedSize || '';
       enrichedItems.push({
         id: item.id,
         order: item.order,
         duration: item.duration,
         media: {
           id: media.id,
-          url: `/${media.path}`,
+          url: `/${media.path}${v ? '?v=' + v : ''}`,
           mimeType: media.mimeType,
           originalName: media.originalName,
         },

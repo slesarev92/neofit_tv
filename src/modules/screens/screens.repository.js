@@ -49,12 +49,25 @@ async function update(id, data) {
   return items[idx];
 }
 
+// Flush heartbeat to disk at most once per 30 seconds per screen.
+// In-memory cache always stays fresh for the monitor.
+const HEARTBEAT_FLUSH_INTERVAL_MS = 30 * 1000;
+const lastFlushAt = new Map();
+
 async function updateLastSeen(id, timestamp) {
   const items = await readAll();
   const idx = items.findIndex((s) => s.id === id);
   if (idx === -1) return null;
   items[idx].lastSeenAt = timestamp;
-  await writeAll(items);
+  cache = items;
+
+  const now = Date.now();
+  const lastFlush = lastFlushAt.get(id) || 0;
+  if (now - lastFlush >= HEARTBEAT_FLUSH_INTERVAL_MS) {
+    lastFlushAt.set(id, now); // set before await so concurrent heartbeats don't double-flush
+    await writeAll(items);
+  }
+
   return items[idx];
 }
 

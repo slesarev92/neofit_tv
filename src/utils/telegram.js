@@ -32,6 +32,7 @@ function sendTelegram(token, chatId, text, options = {}) {
           hostname: 'api.telegram.org',
           path: `/bot${token}/sendMessage`,
           method: 'POST',
+          timeout: 8000,
           headers: {
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(data),
@@ -46,6 +47,7 @@ function sendTelegram(token, chatId, text, options = {}) {
           });
         }
       );
+      req.on('timeout', () => { req.destroy(new Error('Telegram request timeout')); });
       req.on('error', reject);
       req.write(data);
       req.end();

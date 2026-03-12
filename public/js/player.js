@@ -175,9 +175,7 @@
         const timeout = setTimeout(() => ctrl.abort(), settings.requestTimeout * 1000);
         const res = await fetch(url, { signal: ctrl.signal });
         clearTimeout(timeout);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
       } catch (err) {
         if (i === retries) throw err;
@@ -489,7 +487,7 @@
 
   function notifySwPrecache(items) {
     if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
-    const urls = items.map((i) => i.media.url);
+    const urls = items.map((i) => i.media && i.media.url).filter(Boolean);
     navigator.serviceWorker.controller.postMessage({
       type: 'PRECACHE',
       urls: urls,

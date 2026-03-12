@@ -114,6 +114,9 @@ async function remove(id) {
   if (!media) {
     return { ok: false, status: 404, error: 'Медиафайл не найден' };
   }
+  if (media.status === 'processing') {
+    return { ok: false, status: 409, error: 'Файл обрабатывается, подождите завершения' };
+  }
 
   const playlists = await playlistsRepository.findAll();
   for (const pl of playlists) {

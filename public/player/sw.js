@@ -44,8 +44,7 @@ async function cacheFirst(request) {
 
 async function networkOnly(request) {
   try {
-    const response = await fetch(request);
-    return response;
+    return await fetch(request);
   } catch {
     return new Response(JSON.stringify({ error: 'Offline' }), {
       status: 503,
@@ -62,10 +61,14 @@ self.addEventListener('message', (e) => {
 
 async function precacheUrls(urls, currentUrls) {
   const cache = await caches.open(CACHE_NAME);
-  const currentSet = new Set(
+
+  // Build set of full URLs (pathname + query) for cleanup comparison.
+  // After re-encoding ?v= changes, so old cache entries with stale ?v= must be evicted.
+  const currentFullSet = new Set(
     (currentUrls || []).map((u) => {
       try {
-        return new URL(u, self.location.origin).pathname;
+        const parsed = new URL(u, self.location.origin);
+        return parsed.pathname + parsed.search;
       } catch {
         return u;
       }
@@ -82,10 +85,12 @@ async function precacheUrls(urls, currentUrls) {
     }
   }
 
+  // Evict entries not in the current playlist (including stale ?v= versions)
   const keys = await cache.keys();
   for (const req of keys) {
-    const path = new URL(req.url).pathname;
-    if (!currentSet.has(path)) {
+    const parsed = new URL(req.url);
+    const key = parsed.pathname + parsed.search;
+    if (!currentFullSet.has(key)) {
       await cache.delete(req);
     }
   }

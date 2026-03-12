@@ -10,9 +10,15 @@ const path = require('path');
 async function writeFileAtomic(filePath, content) {
   const dir = path.dirname(filePath);
   const name = path.basename(filePath);
-  const tmpPath = path.join(dir, `.${name}.tmp`);
-  await fs.writeFile(tmpPath, content, 'utf-8');
-  await fs.rename(tmpPath, filePath);
+  // Unique suffix prevents concurrent writes to same file from colliding on the tmp path.
+  const tmpPath = path.join(dir, `.${name}.${process.pid}.${Date.now()}.tmp`);
+  try {
+    await fs.writeFile(tmpPath, content, 'utf-8');
+    await fs.rename(tmpPath, filePath);
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
 }
 
 /**

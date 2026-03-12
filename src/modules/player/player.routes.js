@@ -1,9 +1,10 @@
 const { Router } = require('express');
 const playerService = require('./player.service');
+const { playerLimiter } = require('../../middleware/rateLimit');
 
 const router = Router();
 
-router.get('/:screenId', async (req, res, next) => {
+router.get('/:screenId', playerLimiter, async (req, res, next) => {
   try {
     const rawScreenId = req.params.screenId;
     const screenId = rawScreenId && rawScreenId.trim();

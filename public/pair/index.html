@@ -78,7 +78,7 @@
         </div>
         <div class="form-group pair-hide" id="wrapNew">
           <label for="newScreenName">Название экрана</label>
-          <input type="text" id="newScreenName" placeholder="Например: Зал 1">
+          <input type="text" id="newScreenName" placeholder="Например: Зал 1" maxlength="100">
         </div>
       </div>
       <div id="errorMsg" class="pair-error" hidden></div>
@@ -122,9 +122,10 @@
       function startCountdown(expiresAt) {
         if (countdownTimer) clearInterval(countdownTimer);
         if (!expiresAt || !countdownEl) return;
+        var end = new Date(expiresAt).getTime();
+        if (isNaN(end)) return;
         function tick() {
           var now = Date.now();
-          var end = new Date(expiresAt).getTime();
           var sec = Math.max(0, Math.floor((end - now) / 1000));
           countdownEl.textContent = formatRemaining(sec);
           countdownEl.classList.toggle('pair-countdown--expired', sec <= 0);

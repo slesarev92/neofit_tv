@@ -52,6 +52,14 @@ async function updateScreenId(code, screenId) {
   return items[idx];
 }
 
+async function removeByCode(code) {
+  const items = await readAll();
+  const filtered = items.filter((r) => r.code !== code);
+  if (filtered.length !== items.length) {
+    await writeAll(filtered);
+  }
+}
+
 async function removeExpired() {
   const items = await readAll();
   const now = new Date().toISOString();
@@ -61,4 +69,4 @@ async function removeExpired() {
   }
 }
 
-module.exports = { findAll, findByCode, create, updateScreenId, removeExpired };
+module.exports = { findAll, findByCode, create, updateScreenId, removeByCode, removeExpired };

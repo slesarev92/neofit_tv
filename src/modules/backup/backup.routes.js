@@ -34,7 +34,10 @@ router.post('/restore', async (req, res, next) => {
     }
     const result = backupService.restoreBackup(fileName);
     if (result.ok) {
-      res.json({ ok: true, message: 'Настройки восстановлены. Рекомендуется перезапустить сервер (pm2 restart).' });
+      res.json({ ok: true, message: 'Настройки восстановлены. Сервер перезапускается для сброса кэша...' });
+      // Exit so PM2 restarts the process — resets all in-memory caches.
+      // Without restart, heartbeat writes would immediately overwrite the restored data.
+      setTimeout(() => process.exit(0), 300);
     } else {
       res.status(400).json({ ok: false, error: result.error });
     }

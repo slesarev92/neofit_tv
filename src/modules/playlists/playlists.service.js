@@ -25,7 +25,7 @@ function buildItems(items) {
   return (items || []).map((item, idx) => ({
     id: item.id || uuidv4(),
     mediaId: item.mediaId,
-    duration: Number(item.duration) || 10,
+    duration: Math.min(3600, Math.max(1, Math.round(Number(item.duration) || 10))),
     order: item.order !== undefined ? item.order : idx,
   }));
 }

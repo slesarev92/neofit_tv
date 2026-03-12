@@ -3,6 +3,7 @@ const path = require('path');
 const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const logger = require('../../utils/logger');
+const { writeFileAtomic } = require('../../utils/atomicWrite');
 const videoQueue = require('./video.queue');
 const settingsRepository = require('../settings/settings.repository');
 
@@ -33,7 +34,7 @@ async function processImage(filePath, mimeType) {
   }
 
   if (compressedBuf.length < originalSize) {
-    await fs.writeFile(filePath, compressedBuf);
+    await writeFileAtomic(filePath, compressedBuf);
     logger.info('Image optimized', {
       file: path.basename(filePath),
       before: originalSize,
@@ -82,7 +83,6 @@ async function compressVideo(inputPath) {
             const origStat = await fs.stat(inputPath);
 
             if (stat.size < origStat.size) {
-              await fs.unlink(inputPath);
               await fs.rename(tmpOutput, inputPath);
               logger.info('Video optimized', {
                 file: path.basename(inputPath),
@@ -102,7 +102,7 @@ async function compressVideo(inputPath) {
         })
         .on('error', async (err) => {
           await fs.unlink(tmpOutput).catch(() => {});
-          reject(new Error(err.message));
+          reject(new Error(err.message + (err.stderr ? '\n' + err.stderr : '')));
         })
         .run();
     });

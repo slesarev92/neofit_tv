@@ -44,7 +44,7 @@ router.put('/', async (req, res, next) => {
     if (!result.ok) {
       return res.status(result.status).json({ error: result.error });
     }
-    backupScheduler.reschedule(result.settings);
+    try { backupScheduler.reschedule(result.settings); } catch (_) {}
     res.json({ settings: result.settings });
   } catch (err) {
     next(err);

@@ -48,11 +48,13 @@ async function processNext() {
   } catch (err) {
     logger.error('Video processing failed', { mediaId: task.mediaId, error: err.message });
     if (task.onComplete) await task.onComplete({ error: err.message });
+  } finally {
+    await removeTask(task.mediaId).catch((err) =>
+      logger.error('Failed to remove task from queue', { mediaId: task.mediaId, error: err.message })
+    );
+    processing = false;
+    processNext();
   }
-
-  await removeTask(task.mediaId);
-  processing = false;
-  processNext();
 }
 
 function init(worker) {
