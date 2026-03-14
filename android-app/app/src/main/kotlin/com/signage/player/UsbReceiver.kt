@@ -18,7 +18,6 @@ class UsbReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_MEDIA_MOUNTED) return
 
         val possiblePaths = getRemovableVolumeRoots(context)
-
         val pathFromIntent = intent.data?.path
         val fallbackPaths = listOfNotNull(
             pathFromIntent,
@@ -28,8 +27,15 @@ class UsbReceiver : BroadcastReceiver() {
             "/storage/usb",
             "/storage/usbdisk"
         ).distinct()
-
         val allPaths = (possiblePaths + fallbackPaths).distinct()
+
+        // Чтение файла выполняется в фоновом потоке, чтобы избежать ANR на медленных USB
+        Thread {
+            processUsbConfig(context, allPaths, pathFromIntent)
+        }.start()
+    }
+
+    private fun processUsbConfig(context: Context, allPaths: List<String>, pathFromIntent: String?) {
         val configFile = allPaths
             .map { File("$it/signage.txt") }
             .firstOrNull { it.exists() && it.canRead() }

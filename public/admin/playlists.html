@@ -68,6 +68,18 @@
         </div>
       </div>
     </div>
+    <div class="modal-overlay" id="playlistPreviewModal">
+      <div class="modal" style="max-width: 90vw;">
+        <div class="modal-header">
+          <h2 id="playlistPreviewTitle">Просмотр медиа</h2>
+          <button type="button" class="close-btn" id="playlistPreviewClose" aria-label="Закрыть">&times;</button>
+        </div>
+        <div class="modal-body">
+          <img id="playlistPreviewImage" alt="" style="max-width:100%;max-height:70vh;display:none;">
+          <video id="playlistPreviewVideo" controls playsinline style="width:100%;max-height:70vh;display:none;"></video>
+        </div>
+      </div>
+    </div>
   </main>
   <script src="/js/api.js"></script>
   <script src="/js/nav.js"></script>

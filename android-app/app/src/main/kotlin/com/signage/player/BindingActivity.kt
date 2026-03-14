@@ -41,6 +41,7 @@ class BindingActivity : AppCompatActivity() {
     private var pollRunnable: Runnable? = null
     private var countdownRunnable: Runnable? = null
     private var expiresAtMs = 0L
+    @Volatile private var isDestroyed = false
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -123,10 +124,12 @@ class BindingActivity : AppCompatActivity() {
         } else {
             serverEdit.setText(s.trimEnd('/'))
         }
+        if (isUrlFieldValid()) fetchCode()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        isDestroyed = true
         pollRunnable?.let { handler.removeCallbacks(it) }
         countdownRunnable?.let { handler.removeCallbacks(it) }
         executor.shutdown()
@@ -240,7 +243,9 @@ class BindingActivity : AppCompatActivity() {
                 val remaining = (expiresAtMs - System.currentTimeMillis()) / 1000
                 if (remaining <= 0) {
                     countdownView.text = getString(R.string.binding_code_expired)
-                    handler.postDelayed(this, COUNTDOWN_UPDATE_MS)
+                    // Код истёк — останавливаем polling, countdown больше не планируем
+                    pollRunnable?.let { handler.removeCallbacks(it) }
+                    pollRunnable = null
                     return
                 }
                 val min = (remaining / 60).toInt()
@@ -277,7 +282,9 @@ class BindingActivity : AppCompatActivity() {
                             }
                         }
                     } catch (_: Exception) { }
-                    handler.postDelayed(pollRunnable!!, POLL_INTERVAL_MS)
+                    if (!isDestroyed) {
+                        handler.postDelayed(pollRunnable!!, POLL_INTERVAL_MS)
+                    }
                 }
             }
         }

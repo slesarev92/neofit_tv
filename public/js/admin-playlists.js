@@ -3,6 +3,7 @@
   let mediaCache = [];
   let playlistItems = [];
   let savePlaylistInProgress = false;
+  let defaultImageDuration = 10;
 
   function getMediaThumbUrl(media) {
     if (!media || !media.path) return null;
@@ -55,6 +56,8 @@
   }
 
   function loadPlaylists() {
+    const params = new URLSearchParams(window.location.search);
+    const activePlaylistId = params.get('playlistId') || null;
     Promise.all([API.getPlaylists(), API.getScreens(), API.getMedia()])
       .then(([playlistsRes, screensRes, mediaRes]) => {
         const items = playlistsRes.items || [];
@@ -88,19 +91,23 @@
               : screenCount === 1
                 ? 'На экране: ' + escapeHtml(screenNames[0])
                 : 'На экранах (' + screenCount + '): ' + screenNames.slice(0, 3).map(escapeHtml).join(', ') + (screenCount > 3 ? ' …' : '');
+            const screensHtml = screenCount === 0
+              ? screensText
+              : `<button type="button" class="link-button" data-action="playlist-go-screens" data-id="${escapeAttr(pl.id)}" title="${escapeAttr(screenNames.join(', '))}" style="background:none;border:none;padding:0;color:var(--primary);text-decoration:underline;cursor:pointer;">${screensText}</button>`;
+            const isActive = activePlaylistId && pl.id === activePlaylistId;
             return `
           <div class="card" style="margin-bottom: 1rem;">
-            <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div class="card-body${isActive ? ' card-active' : ''}" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;${isActive ? ' border:1px solid var(--primary);box-shadow:0 0 0 1px var(--primary);' : ''}">
               <div>
                 <div style="font-weight: 600; margin-bottom: 0.25rem;">${escapeHtml(pl.name)}</div>
                 <div class="stat-label">${(pl.items || []).length} элементов</div>
-                <div class="stat-label playlist-screens-info">${screensText}</div>
+                <div class="stat-label playlist-screens-info">${screensHtml}</div>
                 ${durationLine}
               </div>
               <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary btn-sm" onclick="openEditModal('${escapeAttr(pl.id)}')">Редактировать</button>
-                <button class="btn btn-secondary btn-sm" onclick="duplicatePlaylist('${escapeAttr(pl.id)}')">Дублировать</button>
-                <button class="btn btn-danger btn-sm" data-id="${escapeAttr(pl.id)}" data-name="${escapeAttr(pl.name || '')}" onclick="deletePlaylist(this)">Удалить</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-action="playlist-edit" data-id="${escapeAttr(pl.id)}">Редактировать</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-action="playlist-duplicate" data-id="${escapeAttr(pl.id)}">Дублировать</button>
+                <button type="button" class="btn btn-danger btn-sm" data-action="playlist-delete" data-id="${escapeAttr(pl.id)}" data-name="${escapeAttr(pl.name || '')}">Удалить</button>
               </div>
             </div>
           </div>
@@ -173,9 +180,15 @@
   }
 
   function openMediaSelectModal() {
-    API.getMedia()
-      .then((res) => {
-        mediaCache = res.items || [];
+    Promise.all([API.getMedia(), API.getSettings()])
+      .then(([mediaRes, settingsRes]) => {
+        mediaCache = mediaRes.items || [];
+        // settingsRes приходит как { settings: {...} }
+        const s = (settingsRes && settingsRes.settings) || settingsRes || {};
+        defaultImageDuration = Math.min(3600, Math.max(1, Math.round(Number(s.imageDuration) || 10)));
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/9e083e65-9113-413f-bd68-284c44a9b523',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-playlists.js:openMediaSelectModal',message:'after set defaultImageDuration',data:{hasSettings:!!settingsRes,hasSettingsSettings:!!(settingsRes&&settingsRes.settings),sImageDuration:s.imageDuration,settingsImageDuration:settingsRes&&settingsRes.settings&&settingsRes.settings.imageDuration,defaultImageDuration:defaultImageDuration},timestamp:Date.now(),hypothesisId:'H1'})}).catch(function(){});
+        // #endregion
         const readyMedia = mediaCache.filter((m) => !m.status || m.status === 'ready');
         const grid = document.getElementById('mediaSelectGrid');
         if (readyMedia.length === 0) {
@@ -206,18 +219,27 @@
   }
 
   function addSelectedMediaToPlaylist() {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/9e083e65-9113-413f-bd68-284c44a9b523',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-playlists.js:addSelectedMediaToPlaylist',message:'entry',data:{defaultImageDuration:defaultImageDuration},timestamp:Date.now(),hypothesisId:'H3'})}).catch(function(){});
+    // #endregion
     const grid = document.getElementById('mediaSelectGrid');
     const checked = grid.querySelectorAll('.media-select-checkbox:checked');
     let added = 0;
     checked.forEach((cb) => {
       const item = cb.closest('.media-select-item');
       if (!item) return;
+      const mime = item.dataset.mime || '';
+      const isVid = mime.indexOf('video/') === 0;
+      const duration = isVid ? 10 : defaultImageDuration;
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/9e083e65-9113-413f-bd68-284c44a9b523',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-playlists.js:addSelectedMediaToPlaylist:item',message:'per item',data:{mime:mime,isVid:isVid,duration:duration},timestamp:Date.now(),hypothesisId:'H4'})}).catch(function(){});
+      // #endregion
       playlistItems.push({
         id: newItemId(),
         mediaId: item.dataset.mediaId,
         mediaName: item.dataset.mediaName || '',
-        mimeType: item.dataset.mime || '',
-        duration: 10,
+        mimeType: mime,
+        duration: duration,
         order: playlistItems.length,
       });
       added++;
@@ -239,6 +261,53 @@
 
   function getMediaCountInPlaylist(mediaId, items) {
     return (items || []).filter((it) => it.mediaId === mediaId).length;
+  }
+
+  function openPlaylistMediaPreview(media) {
+    const modal = document.getElementById('playlistPreviewModal');
+    const titleEl = document.getElementById('playlistPreviewTitle');
+    const videoEl = document.getElementById('playlistPreviewVideo');
+    const imgEl = document.getElementById('playlistPreviewImage');
+    if (!modal || !titleEl || !videoEl || !imgEl || !media) return;
+    const name = media.originalName || media.filename || 'Медиа';
+    const isVid = media.mimeType && media.mimeType.startsWith('video/');
+    const src = getMediaThumbUrl(media) || '';
+    titleEl.textContent = escapeHtml(name);
+    if (isVid) {
+      imgEl.style.display = 'none';
+      imgEl.removeAttribute('src');
+      videoEl.style.display = 'block';
+      // убираем #t=2 если есть
+      const cleanSrc = src.split('#')[0];
+      videoEl.src = cleanSrc;
+      videoEl.load();
+      modal.classList.add('active');
+      videoEl.play().catch(function () {});
+    } else {
+      if (!src) return;
+      videoEl.pause();
+      videoEl.style.display = 'none';
+      videoEl.removeAttribute('src');
+      imgEl.style.display = 'block';
+      imgEl.src = src;
+      modal.classList.add('active');
+    }
+  }
+
+  function closePlaylistMediaPreview() {
+    const modal = document.getElementById('playlistPreviewModal');
+    const videoEl = document.getElementById('playlistPreviewVideo');
+    const imgEl = document.getElementById('playlistPreviewImage');
+    if (modal) modal.classList.remove('active');
+    if (videoEl) {
+      videoEl.pause();
+      videoEl.style.display = 'none';
+      videoEl.removeAttribute('src');
+    }
+    if (imgEl) {
+      imgEl.style.display = 'none';
+      imgEl.removeAttribute('src');
+    }
   }
 
   function renderPlaylistItems() {
@@ -279,6 +348,13 @@
         <button type="button" class="btn btn-secondary btn-icon btn-sm" onclick="duplicatePlaylistItem('${escapeAttr(item.id)}')" title="Дублировать этот элемент" aria-label="Дублировать">⧉</button>
         <button type="button" class="btn btn-danger btn-icon btn-sm" onclick="removePlaylistItem('${escapeAttr(item.id)}')" title="Удалить">×</button>
       `;
+      const thumbEl = li.querySelector('.item-thumb');
+      if (thumbEl && media) {
+        thumbEl.style.cursor = 'pointer';
+        thumbEl.addEventListener('click', function () {
+          openPlaylistMediaPreview(media);
+        });
+      }
       if (!isVid) {
         li.querySelector('input').addEventListener('change', (e) => {
           const val = parseInt(e.target.value, 10);
@@ -474,6 +550,22 @@
 
   window.deletePlaylist = deletePlaylist;
 
+  var listEl = document.getElementById('playlistsList');
+  if (listEl) {
+    listEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      var action = btn.dataset.action;
+      var id = btn.dataset.id;
+      if (action === 'playlist-edit' && id) openEditModal(id);
+      else if (action === 'playlist-duplicate' && id) duplicatePlaylist(id);
+      else if (action === 'playlist-delete') deletePlaylist(btn);
+      else if (action === 'playlist-go-screens' && id) {
+        window.location.href = '/admin/screens.html?playlistId=' + encodeURIComponent(id);
+      }
+    });
+  }
+
   document.getElementById('playlistModal').addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) closePlaylistModal();
   });
@@ -513,6 +605,19 @@
   if (mediaSelectModalCancel) mediaSelectModalCancel.addEventListener('click', closeMediaSelectModal);
   var mediaSelectAddBtn = document.getElementById('mediaSelectAddBtn');
   if (mediaSelectAddBtn) mediaSelectAddBtn.addEventListener('click', addSelectedMediaToPlaylist);
+
+  var playlistPreviewModal = document.getElementById('playlistPreviewModal');
+  var playlistPreviewClose = document.getElementById('playlistPreviewClose');
+  if (playlistPreviewModal) {
+    playlistPreviewModal.addEventListener('click', function (ev) {
+      if (ev.target === playlistPreviewModal || ev.target.classList.contains('modal-overlay')) {
+        closePlaylistMediaPreview();
+      }
+    });
+  }
+  if (playlistPreviewClose) {
+    playlistPreviewClose.addEventListener('click', closePlaylistMediaPreview);
+  }
 
   loadPlaylists();
 })();

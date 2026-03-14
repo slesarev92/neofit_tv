@@ -69,12 +69,20 @@
     return f === 'online' || f === 'offline' ? f : 'all';
   }
 
+  function getPlaylistFilterFromUrl() {
+    var p = new URLSearchParams(window.location.search);
+    var id = (p.get('playlistId') || '').trim();
+    return id || null;
+  }
+
   function setFilter(filter) {
     screenFilter = filter;
     document.querySelectorAll('.screens-filter-tab').forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.filter === filter);
     });
   }
+
+  let currentPlaylistFilterId = null;
 
   function applyFilterAndRender() {
     if (!lastPlaylistMap) return;
@@ -83,6 +91,7 @@
     var filtered = bySearch.filter(function (s) {
       if (screenFilter === 'online') return s.isOnline === true;
       if (screenFilter === 'offline') return s.isOnline !== true;
+      if (currentPlaylistFilterId && s.playlistId !== currentPlaylistFilterId) return false;
       return true;
     });
     var order = getScreensSort();
@@ -170,14 +179,18 @@
         </span>
       </td>
       <td data-label="Название">${escapeHtml(screen.name)}</td>
-      <td data-label="Плейлист">${escapeHtml(playlistText)}</td>
+      <td data-label="Плейлист">${
+        (!screen.playlistId || !playlistMap.has(screen.playlistId))
+          ? escapeHtml(playlistText)
+          : `<button type="button" class="link-button" data-action="screen-go-playlist" data-playlist-id="${escapeAttr(screen.playlistId)}" style="background:none;border:none;padding:0;color:var(--primary);text-decoration:underline;cursor:pointer;">${escapeHtml(playlistText)}</button>`
+      }</td>
       <td data-label="Последняя активность">${escapeHtml(lastSeenText)}</td>
       <td data-label="Действия" class="screens-actions">
-        <button class="btn btn-secondary btn-sm" onclick="openEditModal('${escapeAttr(screen.id)}')">Редактировать</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="screen-edit" data-id="${escapeAttr(screen.id)}">Редактировать</button>
         <a href="${escapeAttr(getPlayerUrl(screen.id))}" target="_blank" class="btn btn-secondary btn-sm">Открыть плеер</a>
-        <button class="btn btn-secondary btn-sm" onclick="copyLink('${escapeAttr(screen.id)}')">Копировать ссылку</button>
-        <button class="btn btn-secondary btn-sm" onclick="downloadPlayerFile('${escapeAttr(screen.id)}','${escapeAttr(screen.name)}')">Выгрузить ссылку</button>
-        <button class="btn btn-danger btn-sm" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}" onclick="deleteScreen(this)">Удалить</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="screen-copy-link" data-id="${escapeAttr(screen.id)}">Копировать ссылку</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-action="screen-download" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}">Выгрузить ссылку</button>
+        <button type="button" class="btn btn-danger btn-sm" data-action="screen-delete" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}">Удалить</button>
       </td>
     `;
     return tr;
@@ -348,6 +361,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     screenFilter = getFilterFromUrl();
+    currentPlaylistFilterId = getPlaylistFilterFromUrl();
     setFilter(screenFilter);
 
     document.querySelectorAll('.screens-filter-tab').forEach(function (btn) {
@@ -356,6 +370,24 @@
         applyFilterAndRender();
       });
     });
+
+    if (screensList) {
+      screensList.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-action]');
+        if (!btn) return;
+        var action = btn.dataset.action;
+        var id = btn.dataset.id;
+        var name = (btn.getAttribute('data-name') || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<');
+        if (action === 'screen-edit' && id) openEditModal(id);
+        else if (action === 'screen-copy-link' && id) copyLink(id);
+        else if (action === 'screen-download' && id) downloadPlayerFile(id, name);
+        else if (action === 'screen-delete') deleteScreen(btn);
+        else if (action === 'screen-go-playlist' && btn.dataset.playlistId) {
+          var pid = btn.dataset.playlistId;
+          window.location.href = '/admin/playlists.html?playlistId=' + encodeURIComponent(pid);
+        }
+      });
+    }
 
     var sortEl = document.getElementById('screensSort');
     if (sortEl) {

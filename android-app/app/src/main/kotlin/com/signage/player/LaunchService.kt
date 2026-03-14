@@ -18,15 +18,30 @@ class LaunchService : Service() {
         private const val BOOT_LAUNCH_DELAY_MS = 3000L
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1, buildNotification())
-        Handler(Looper.getMainLooper()).postDelayed({
+    private val launchHandler = Handler(Looper.getMainLooper())
+    private var launched = false
+    private val launchRunnable = Runnable {
+        if (!launched) {
+            launched = true
             startActivity(Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
-            stopSelf()
-        }, BOOT_LAUNCH_DELAY_MS)
+        }
+        stopSelf()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(1, buildNotification())
+        if (!launched) {
+            launchHandler.removeCallbacks(launchRunnable)
+            launchHandler.postDelayed(launchRunnable, BOOT_LAUNCH_DELAY_MS)
+        }
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        launchHandler.removeCallbacks(launchRunnable)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

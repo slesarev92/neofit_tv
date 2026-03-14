@@ -52,6 +52,11 @@
     return (el && el.value) ? el.value.trim().toLowerCase() : '';
   }
 
+  function getTypeFilter() {
+    const el = document.getElementById('mediaTypeFilter');
+    return (el && el.value) ? el.value : 'all';
+  }
+
   function filterBySearch(items, query) {
     if (!query) return items;
     return items.filter(function (item) {
@@ -60,9 +65,21 @@
     });
   }
 
+  function filterByType(items, type) {
+    if (!type || type === 'all') return items;
+    return items.filter(function (item) {
+      const isVid = isVideo(item.mimeType);
+      if (type === 'video') return isVid;
+      if (type === 'image') return !isVid;
+      return true;
+    });
+  }
+
   function applySortAndRender() {
     const query = getSearchQuery();
-    const filtered = filterBySearch(lastMediaItems, query);
+    const type = getTypeFilter();
+    const bySearch = filterBySearch(lastMediaItems, query);
+    const filtered = filterByType(bySearch, type);
     const order = getSortOrder();
     const sorted = sortItems(filtered, order);
     renderMediaGrid(sorted);
@@ -132,19 +149,27 @@
       video.preload = 'metadata';
       video.muted = true;
       video.playsInline = true;
-      video.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+      video.style.cssText = 'width:100%;height:100%;object-fit:cover;pointer-events:none;';
       video.addEventListener('loadeddata', () => { video.currentTime = 2; });
       const badge = document.createElement('div');
-      badge.style.cssText = 'position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:.7rem;';
+      badge.style.cssText = 'position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:.7rem;pointer-events:none;';
       badge.textContent = 'VIDEO';
       thumb.appendChild(video);
       thumb.appendChild(badge);
+      if (status === 'ready') {
+        thumb.style.cursor = 'pointer';
+        thumb.addEventListener('click', function () { openMediaPreview(item); });
+      }
     } else {
       const img = document.createElement('img');
       img.src = `/uploads/${item.filename}`;
       img.alt = escapeAttr(truncate(item.originalName));
       img.loading = 'lazy';
       thumb.appendChild(img);
+      if (status === 'ready') {
+        thumb.style.cursor = 'pointer';
+        thumb.addEventListener('click', function () { openMediaPreview(item); });
+      }
     }
 
     const info = document.createElement('div');
@@ -328,6 +353,61 @@
     input.addEventListener('change', (e) => { uploadFiles(e.target.files); e.target.value = ''; });
   }
 
+  function openMediaPreview(item) {
+    const modal = document.getElementById('mediaPreviewModal');
+    const titleEl = document.getElementById('mediaPreviewTitle');
+    const videoEl = document.getElementById('mediaPreviewVideo');
+    const imgEl = document.getElementById('mediaPreviewImage');
+    const metaEl = document.getElementById('mediaPreviewMeta');
+    if (!modal || !titleEl || !videoEl || !imgEl) return;
+    const name = item.originalName || item.filename || 'Медиа';
+    const isVid = isVideo(item.mimeType);
+    const src = '/uploads/' + (item.filename || item.path || '');
+    titleEl.textContent = truncate(name);
+    if (metaEl) {
+      const usage = mediaUsageMap[item.id] || [];
+      const usageText = usage.length
+        ? 'В плейлистах: ' + usage.slice(0, 3).join(', ') + (usage.length > 3 ? ' (+' + (usage.length - 3) + ')' : '')
+        : 'Не используется';
+      const sizeText = typeof formatBytes === 'function' ? formatBytes(item.size) : '';
+      const dateText = formatDate(item.createdAt);
+      metaEl.textContent = [sizeText, dateText, usageText].filter(Boolean).join(' · ');
+    }
+    if (isVid) {
+      imgEl.style.display = 'none';
+      imgEl.removeAttribute('src');
+      videoEl.style.display = 'block';
+      videoEl.src = src;
+      videoEl.load();
+      modal.classList.add('active');
+      videoEl.play().catch(function () {});
+    } else {
+      if (!src) return;
+      videoEl.pause();
+      videoEl.style.display = 'none';
+      videoEl.removeAttribute('src');
+      imgEl.style.display = 'block';
+      imgEl.src = src;
+      modal.classList.add('active');
+    }
+  }
+
+  function closeMediaPreview() {
+    const modal = document.getElementById('mediaPreviewModal');
+    const videoEl = document.getElementById('mediaPreviewVideo');
+    const imgEl = document.getElementById('mediaPreviewImage');
+    if (modal) modal.classList.remove('active');
+    if (videoEl) {
+      videoEl.pause();
+      videoEl.style.display = 'none';
+      videoEl.removeAttribute('src');
+    }
+    if (imgEl) {
+      imgEl.style.display = 'none';
+      imgEl.removeAttribute('src');
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const sortEl = document.getElementById('mediaSort');
     if (sortEl) {
@@ -342,8 +422,25 @@
       searchEl.addEventListener('input', applySortAndRender);
       searchEl.addEventListener('keyup', function (e) { if (e.key === 'Escape') { searchEl.value = ''; applySortAndRender(); } });
     }
+    const typeEl = document.getElementById('mediaTypeFilter');
+    if (typeEl) {
+      typeEl.addEventListener('change', function () {
+        applySortAndRender();
+      });
+    }
     loadMedia();
     setupUploadZone();
+    const previewModal = document.getElementById('mediaPreviewModal');
+    const previewClose = document.getElementById('mediaPreviewClose');
+    if (previewModal) {
+      previewModal.addEventListener('click', function (e) {
+        if (e.target === previewModal || e.target.classList.contains('modal-overlay')) closeMediaPreview();
+      });
+    }
+    if (previewClose) previewClose.addEventListener('click', closeMediaPreview);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeMediaPreview();
+    });
     const logoutBtn = document.getElementById('sidebarLogoutBtn');
     if (logoutBtn && typeof API !== 'undefined') {
       logoutBtn.addEventListener('click', function () {

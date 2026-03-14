@@ -214,7 +214,7 @@ class MainActivity : AppCompatActivity() {
         webView?.apply {
             stopLoading()
             clearHistory()
-            removeAllViews()
+            (parent as? android.view.ViewGroup)?.removeView(this)
             destroy()
         }
         webView = null
