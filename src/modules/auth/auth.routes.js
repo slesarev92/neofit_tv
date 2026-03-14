@@ -21,8 +21,14 @@ router.post('/login', loginLimiter, validate([
     }
 
     req.session.authenticated = true;
-logger.info('Successful login', { ip: req.ip });
-    res.json({ ok: true });
+    logger.info('Successful login', { ip: req.ip });
+    req.session.save((err) => {
+      if (err) {
+        logger.error('Session save error on login', { err: err.message });
+        return res.status(500).json({ error: 'Ошибка сохранения сессии' });
+      }
+      res.json({ ok: true });
+    });
   } catch (err) {
     next(err);
   }

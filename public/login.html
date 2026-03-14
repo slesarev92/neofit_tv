@@ -38,7 +38,7 @@
     </form>
   </div>
   <script src="/js/api.js"></script>
-  <script src="/js/nav.js"></script>
+  <!-- nav.js не подключаем на странице входа: он дергает /api/settings, получает 401 и может вызывать лишний редирект -->
   <script>
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();

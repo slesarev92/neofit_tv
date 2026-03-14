@@ -104,7 +104,8 @@
                 <div class="stat-label playlist-screens-info">${screensHtml}</div>
                 ${durationLine}
               </div>
-              <div style="display: flex; gap: 0.5rem;">
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button type="button" class="btn btn-primary btn-sm" data-action="playlist-send-to-screens" data-id="${escapeAttr(pl.id)}" data-name="${escapeAttr(pl.name || '')}">Отправить на экраны</button>
                 <button type="button" class="btn btn-secondary btn-sm" data-action="playlist-edit" data-id="${escapeAttr(pl.id)}">Редактировать</button>
                 <button type="button" class="btn btn-secondary btn-sm" data-action="playlist-duplicate" data-id="${escapeAttr(pl.id)}">Дублировать</button>
                 <button type="button" class="btn btn-danger btn-sm" data-action="playlist-delete" data-id="${escapeAttr(pl.id)}" data-name="${escapeAttr(pl.name || '')}">Удалить</button>
@@ -177,6 +178,73 @@
 
   function closePlaylistModal() {
     document.getElementById('playlistModal').classList.remove('active');
+  }
+
+  let sendToScreensPlaylistId = null;
+
+  function openSendToScreensModal(playlistId, playlistName) {
+    sendToScreensPlaylistId = playlistId;
+    document.getElementById('sendToScreensModalTitle').textContent = 'Отправить плейлист на экраны';
+    document.getElementById('sendToScreensModalPlaylistName').textContent = playlistName ? 'Плейлист: «' + playlistName + '»' : '';
+    var listEl = document.getElementById('sendToScreensList');
+    listEl.innerHTML = '<p class="stat-label">Загрузка экранов…</p>';
+    document.getElementById('sendToScreensModal').classList.add('active');
+    var submitBtn = document.getElementById('sendToScreensModalSubmit');
+    submitBtn.disabled = true;
+    API.getScreens()
+      .then(function (res) {
+        var screens = res.items || [];
+        if (screens.length === 0) {
+          listEl.innerHTML = '<p class="stat-label">Нет добавленных экранов. Сначала создайте экраны в разделе «Экраны».</p>';
+          return;
+        }
+        listEl.innerHTML = screens
+          .map(function (s) {
+            var name = escapeHtml(s.name || s.id || 'Экран');
+            var online = s.isOnline ? '<span class="stat-label" style="color:var(--success);margin-left:0.25rem;">● онлайн</span>' : '';
+            return (
+              '<label class="send-to-screens-item" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;cursor:pointer;">' +
+              '<input type="checkbox" class="send-to-screens-checkbox" data-screen-id="' + escapeAttr(s.id) + '">' +
+              '<span>' + name + online + '</span></label>'
+            );
+          })
+          .join('');
+        submitBtn.disabled = false;
+      })
+      .catch(function (err) {
+        listEl.innerHTML = '<p class="stat-label" style="color:var(--danger);">Ошибка загрузки экранов: ' + escapeHtml(err.message || '') + '</p>';
+        submitBtn.disabled = false;
+      });
+  }
+
+  function closeSendToScreensModal() {
+    document.getElementById('sendToScreensModal').classList.remove('active');
+    sendToScreensPlaylistId = null;
+  }
+
+  function submitSendToScreens() {
+    var playlistId = sendToScreensPlaylistId;
+    if (!playlistId) return;
+    var listEl = document.getElementById('sendToScreensList');
+    var checked = listEl.querySelectorAll('.send-to-screens-checkbox:checked');
+    if (!checked.length) {
+      showToast('Выберите хотя бы один экран', 'error');
+      return;
+    }
+    var screenIds = Array.prototype.map.call(checked, function (cb) { return cb.dataset.screenId; }).filter(Boolean);
+    var submitBtn = document.getElementById('sendToScreensModalSubmit');
+    submitBtn.disabled = true;
+    var promises = screenIds.map(function (id) { return API.updateScreen(id, { playlistId: playlistId }); });
+    Promise.all(promises)
+      .then(function () {
+        showToast('Плейлист назначен на ' + screenIds.length + ' экран(ов). Экраны обновятся при следующей загрузке данных.', 'success');
+        closeSendToScreensModal();
+        loadPlaylists();
+      })
+      .catch(function (err) {
+        showToast(err.message || 'Ошибка назначения плейлиста', 'error');
+        submitBtn.disabled = false;
+      });
   }
 
   function openMediaSelectModal() {
@@ -560,6 +628,7 @@
       if (action === 'playlist-edit' && id) openEditModal(id);
       else if (action === 'playlist-duplicate' && id) duplicatePlaylist(id);
       else if (action === 'playlist-delete') deletePlaylist(btn);
+      else if (action === 'playlist-send-to-screens' && id) openSendToScreensModal(id, (btn.dataset.name || '').trim());
       else if (action === 'playlist-go-screens' && id) {
         window.location.href = '/admin/screens.html?playlistId=' + encodeURIComponent(id);
       }
@@ -572,16 +641,35 @@
   document.getElementById('mediaSelectModal').addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) closeMediaSelectModal();
   });
+  var sendToScreensModalEl = document.getElementById('sendToScreensModal');
+  if (sendToScreensModalEl) {
+    sendToScreensModalEl.addEventListener('click', function (e) {
+      if (e.target === sendToScreensModalEl || e.target.classList.contains('modal-overlay')) closeSendToScreensModal();
+    });
+  }
+  document.getElementById('sendToScreensModalClose').addEventListener('click', closeSendToScreensModal);
+  document.getElementById('sendToScreensModalCancel').addEventListener('click', closeSendToScreensModal);
+  document.getElementById('sendToScreensSelectAll').addEventListener('click', function () {
+    document.querySelectorAll('#sendToScreensList .send-to-screens-checkbox').forEach(function (cb) { cb.checked = true; });
+  });
+  document.getElementById('sendToScreensDeselectAll').addEventListener('click', function () {
+    document.querySelectorAll('#sendToScreensList .send-to-screens-checkbox').forEach(function (cb) { cb.checked = false; });
+  });
+  document.getElementById('sendToScreensModalSubmit').addEventListener('click', submitSendToScreens);
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     const playlistModal = document.getElementById('playlistModal');
     const mediaModal = document.getElementById('mediaSelectModal');
+    const sendModal = document.getElementById('sendToScreensModal');
     if (playlistModal && playlistModal.classList.contains('active')) {
       closePlaylistModal();
     }
     if (mediaModal && mediaModal.classList.contains('active')) {
       closeMediaSelectModal();
+    }
+    if (sendModal && sendModal.classList.contains('active')) {
+      closeSendToScreensModal();
     }
   });
 

@@ -127,10 +127,12 @@
   function showAppVersion() {
     var footer = document.querySelector('.sidebar-footer');
     if (!footer) return;
-    fetch('/api/system/health', { credentials: 'include' })
+    fetch('/api/system/health?_=' + Date.now(), { credentials: 'include', cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.version) return;
+        var existing = footer.querySelector('.sidebar-version');
+        if (existing) existing.remove();
         var el = document.createElement('div');
         el.className = 'sidebar-version';
         el.style.cssText = 'font-size:11px;color:var(--gray-500);text-align:center;padding:0.35rem 0 0;';

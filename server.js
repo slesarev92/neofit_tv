@@ -12,6 +12,7 @@ const { requireAuth } = require('./src/middleware/auth');
 // Use in-memory session store in development to avoid Windows EPERM/ENOENT with session-file-store
 const useMemoryStore = config.nodeEnv !== 'production' || process.env.SESSION_USE_MEMORY === '1';
 const FileStore = useMemoryStore ? null : require('session-file-store')(session);
+logger.info('Session store: ' + (useMemoryStore ? 'memory' : 'file') + ' (NODE_ENV=' + config.nodeEnv + ', SESSION_USE_MEMORY=' + process.env.SESSION_USE_MEMORY + ')');
 
 const authRoutes = require('./src/modules/auth/auth.routes');
 const mediaRoutes = require('./src/modules/media/media.routes');
@@ -79,11 +80,13 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use(
   session({
+    name: 'neofit.sid',
     ...(useMemoryStore ? {} : { store: new FileStore({ path: sessionsDir, ttl: config.sessionMaxAge ? Math.floor(config.sessionMaxAge / 1000) : 86400 }) }),
     secret: config.sessionSecret || 'dev-fallback-secret',
     resave: false,
     saveUninitialized: false,
     cookie: {
+      path: '/',
       httpOnly: true,
       sameSite: 'lax',
       secure: config.cookieSecure,
@@ -95,6 +98,12 @@ app.use(
 // Корень сайта — редирект в админку (до static, иначе GET / отдаёт 404 из public)
 app.get('/', (req, res) => res.redirect('/admin'));
 app.get('/admin', (req, res) => res.redirect('/admin/index.html'));
+
+// login.html без кэша, чтобы всегда подхватывалась версия без nav.js (иначе кэш даёт старую страницу с nav.js → 401 → редирект)
+app.get('/login.html', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.sendFile(path.join(path.resolve('public'), 'login.html'));
+});
 
 // Скачивание APK — один файл neofit_tv.apk в корне проекта (папка с server.js)
 app.get('/neofit_tv.apk', requireAuth, (req, res) => {
@@ -109,9 +118,16 @@ app.get('/neofit_tv.apk', requireAuth, (req, res) => {
 });
 
 // Health check (без авторизации — для мониторинга и отображения версии)
-const pkg = require('./package.json');
+// Версию читаем с диска при каждом запросе, чтобы под кнопкой «Выйти» всегда была актуальная
 app.get('/api/system/health', (req, res) => {
-  res.json({ ok: true, version: pkg.version, env: config.nodeEnv });
+  let version = '0.0.0';
+  try {
+    const pkgPath = path.join(__dirname, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+    version = pkg.version || version;
+  } catch (e) { /* ignore */ }
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ ok: true, version, env: config.nodeEnv });
 });
 
 // Public API routes (до static, иначе POST к /api/* отдаёт 404)
@@ -135,7 +151,13 @@ app.use('/uploads', express.static(path.resolve(config.uploadsDir), {
     res.set('Cache-Control', 'public, max-age=86400');
   },
 }));
-app.use(express.static(path.resolve('public')));
+app.use(express.static(path.resolve('public'), {
+  setHeaders(res, filePath) {
+    if (filePath && (filePath.endsWith('.html') || path.basename(filePath) === 'index.html')) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    }
+  },
+}));
 
 // Admin paths not served by static fall through to errorHandler
 app.get('/admin/*', (req, res, next) => {
