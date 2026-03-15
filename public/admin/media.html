@@ -7,7 +7,32 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <title>Медиа — NeoFit_TV</title>
   <link rel="stylesheet" href="/css/style.css">
-  <style>.auth-pending{visibility:hidden!important}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    .auth-pending{visibility:hidden!important}
+    :root{--font-sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    .page-header h1{letter-spacing:-.025em}
+    .upload-zone{flex-direction:column;align-items:center;text-align:center;gap:.375rem;padding:2.25rem 2rem;border-radius:16px;border-width:2px;transition:border-color .2s,background .2s}
+    .upload-zone .uz-icon{color:var(--primary);opacity:.65;margin-bottom:.25rem;flex-shrink:0}
+    .upload-zone .uz-title{font-size:1rem;font-weight:600;color:var(--text-primary);margin:0}
+    .upload-zone .uz-sub{margin:0;color:var(--gray-500);font-size:.875rem}
+    .upload-zone .uz-link{color:var(--primary);text-decoration:underline;cursor:pointer}
+    .upload-zone .uz-hint{font-size:.75rem;color:var(--gray-400);margin:0}
+    .media-toolbar .form-group label{font-size:.8125rem;font-weight:500}
+    .card.media-card-section{border-radius:14px}
+    @media (max-width: 768px) {
+      .upload-zone{padding:1.5rem 1rem;gap:.25rem}
+      .upload-zone .uz-icon{width:32px;height:32px;margin-bottom:0}
+      .upload-zone .uz-title{font-size:.9375rem}
+      .media-bulk-bar{flex-wrap:wrap;gap:.5rem}
+      .media-bulk-bar .bulk-count{width:100%;flex:none}
+      .media-bulk-bar .btn{flex:1;justify-content:center}
+      .page-header-actions .btn{width:100%;justify-content:center}
+    }
+  </style>
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>
@@ -26,11 +51,22 @@
   <main class="main-content">
     <header class="page-header">
       <h1>Медиафайлы</h1>
+      <button type="button" class="btn btn-secondary btn-sm" id="mediaBulkToggleBtn" style="display:inline-flex;align-items:center;gap:.35rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        Выбрать
+      </button>
     </header>
+    <div class="media-bulk-bar" id="mediaBulkBar">
+      <span class="bulk-count" id="mediaBulkCount">0 выбрано</span>
+      <button type="button" class="btn btn-secondary btn-sm" id="mediaBulkCancelBtn">Отмена</button>
+      <button type="button" class="btn btn-danger btn-sm" id="mediaBulkDeleteBtn" disabled>Удалить выбранные</button>
+    </div>
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="fileInput" accept="image/*,video/*" multiple>
-      <p>Перетащите файлы сюда или нажмите для выбора</p>
-      <p style="font-size: .75rem; margin-top: .25rem;">Изображения и видео</p>
+      <svg class="uz-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+      <p class="uz-title">Перетащите файлы сюда</p>
+      <p class="uz-sub">или <span class="uz-link">нажмите для выбора</span></p>
+      <p class="uz-hint" id="uploadZoneHint">PNG, JPG, WebP, MP4, MOV — до <span id="uploadZoneLimitLabel">500</span> МБ</p>
     </div>
     <div class="progress-bar-wrap" id="progressBarWrap" style="display: none;">
       <p class="progress-bar-label" id="progressBarLabel"></p>

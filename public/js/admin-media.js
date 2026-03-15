@@ -2,6 +2,8 @@
   let pollTimers = {};
   let lastMediaItems = [];
   let mediaUsageMap = {};
+  let bulkMode = false;
+  const bulkSelectedIds = new Set();
   const SORT_STORAGE_KEY = 'mediaSort';
 
   const SORT_VALUES = ['date-desc', 'date-asc', 'name-asc', 'name-desc', 'size-desc', 'size-asc'];
@@ -129,10 +131,75 @@
     return `<span style="background:#d1fae5;color:#059669;padding:1px 6px;border-radius:4px;font-size:.7rem;margin-left:.25rem;">−${pct}%</span>`;
   }
 
+  function updateBulkBar() {
+    var count = bulkSelectedIds.size;
+    var countEl = document.getElementById('mediaBulkCount');
+    var deleteBtn = document.getElementById('mediaBulkDeleteBtn');
+    if (countEl) countEl.textContent = count + ' выбрано';
+    if (deleteBtn) deleteBtn.disabled = count === 0;
+  }
+
+  function toggleCardSelection(card, id) {
+    var cb = card.querySelector('.bulk-checkbox');
+    if (bulkSelectedIds.has(id)) {
+      bulkSelectedIds.delete(id);
+      card.classList.remove('bulk-selected');
+      if (cb) cb.checked = false;
+    } else {
+      bulkSelectedIds.add(id);
+      card.classList.add('bulk-selected');
+      if (cb) cb.checked = true;
+    }
+    updateBulkBar();
+  }
+
+  function enterBulkMode() {
+    bulkMode = true;
+    bulkSelectedIds.clear();
+    document.body.classList.add('bulk-mode');
+    var bar = document.getElementById('mediaBulkBar');
+    if (bar) bar.classList.add('active');
+    var toggleBtn = document.getElementById('mediaBulkToggleBtn');
+    if (toggleBtn) toggleBtn.style.display = 'none';
+    updateBulkBar();
+  }
+
+  function exitBulkMode() {
+    bulkMode = false;
+    bulkSelectedIds.clear();
+    document.body.classList.remove('bulk-mode');
+    var bar = document.getElementById('mediaBulkBar');
+    if (bar) bar.classList.remove('active');
+    var toggleBtn = document.getElementById('mediaBulkToggleBtn');
+    if (toggleBtn) toggleBtn.style.display = '';
+    document.querySelectorAll('.media-card.bulk-selected').forEach(function (c) {
+      c.classList.remove('bulk-selected');
+    });
+    document.querySelectorAll('.media-card .bulk-checkbox').forEach(function (cb) {
+      cb.checked = false;
+    });
+  }
+
   function renderMediaCard(item) {
     const card = document.createElement('div');
     card.className = 'media-card';
     card.dataset.id = item.id;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'bulk-checkbox';
+    cb.addEventListener('change', function () {
+      if (cb.checked) {
+        bulkSelectedIds.add(item.id);
+        card.classList.add('bulk-selected');
+      } else {
+        bulkSelectedIds.delete(item.id);
+        card.classList.remove('bulk-selected');
+      }
+      updateBulkBar();
+    });
+    cb.addEventListener('click', function (e) { e.stopPropagation(); });
+    card.appendChild(cb);
 
     const thumb = document.createElement('div');
     thumb.className = 'media-thumb';
@@ -158,7 +225,7 @@
       thumb.appendChild(badge);
       if (status === 'ready') {
         thumb.style.cursor = 'pointer';
-        thumb.addEventListener('click', function () { openMediaPreview(item); });
+        thumb.addEventListener('click', function () { if (bulkMode) return; openMediaPreview(item); });
       }
     } else {
       const img = document.createElement('img');
@@ -168,7 +235,7 @@
       thumb.appendChild(img);
       if (status === 'ready') {
         thumb.style.cursor = 'pointer';
-        thumb.addEventListener('click', function () { openMediaPreview(item); });
+        thumb.addEventListener('click', function () { if (bulkMode) return; openMediaPreview(item); });
       }
     }
 
@@ -218,15 +285,34 @@
       deleteBtn.onclick = (e) => {
         e.stopPropagation();
         var name = item.originalName || item.filename || 'файл';
-        if (confirm('Удалить файл «' + name + '»?')) deleteMedia(item.id);
+        card.style.opacity = '.4';
+        card.style.pointerEvents = 'none';
+        showUndoToast(
+          'Файл «' + name + '» удалён.',
+          function () {
+            deleteMedia(item.id);
+          },
+          function () {
+            card.style.opacity = '';
+            card.style.pointerEvents = '';
+          }
+        );
       };
       info.appendChild(deleteBtn);
     }
+
+    card.addEventListener('click', function (e) {
+      if (!bulkMode) return;
+      if (e.target.closest('.bulk-checkbox') || e.target.closest('.btn')) return;
+      toggleCardSelection(card, item.id);
+    });
 
     card.appendChild(thumb);
     card.appendChild(info);
     return card;
   }
+
+  const PAGE_SIZE = 50;
 
   function renderMediaGrid(items) {
     const grid = document.getElementById('mediaGrid');
@@ -237,12 +323,45 @@
     pollTimers = {};
 
     if (!items || items.length === 0) {
-      grid.innerHTML = '<p class="empty-state">Нет загруженных файлов</p>';
+      var query = getSearchQuery();
+      var type = getTypeFilter();
+      var isFiltered = query || (type && type !== 'all');
+      if (isFiltered) {
+        var typeLabel = type === 'video' ? 'видео' : type === 'image' ? 'изображений' : '';
+        var filterParts = [];
+        if (query) filterParts.push('«' + query + '»');
+        if (typeLabel) filterParts.push(typeLabel);
+        grid.innerHTML = '<div class="empty-state"><p style="margin-bottom:.75rem;">Ничего не найдено' +
+          (filterParts.length ? ' по запросу ' + filterParts.join(' / ') : '') +
+          '</p><button type="button" class="btn btn-secondary btn-sm" onclick="resetMediaFilters()">Сбросить фильтры</button></div>';
+      } else {
+        grid.innerHTML = '<p class="empty-state">Нет загруженных файлов</p>';
+      }
       return;
     }
-    items.forEach((item) => grid.appendChild(renderMediaCard(item)));
 
-    const processing = items.filter((i) => i.status === 'processing');
+    var page = items.slice(0, PAGE_SIZE);
+    page.forEach((item) => grid.appendChild(renderMediaCard(item)));
+
+    if (items.length > PAGE_SIZE) {
+      var remaining = items.length - PAGE_SIZE;
+      var loadMoreBtn = document.createElement('button');
+      loadMoreBtn.type = 'button';
+      loadMoreBtn.className = 'btn btn-secondary media-load-more-sentinel';
+      loadMoreBtn.textContent = 'Загрузить ещё (' + remaining + ')';
+      loadMoreBtn.addEventListener('click', function () {
+        var rest = items.slice(PAGE_SIZE);
+        rest.forEach(function (item) {
+          grid.insertBefore(renderMediaCard(item), loadMoreBtn);
+        });
+        loadMoreBtn.remove();
+        var processing2 = rest.filter(function (i) { return i.status === 'processing'; });
+        processing2.forEach(function (item) { startPolling(item.id); });
+      });
+      grid.appendChild(loadMoreBtn);
+    }
+
+    const processing = page.filter((i) => i.status === 'processing');
     processing.forEach((item) => startPolling(item.id));
   }
 
@@ -409,6 +528,13 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    // Load real file size limit from settings
+    API.getSettings().then(function (data) {
+      var s = (data && data.settings) || data || {};
+      var limitEl = document.getElementById('uploadZoneLimitLabel');
+      if (limitEl && s.maxFileSizeMb) limitEl.textContent = s.maxFileSizeMb;
+    }).catch(function () {});
+
     const sortEl = document.getElementById('mediaSort');
     if (sortEl) {
       sortEl.value = getSortOrder();
@@ -428,6 +554,38 @@
         applySortAndRender();
       });
     }
+    const bulkToggleBtn = document.getElementById('mediaBulkToggleBtn');
+    const bulkCancelBtn = document.getElementById('mediaBulkCancelBtn');
+    const bulkDeleteBtn = document.getElementById('mediaBulkDeleteBtn');
+    if (bulkToggleBtn) bulkToggleBtn.addEventListener('click', enterBulkMode);
+    if (bulkCancelBtn) bulkCancelBtn.addEventListener('click', exitBulkMode);
+    if (bulkDeleteBtn) bulkDeleteBtn.addEventListener('click', function () {
+      var ids = Array.from(bulkSelectedIds);
+      if (!ids.length) return;
+      var count = ids.length;
+      ids.forEach(function (id) {
+        var card = document.querySelector('.media-card[data-id="' + id + '"]');
+        if (card) { card.style.opacity = '.3'; card.style.pointerEvents = 'none'; }
+      });
+      exitBulkMode();
+      showUndoToast(
+        'Удалено файлов: ' + count + '.',
+        async function () {
+          for (var i = 0; i < ids.length; i++) {
+            try { await API.deleteMedia(ids[i]); } catch (e) {}
+          }
+          showToast('Удалено файлов: ' + count, 'success');
+          await loadMedia();
+        },
+        function () {
+          ids.forEach(function (id) {
+            var card = document.querySelector('.media-card[data-id="' + id + '"]');
+            if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+          });
+        }
+      );
+    });
+
     loadMedia();
     setupUploadZone();
     const previewModal = document.getElementById('mediaPreviewModal');
@@ -448,4 +606,12 @@
       });
     }
   });
+
+  window.resetMediaFilters = function () {
+    var searchEl = document.getElementById('mediaSearch');
+    var typeEl = document.getElementById('mediaTypeFilter');
+    if (searchEl) searchEl.value = '';
+    if (typeEl) typeEl.value = 'all';
+    applySortAndRender();
+  };
 })();

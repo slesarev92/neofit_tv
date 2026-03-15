@@ -1,4 +1,6 @@
 const bcrypt = require('bcrypt');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 const authRepository = require('./auth.repository');
 
 async function verifyPassword(password) {
@@ -22,4 +24,38 @@ async function changePassword(currentPassword, newPassword) {
   return { ok: true };
 }
 
-module.exports = { verifyPassword, changePassword };
+async function isTotpEnabled() {
+  const secret = await authRepository.getTotpSecret();
+  return !!secret;
+}
+
+async function setupTotp() {
+  const secret = speakeasy.generateSecret({ name: 'NeoFit TV', length: 20 });
+  const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+  return { secret: secret.base32, qrCodeUrl };
+}
+
+async function enableTotp(secret, token) {
+  const code = String(token || '').replace(/\D/g, '').slice(0, 6);
+  if (code.length !== 6) return { ok: false, error: 'Введите 6-значный код' };
+  const valid = speakeasy.totp.verify({ secret, encoding: 'base32', token: code, window: 4 });
+  if (!valid) return { ok: false, error: 'Неверный код' };
+  await authRepository.saveTotpSecret(secret);
+  return { ok: true };
+}
+
+async function verifyTotp(token) {
+  const secret = await authRepository.getTotpSecret();
+  if (!secret) return true;
+  const code = String(token || '').replace(/\D/g, '').slice(0, 6);
+  return speakeasy.totp.verify({ secret, encoding: 'base32', token: code, window: 4 });
+}
+
+async function disableTotp(password) {
+  const valid = await verifyPassword(password);
+  if (!valid) return { ok: false, error: 'Неверный пароль' };
+  await authRepository.saveTotpSecret(null);
+  return { ok: true };
+}
+
+module.exports = { verifyPassword, changePassword, isTotpEnabled, setupTotp, enableTotp, verifyTotp, disableTotp };

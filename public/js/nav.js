@@ -160,4 +160,74 @@
   }
 
   init();
+
+  // Custom confirm dialog (used for irreversible actions like backup restore)
+  window.showConfirm = function (message, onConfirm, options) {
+    var opts = options || {};
+    var confirmLabel = opts.confirmLabel || 'Удалить';
+    var confirmClass = opts.confirmClass || 'btn-danger';
+    var existing = document.getElementById('_confirmDialog');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = '_confirmDialog';
+    overlay.className = 'modal-overlay active';
+    overlay.style.zIndex = '300';
+    overlay.innerHTML =
+      '<div class="modal confirm-modal" role="dialog" aria-modal="true">' +
+      '<div class="modal-body" style="text-align:center;padding:1.5rem 1.5rem 1rem;">' +
+      '<p>' + String(message || 'Вы уверены?') + '</p>' +
+      '</div>' +
+      '<div class="modal-footer" style="justify-content:center;gap:.75rem;">' +
+      '<button type="button" class="btn btn-secondary" id="_confirmCancel">Отмена</button>' +
+      '<button type="button" class="btn ' + confirmClass + '" id="_confirmOk">' + confirmLabel + '</button>' +
+      '</div></div>';
+    document.body.appendChild(overlay);
+    var okBtn = overlay.querySelector('#_confirmOk');
+    var cancelBtn = overlay.querySelector('#_confirmCancel');
+    function close() {
+      overlay.classList.remove('active');
+      setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 250);
+      document.removeEventListener('keydown', keyHandler);
+    }
+    function keyHandler(e) {
+      if (e.key === 'Escape') { close(); }
+      if (e.key === 'Enter') { e.preventDefault(); close(); if (onConfirm) onConfirm(); }
+    }
+    okBtn.addEventListener('click', function () { close(); if (onConfirm) onConfirm(); });
+    cancelBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', keyHandler);
+    setTimeout(function () { cancelBtn.focus(); }, 50);
+  };
+
+  // Undo-toast: immediately hides item in UI, executes delete after delay, cancellable
+  window.showUndoToast = function (message, onExecute, onUndo) {
+    var DELAY = 5000;
+    var existing = document.getElementById('_undoToast');
+    if (existing) {
+      var fn = existing._pendingExecute;
+      if (fn) fn();
+      clearTimeout(existing._timer);
+      existing.remove();
+    }
+    var toast = document.createElement('div');
+    toast.id = '_undoToast';
+    toast.className = 'toast toast-undo show';
+    toast.innerHTML = '<span>' + message + '</span><button type="button" class="toast-undo-btn">Отменить</button>';
+    document.body.appendChild(toast);
+    var cancelled = false;
+    var undoBtn = toast.querySelector('.toast-undo-btn');
+    function hide() {
+      clearTimeout(toast._timer);
+      toast.classList.remove('show');
+      setTimeout(function () { if (toast.parentNode) toast.remove(); }, 350);
+    }
+    toast._pendingExecute = function () { if (!cancelled && onExecute) onExecute(); };
+    toast._timer = setTimeout(function () { hide(); if (!cancelled && onExecute) onExecute(); }, DELAY);
+    undoBtn.addEventListener('click', function () {
+      cancelled = true;
+      hide();
+      if (onUndo) onUndo();
+    });
+  };
 })();

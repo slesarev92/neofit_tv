@@ -14,6 +14,8 @@ async function getPlayerData(screenId) {
   const settings = {
     imageDuration: rawSettings.imageDuration,
     pollInterval: rawSettings.pollInterval,
+    requestTimeout: rawSettings.requestTimeout,
+    maxRetries: rawSettings.maxRetries,
     prefetchEnabled: rawSettings.prefetchEnabled,
     cacheEnabled: rawSettings.cacheEnabled,
     showLastOnError: rawSettings.showLastOnError,

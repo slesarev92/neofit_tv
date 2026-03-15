@@ -234,15 +234,18 @@
     var screenIds = Array.prototype.map.call(checked, function (cb) { return cb.dataset.screenId; }).filter(Boolean);
     var submitBtn = document.getElementById('sendToScreensModalSubmit');
     submitBtn.disabled = true;
+    var origText = submitBtn.textContent;
+    submitBtn.innerHTML = '<span class="btn-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:.4rem;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;"></span>Отправка…';
     var promises = screenIds.map(function (id) { return API.updateScreen(id, { playlistId: playlistId }); });
     Promise.all(promises)
       .then(function () {
-        showToast('Плейлист назначен на ' + screenIds.length + ' экран(ов). Экраны обновятся при следующей загрузке данных.', 'success');
+        showToast('Плейлист назначен на ' + screenIds.length + ' экран(ов)', 'success');
         closeSendToScreensModal();
         loadPlaylists();
       })
       .catch(function (err) {
         showToast(err.message || 'Ошибка назначения плейлиста', 'error');
+        submitBtn.textContent = origText;
         submitBtn.disabled = false;
       });
   }
@@ -275,7 +278,10 @@
         `
           )
           .join('');
+        var searchEl = document.getElementById('mediaSelectSearch');
+        if (searchEl) { searchEl.value = ''; }
         document.getElementById('mediaSelectModal').classList.add('active');
+        if (searchEl) searchEl.focus();
       })
       .catch((err) => {
         showToast(err.message || 'Ошибка загрузки медиа', 'error');
@@ -406,7 +412,7 @@
       }
 
       li.innerHTML = `
-        <span class="drag-handle" aria-label="Перетащить">⠿</span>
+        <span class="drag-handle" aria-label="Перетащить" title="Перетащить для изменения порядка">⠿</span>
         ${thumbHtml}
         <span class="item-name">${escapeHtml(name)}${dupBadge}</span>
         ${isVid
@@ -605,15 +611,19 @@
   function deletePlaylist(btn) {
     var id = btn.dataset.id;
     var name = (btn.getAttribute('data-name') || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<');
-    if (!confirm('Удалить плейлист «' + name + '»?')) return;
-    API.deletePlaylist(id)
-      .then(() => {
-        showToast('Плейлист удалён', 'success');
-        loadPlaylists();
-      })
-      .catch((err) => {
-        showToast(err.message || 'Ошибка удаления', 'error');
-      });
+    var card = btn.closest('.card');
+    if (card) { card.style.opacity = '.4'; card.style.pointerEvents = 'none'; }
+    showUndoToast(
+      'Плейлист «' + name + '» удалён.',
+      function () {
+        API.deletePlaylist(id)
+          .then(function () { loadPlaylists(); })
+          .catch(function (err) { showToast(err.message || 'Ошибка удаления', 'error'); loadPlaylists(); });
+      },
+      function () {
+        if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+      }
+    );
   }
 
   window.deletePlaylist = deletePlaylist;
@@ -658,6 +668,15 @@
   document.getElementById('sendToScreensModalSubmit').addEventListener('click', submitSendToScreens);
 
   document.addEventListener('keydown', (e) => {
+    // Ctrl+S / Cmd+S: save playlist if modal is open
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      const playlistModal = document.getElementById('playlistModal');
+      if (playlistModal && playlistModal.classList.contains('active')) {
+        e.preventDefault();
+        savePlaylist();
+        return;
+      }
+    }
     if (e.key !== 'Escape') return;
     const playlistModal = document.getElementById('playlistModal');
     const mediaModal = document.getElementById('mediaSelectModal');
@@ -693,6 +712,23 @@
   if (mediaSelectModalCancel) mediaSelectModalCancel.addEventListener('click', closeMediaSelectModal);
   var mediaSelectAddBtn = document.getElementById('mediaSelectAddBtn');
   if (mediaSelectAddBtn) mediaSelectAddBtn.addEventListener('click', addSelectedMediaToPlaylist);
+
+  // Media-select search: filter grid items by name
+  var mediaSelectSearchEl = document.getElementById('mediaSelectSearch');
+  if (mediaSelectSearchEl) {
+    mediaSelectSearchEl.addEventListener('input', function () {
+      var q = this.value.trim().toLowerCase();
+      var grid = document.getElementById('mediaSelectGrid');
+      if (!grid) return;
+      grid.querySelectorAll('.media-select-item').forEach(function (item) {
+        var name = (item.dataset.mediaName || '').toLowerCase();
+        item.style.display = (!q || name.indexOf(q) >= 0) ? '' : 'none';
+      });
+    });
+    mediaSelectSearchEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { this.value = ''; this.dispatchEvent(new Event('input')); }
+    });
+  }
 
   var playlistPreviewModal = document.getElementById('playlistPreviewModal');
   var playlistPreviewClose = document.getElementById('playlistPreviewClose');

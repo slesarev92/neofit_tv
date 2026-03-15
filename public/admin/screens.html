@@ -7,7 +7,28 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <title>Экраны — NeoFit_TV</title>
   <link rel="stylesheet" href="/css/style.css">
-  <style>.auth-pending{visibility:hidden!important}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    .auth-pending{visibility:hidden!important}
+    :root{--font-sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    .page-header h1{letter-spacing:-.025em}
+    .screens-filter-tabs{background:var(--gray-100);border-radius:10px;padding:3px;gap:2px}
+    .screens-filter-tab{border-radius:8px;font-weight:500;transition:background .15s,box-shadow .15s,color .15s}
+    .screens-filter-tab.active{background:var(--bg-primary);box-shadow:0 1px 3px rgba(0,0,0,.12);color:var(--primary);font-weight:600}
+    .screens-table td{vertical-align:middle}
+    .screens-table th{font-size:.8125rem;font-weight:600;letter-spacing:.01em;text-transform:uppercase;color:var(--gray-500)}
+    .card{border-radius:14px}
+    @media (max-width: 768px) {
+      .page-header-actions{flex-direction:column;width:100%}
+      .page-header-actions .btn{width:100%;justify-content:center}
+      .screens-filter-tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+      .screens-filter-tabs::-webkit-scrollbar{display:none}
+      .screens-filter-tab{flex-shrink:0;white-space:nowrap}
+    }
+  </style>
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>
@@ -27,8 +48,14 @@
     <header class="page-header">
       <h1>Экраны</h1>
       <div class="page-header-actions">
-        <button type="button" id="btnAddByCode" class="btn btn-primary">Добавить по коду</button>
-        <button type="button" id="btnCreateScreen" class="btn btn-primary">Создать экран</button>
+        <button type="button" id="btnAddByCode" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:.4rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          По коду
+        </button>
+        <button type="button" id="btnCreateScreen" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:.4rem;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Создать экран
+        </button>
       </div>
     </header>
     <section class="card">

@@ -12,10 +12,11 @@
     return;
   }
 
-  let settings = { pollInterval: 10, requestTimeout: 10, maxRetries: 3, prefetchEnabled: true, cacheEnabled: true, showLastOnError: true, imageDuration: 10 };
+  let settings = { pollInterval: 15, requestTimeout: 25, maxRetries: 3, prefetchEnabled: true, cacheEnabled: true, showLastOnError: true, imageDuration: 10 };
   let currentPlaylist = null;
   let currentIndex = -1;
   let pollTimer = null;
+  let pollInProgress = false;
   let imageTimer = null;
   let watchdogTimer = null;
   let wakeLock = null;
@@ -188,6 +189,8 @@
   //  Polling
   // =========================================================
   async function poll() {
+    if (pollInProgress) return;
+    pollInProgress = true;
     try {
       const data = await fetchWithRetry(`/api/player/${screenId}?t=${Date.now()}`, settings.maxRetries);
       settings = { ...settings, ...data.settings };
@@ -217,6 +220,8 @@
       if (!settings.showLastOnError || !currentPlaylist) {
         showPlaceholder('Ошибка загрузки', 'Повторная попытка...');
       }
+    } finally {
+      pollInProgress = false;
     }
     schedulePoll();
   }

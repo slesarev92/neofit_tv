@@ -53,7 +53,7 @@
     setValue('workScheduleTo', normalizeTimeHHMM(s.workScheduleTo));
     setTimezoneSelect(s.timezone || 'Europe/Moscow');
     setOffHoursImagePreview(s.workScheduleOffImageUrl || null);
-    setValue('onlineThreshold', s.onlineThreshold ?? 15);
+    setValue('onlineThreshold', s.onlineThreshold ?? 30);
     setValue('monitorCheckIntervalSec', s.monitorCheckIntervalSec ?? 10);
     setValue('onlineThresholdMultiplier', s.onlineThresholdMultiplier == null ? '' : s.onlineThresholdMultiplier);
     setValue('maxFileSizeMb', s.maxFileSizeMb ?? 500);
@@ -594,14 +594,19 @@
             btn.addEventListener('click', function () {
               var fileName = btn.getAttribute('data-file-name');
               if (!fileName) return;
-              if (!confirm('Восстановить настройки из архива «' + fileName + '»? Текущие данные будут заменены.')) return;
-              API.restoreBackup(fileName).then(function () {
-                showToast('Настройки восстановлены. Страница перезагрузится.', 'success');
-                closeBackupRestoreModal();
-                setTimeout(function () { location.reload(); }, 800);
-              }).catch(function (err) {
-                showToast(err.message || 'Ошибка восстановления', 'error');
-              });
+              showConfirm(
+                'Восстановить из архива «' + fileName + '»?<br><span style="font-size:.8125rem;color:var(--gray-500);">Текущие данные будут заменены. Действие необратимо.</span>',
+                function () {
+                  API.restoreBackup(fileName).then(function () {
+                    showToast('Настройки восстановлены. Страница перезагрузится.', 'success');
+                    closeBackupRestoreModal();
+                    setTimeout(function () { location.reload(); }, 800);
+                  }).catch(function (err) {
+                    showToast(err.message || 'Ошибка восстановления', 'error');
+                  });
+                },
+                { confirmLabel: 'Восстановить', confirmClass: 'btn-danger' }
+              );
             });
           }
           if (backupRestoreList) backupRestoreList.appendChild(row);
@@ -722,6 +727,115 @@
       } finally {
         saveInProgress = false;
         if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+
+    // 2FA management
+    (function () {
+      var currentTotpSecret = null;
+
+      function setTotpStatus(enabled) {
+        var statusText = document.getElementById('totpStatusText');
+        var disabledView = document.getElementById('totpDisabledView');
+        var setupView = document.getElementById('totpSetupView');
+        var enabledView = document.getElementById('totpEnabledView');
+        if (!statusText || !disabledView || !setupView || !enabledView) return;
+        if (enabled) {
+          statusText.textContent = 'Статус: включена';
+          disabledView.style.display = 'none';
+          setupView.style.display = 'none';
+          enabledView.style.display = 'block';
+        } else {
+          statusText.textContent = 'Статус: отключена';
+          disabledView.style.display = 'block';
+          setupView.style.display = 'none';
+          enabledView.style.display = 'none';
+        }
+        currentTotpSecret = null;
+      }
+
+      API.getTotpStatus()
+        .then(function (data) { setTotpStatus(data && data.enabled); })
+        .catch(function () {});
+
+      var totpSetupBtn = document.getElementById('totpSetupBtn');
+      if (totpSetupBtn) {
+        totpSetupBtn.addEventListener('click', async function () {
+          if (totpSetupBtn.disabled) return;
+          totpSetupBtn.disabled = true;
+          try {
+            var data = await API.setupTotp();
+            currentTotpSecret = data.secret;
+            var qrImg = document.getElementById('totpQrImg');
+            if (qrImg) qrImg.src = data.qrCodeUrl;
+            var confirmInput = document.getElementById('totpConfirmCode');
+            if (confirmInput) confirmInput.value = '';
+            document.getElementById('totpDisabledView').style.display = 'none';
+            document.getElementById('totpSetupView').style.display = 'block';
+            if (confirmInput) confirmInput.focus();
+          } catch (err) {
+            showToast(err.message || 'Ошибка инициализации 2FA', 'error');
+          } finally {
+            totpSetupBtn.disabled = false;
+          }
+        });
+      }
+
+      var totpEnableBtn = document.getElementById('totpEnableBtn');
+      if (totpEnableBtn) {
+        totpEnableBtn.addEventListener('click', async function () {
+          if (totpEnableBtn.disabled) return;
+          var code = (document.getElementById('totpConfirmCode').value || '').trim();
+          if (!code) { showToast('Введите код из приложения', 'error'); return; }
+          if (!currentTotpSecret) { showToast('Начните настройку заново', 'error'); return; }
+          totpEnableBtn.disabled = true;
+          try {
+            await API.enableTotp(currentTotpSecret, code);
+            showToast('2FA включена', 'success');
+            setTotpStatus(true);
+          } catch (err) {
+            showToast(err.message || 'Неверный код', 'error');
+          } finally {
+            totpEnableBtn.disabled = false;
+          }
+        });
+      }
+
+      var totpCancelBtn = document.getElementById('totpCancelSetupBtn');
+      if (totpCancelBtn) {
+        totpCancelBtn.addEventListener('click', function () {
+          setTotpStatus(false);
+        });
+      }
+
+      var totpDisableBtn = document.getElementById('totpDisableBtn');
+      if (totpDisableBtn) {
+        totpDisableBtn.addEventListener('click', async function () {
+          if (totpDisableBtn.disabled) return;
+          var password = window.prompt('Введите пароль для отключения 2FA:');
+          if (!password) return;
+          totpDisableBtn.disabled = true;
+          try {
+            await API.disableTotp(password);
+            showToast('2FA отключена', 'success');
+            setTotpStatus(false);
+          } catch (err) {
+            showToast(err.message || 'Ошибка отключения 2FA', 'error');
+          } finally {
+            totpDisableBtn.disabled = false;
+          }
+        });
+      }
+    })();
+
+    // Ctrl+S / Cmd+S: submit the active settings tab form
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        var activeSection = document.querySelector('.settings-section.active');
+        if (!activeSection) return;
+        var submitBtn = activeSection.querySelector('button[type="submit"]');
+        if (submitBtn && !submitBtn.disabled) submitBtn.click();
       }
     });
   });

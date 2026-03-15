@@ -8,7 +8,22 @@
   <title>Инструкция — NeoFit TV</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/docs.css">
-  <style>.auth-pending{visibility:hidden!important}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    .auth-pending{visibility:hidden!important}
+    :root{--font-sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    .page-header h1{letter-spacing:-.025em}
+    .docs-content{line-height:1.75}
+    .docs-content h2{letter-spacing:-.02em}
+    .docs-content h3{letter-spacing:-.01em}
+    @media (max-width: 768px) {
+      .docs-content{line-height:1.65;font-size:.9375rem}
+      .docs-search-wrap{margin-bottom:.75rem}
+    }
+  </style>
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>

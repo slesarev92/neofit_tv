@@ -105,6 +105,8 @@
   color: var(--primary);
   font-weight: 600;
   background: var(--primary-light);
+  border-left: 3px solid var(--primary);
+  padding-left: calc(0.75rem - 3px);
 }
 
 .docs-sidebar a.hidden-by-search {

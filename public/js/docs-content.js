@@ -152,6 +152,7 @@
         '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>По умолчанию</th></tr></thead><tbody>' +
         '<tr><td>Порог онлайна (сек)</td><td>Если от экрана не было heartbeat дольше этого порога, он считается офлайн. Внутри системы фактический порог не меньше чем <code>2 × интервал опроса</code>, чтобы избежать мигания.</td><td>30</td></tr>' +
         '<tr><td>Множитель порога</td><td>Если задан (1–5): порог = <code>интервал опроса × множитель</code>. Удобно: при смене интервала порог подстраивается автоматически.</td><td>—</td></tr>' +
+        '<tr><td>Интервал проверки (сек)</td><td>Как часто сервер проверяет статусы экранов и отправляет Telegram-уведомления.</td><td>10</td></tr>' +
         '</tbody></table></div>' +
         '<h4>Расписание работы</h4>' +
         '<p>Позволяет «гасить» экраны вне рабочего времени, показывая чёрный экран или заставку.</p>' +
@@ -164,6 +165,7 @@
         '<h4>Медиа</h4>' +
         '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Параметр</th><th>Описание</th><th>Рекомендации</th></tr></thead><tbody>' +
         '<tr><td>CRF видео</td><td>Качество перекодирования ffmpeg (H.264): чем ниже — тем выше качество и размер; чем выше — тем сильнее сжатие.</td><td>18–26; 23 — компромисс по умолчанию</td></tr>' +
+        '<tr><td>Макс. ширина видео (px)</td><td>Если задано — видео при перекодировании уменьшается до указанной ширины (пропорции сохраняются). Пусто — без ограничения.</td><td>— (не ограничено)</td></tr>' +
         '<tr><td>Макс. размер файла (МБ)</td><td>Ограничение на загрузку медиа. Отсекает слишком тяжёлые файлы на этапе upload.</td><td>500 МБ по умолчанию</td></tr>' +
         '</tbody></table></div>' +
         '<h4>Система</h4>' +
@@ -201,7 +203,7 @@
         '<h4>Автоматический бэкап</h4>' +
         '<p>В настройках во вкладке «Бэкапы»: включите расписание, укажите время (ЧЧ:ММ) и частоту — <strong>ежедневно</strong>, <strong>еженедельно</strong> (день недели) или <strong>по дням месяца</strong> (например 1, 10, 20). Используется часовой пояс из раздела «Расписание». Расписание выполняется, пока запущен сервер (PM2 и т.п.).</p>' +
         '<h4>Хранение</h4>' +
-        '<p>Архивы в папке <code>backups/</code>. Количество хранимых архивов: 10–90 (настраивается). Старые удаляются автоматически.</p>' +
+        '<p>Архивы в папке <code>backups/</code>. Количество хранимых архивов задаётся параметром «Хранить бэкапов» (10–90, по умолчанию 30). Старые удаляются автоматически при создании нового.</p>' +
         '<h4>Восстановление</h4>' +
         '<p>Из панели: Настройки → Бэкапы → выберите архив и нажмите «Восстановить». Либо на сервере: <code>tar -xzf backups/backup-YYYY-MM-DD-HH-mm.tar.gz -C /путь/к/проекту</code>. После восстановления перезапустите приложение.</p>'
     },
@@ -221,16 +223,25 @@
       group: 'Система',
       content: '<h4>Пароль</h4>' +
         '<p>Хранится в виде bcrypt-хеша (cost factor 10). Восстановить пароль по хешу нельзя.</p>' +
+        '<h4>Двухфакторная аутентификация (2FA)</h4>' +
+        '<p>Поддерживается TOTP (Time-based One-Time Password) — совместим с Google Authenticator, Authy и другими приложениями.</p>' +
+        '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Действие</th><th>Как</th></tr></thead><tbody>' +
+        '<tr><td>Включить 2FA</td><td>Настройки → Безопасность → «Настроить 2FA» → отсканируйте QR-код приложением → введите 6-значный код → «Подтвердить и включить»</td></tr>' +
+        '<tr><td>Вход с 2FA</td><td>После ввода пароля система запросит код из приложения-аутентификатора. Код действует 30 секунд (допуск ±2 минуты).</td></tr>' +
+        '<tr><td>Отключить 2FA</td><td>Настройки → Безопасность → «Отключить 2FA» → введите пароль администратора для подтверждения</td></tr>' +
+        '</tbody></table></div>' +
+        '<div class="docs-warning"><strong>Важно:</strong> убедитесь, что время на сервере и на телефоне с аутентификатором синхронизировано. Рассинхрон более 2 минут приведёт к отклонению кодов. На сервере рекомендуется NTP.</div>' +
         '<h4>Rate limit на вход</h4>' +
-        '<p>Не более 10 попыток входа с одного IP за 15 минут. При превышении возвращается ошибка без указания причины.</p>' +
+        '<p>Не более 10 попыток входа с одного IP за 15 минут. При превышении возвращается ошибка без указания причины. Лимит распространяется и на проверку кода 2FA.</p>' +
         '<h4>Сессии</h4>' +
         '<p>Используется httpOnly cookie — JavaScript не может прочитать сессию. Установлен SameSite=Lax (запросы с других сайтов не отправляют cookie). В production при работе по HTTPS включается флаг secure.</p>' +
+        '<p>Хранение сессий: по умолчанию — в файлах (<code>data/sessions/</code>), переживает перезапуск сервера. При локальной разработке на Windows рекомендуется <code>SESSION_USE_MEMORY=1</code> (сессии в памяти, сбрасываются при перезапуске) — это решает проблему блокировки файлов (EPERM).</p>' +
         '<h4>Загрузка файлов</h4>' +
         '<p>Тип файла проверяется по содержимому (magic bytes), а не по расширению. Имена на диске заменяются на UUID + безопасное имя. Допускаются только типы из whitelist (изображения и видео).</p>' +
         '<h4>HTTP-заголовки</h4>' +
         '<p>Применяется middleware Helmet для установки безопасных заголовков.</p>' +
         '<h4>Публичные маршруты (без авторизации)</h4>' +
-        '<p><code>/api/auth/login</code>, <code>/api/player/*</code>, <code>/api/pair/init</code>, <code>GET /api/pair/:code</code>. Подтверждение привязки <code>POST /api/pair/:code/confirm</code> требует авторизации.</p>'
+        '<p><code>/api/auth/login</code>, <code>/api/auth/verify-totp</code>, <code>/api/player/*</code>, <code>/api/pair/init</code>, <code>GET /api/pair/:code</code>. Подтверждение привязки <code>POST /api/pair/:code/confirm</code> требует авторизации.</p>'
     },
     {
       id: 'resilience',
@@ -264,7 +275,7 @@
         '</ul>' +
         '<h4>Основные модули</h4>' +
         '<ul>' +
-        '<li><code>auth</code> — авторизация по одному паролю администратора (bcrypt‑хеш в <code>data/auth.json</code>). Сессии хранятся в файлах (<code>session-file-store</code>).</li>' +
+        '<li><code>auth</code> — авторизация по одному паролю администратора (bcrypt‑хеш в <code>data/auth.json</code>) + опциональная двухфакторная аутентификация (TOTP, секрет там же). Сессии хранятся в файлах (<code>session-file-store</code>) или в памяти (<code>SESSION_USE_MEMORY=1</code>).</li>' +
         '<li><code>media</code> — загрузка и обработка медиа: <code>media.processor.js</code> (sharp для изображений, ffmpeg для видео), <code>video.queue.js</code> (очередь перекодирования, восстановление при рестарте).</li>' +
         '<li><code>playlists</code> — CRUD плейлистов, порядок элементов, связь с медиа. При удалении медиафайла он автоматически убирается из всех плейлистов.</li>' +
         '<li><code>screens</code> — экраны, назначение плейлистов, <code>screens.service.getThresholdSec()</code> для расчёта онлайн‑статуса, <code>screens.monitor.js</code> — периодическая проверка + Telegram‑уведомления.</li>' +
@@ -289,6 +300,7 @@
         '<tr><td><code>SESSION_SECRET</code></td><td>Секрет для подписи сессий. Должен быть длинной случайной строкой.</td><td>dev-fallback-secret</td></tr>' +
         '<tr><td><code>SESSION_MAX_AGE_MS</code></td><td>Время жизни сессии (мс)</td><td>86400000 (24 ч)</td></tr>' +
         '<tr><td><code>MAX_FILE_SIZE_MB</code></td><td>Макс. размер загружаемого файла</td><td>500</td></tr>' +
+        '<tr><td><code>SESSION_USE_MEMORY</code></td><td>Если <code>1</code> — сессии хранятся в памяти (рекомендуется при локальной разработке на Windows). Без этого флага — сессии в файлах (<code>data/sessions/</code>).</td><td>—</td></tr>' +
         '<tr><td><code>INITIAL_ADMIN_PASSWORD</code></td><td>Пароль при первом запуске (если <code>auth.json</code> не существует)</td><td>changeme</td></tr>' +
         '</tbody></table></div>'
     },
@@ -312,9 +324,9 @@
         '</li>' +
         '<li><code>src/modules/auth/</code> — аутентификация:' +
         '<ul>' +
-        '<li><code>auth.routes.js</code> — <code>POST /login</code>, <code>POST /logout</code>, <code>PUT /password</code>.</li>' +
-        '<li><code>auth.service.js</code> — <code>bcrypt.compare</code> для проверки пароля, смена пароля.</li>' +
-        '<li><code>auth.repository.js</code> — чтение/запись <code>data/auth.json</code>, создание первого пароля при инициализации.</li>' +
+        '<li><code>auth.routes.js</code> — <code>POST /login</code>, <code>POST /verify-totp</code>, <code>POST /logout</code>, <code>PUT /password</code>, <code>GET /totp/status</code>, <code>POST /totp/setup</code>, <code>POST /totp/enable</code>, <code>POST /totp/disable</code>.</li>' +
+        '<li><code>auth.service.js</code> — <code>bcrypt.compare</code> для проверки пароля, смена пароля, TOTP: генерация секрета, включение/отключение/верификация (speakeasy).</li>' +
+        '<li><code>auth.repository.js</code> — чтение/запись <code>data/auth.json</code> (хеш пароля + TOTP-секрет), создание первого пароля при инициализации.</li>' +
         '</ul>' +
         '</li>' +
         '<li><code>src/modules/media/</code> — медиафайлы:' +
@@ -354,7 +366,7 @@
         '<h4>Папка <code>data/</code></h4>' +
         '<p>Хранилище JSON‑данных (в git не коммитится):</p>' +
         '<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Файл</th><th>Содержимое</th></tr></thead><tbody>' +
-        '<tr><td><code>auth.json</code></td><td>Хеш пароля администратора</td></tr>' +
+        '<tr><td><code>auth.json</code></td><td>Хеш пароля администратора + TOTP-секрет (если включена 2FA)</td></tr>' +
         '<tr><td><code>media.json</code></td><td>Список медиафайлов и метаданные (путь, тип, размер, статус обработки)</td></tr>' +
         '<tr><td><code>playlists.json</code></td><td>Плейлисты и порядок элементов</td></tr>' +
         '<tr><td><code>screens.json</code></td><td>Экраны, назначенные плейлисты, <code>lastSeenAt</code></td></tr>' +

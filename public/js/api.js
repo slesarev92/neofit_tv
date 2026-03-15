@@ -15,7 +15,7 @@ const API = {
 
     const res = await fetch(url, config);
 
-    if (res.status === 401 && !url.includes('/api/auth/login')) {
+    if (res.status === 401 && !url.includes('/api/auth/login') && !url.includes('/api/auth/verify-totp')) {
       var returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
       window.location.href = '/login.html?returnUrl=' + returnUrl;
       return;
@@ -41,6 +41,21 @@ const API = {
   },
   changePassword(currentPassword, newPassword) {
     return this.request('/api/auth/password', { method: 'PUT', body: { currentPassword, newPassword } });
+  },
+  verifyTotp(token) {
+    return this.request('/api/auth/verify-totp', { method: 'POST', body: { token } });
+  },
+  getTotpStatus() {
+    return this.request('/api/auth/totp/status');
+  },
+  setupTotp() {
+    return this.request('/api/auth/totp/setup', { method: 'POST' });
+  },
+  enableTotp(secret, token) {
+    return this.request('/api/auth/totp/enable', { method: 'POST', body: { secret, token } });
+  },
+  disableTotp(password) {
+    return this.request('/api/auth/totp/disable', { method: 'POST', body: { password } });
   },
 
   getMedia() {

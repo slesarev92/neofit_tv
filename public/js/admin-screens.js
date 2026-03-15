@@ -179,21 +179,85 @@
         </span>
       </td>
       <td data-label="Название">${escapeHtml(screen.name)}</td>
-      <td data-label="Плейлист">${
+      <td data-label="Плейлист" class="playlist-cell" data-action="quick-assign-cell" data-screen-id="${escapeAttr(screen.id)}" data-playlist-id="${escapeAttr(screen.playlistId || '')}" title="Нажмите для изменения плейлиста" style="cursor:pointer;">${
         (!screen.playlistId || !playlistMap.has(screen.playlistId))
-          ? escapeHtml(playlistText)
-          : `<button type="button" class="link-button" data-action="screen-go-playlist" data-playlist-id="${escapeAttr(screen.playlistId)}" style="background:none;border:none;padding:0;color:var(--primary);text-decoration:underline;cursor:pointer;">${escapeHtml(playlistText)}</button>`
+          ? '<span class="quick-assign-label">' + escapeHtml(playlistText) + '</span>'
+          : `<span class="quick-assign-label"><button type="button" class="link-button" data-action="screen-go-playlist" data-playlist-id="${escapeAttr(screen.playlistId)}" style="background:none;border:none;padding:0;color:var(--primary);text-decoration:underline;cursor:pointer;">${escapeHtml(playlistText)}</button></span>`
       }</td>
       <td data-label="Последняя активность">${escapeHtml(lastSeenText)}</td>
       <td data-label="Действия" class="screens-actions">
         <button type="button" class="btn btn-secondary btn-sm" data-action="screen-edit" data-id="${escapeAttr(screen.id)}">Редактировать</button>
-        <a href="${escapeAttr(getPlayerUrl(screen.id))}" target="_blank" class="btn btn-secondary btn-sm">Открыть плеер</a>
-        <button type="button" class="btn btn-secondary btn-sm" data-action="screen-copy-link" data-id="${escapeAttr(screen.id)}">Копировать ссылку</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-action="screen-download" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}">Выгрузить ссылку</button>
+        <a href="${escapeAttr(getPlayerUrl(screen.id))}" target="_blank" class="btn btn-secondary btn-sm screens-secondary-btn">Открыть плеер</a>
+        <button type="button" class="btn btn-secondary btn-sm screens-secondary-btn" data-action="screen-copy-link" data-id="${escapeAttr(screen.id)}">Копировать ссылку</button>
+        <button type="button" class="btn btn-secondary btn-sm screens-secondary-btn" data-action="screen-download" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}">Выгрузить ссылку</button>
         <button type="button" class="btn btn-danger btn-sm" data-action="screen-delete" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}">Удалить</button>
+        <div class="screens-actions-more">
+          <button type="button" class="btn btn-secondary btn-sm screens-more-toggle" data-action="screens-more-toggle" title="Ещё действия">⋯</button>
+          <div class="screens-more-menu">
+            <a href="${escapeAttr(getPlayerUrl(screen.id))}" target="_blank" class="screens-more-item">Открыть плеер</a>
+            <button type="button" class="screens-more-item" data-action="screen-copy-link" data-id="${escapeAttr(screen.id)}">Копировать ссылку</button>
+            <button type="button" class="screens-more-item" data-action="screen-download" data-id="${escapeAttr(screen.id)}" data-name="${escapeAttr(screen.name || '')}">Выгрузить ссылку</button>
+          </div>
+        </div>
       </td>
     `;
     return tr;
+  }
+
+  function openQuickAssign(cell) {
+    if (cell.querySelector('.quick-assign-select')) return; // already open
+    var screenId = cell.dataset.screenId;
+    var currentPlaylistId = cell.dataset.playlistId || '';
+    var labelEl = cell.querySelector('.quick-assign-label');
+    var originalHTML = cell.innerHTML;
+
+    var select = document.createElement('select');
+    select.className = 'quick-assign-select';
+    var noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = '— Без плейлиста —';
+    select.appendChild(noneOpt);
+    if (lastPlaylistMap) {
+      lastPlaylistMap.forEach(function (pl, id) {
+        var opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = pl.name;
+        select.appendChild(opt);
+      });
+    }
+    select.value = currentPlaylistId;
+
+    cell.innerHTML = '';
+    cell.appendChild(select);
+    select.focus();
+
+    function restore() {
+      cell.innerHTML = originalHTML;
+    }
+
+    select.addEventListener('change', async function () {
+      var newPlaylistId = select.value || null;
+      select.disabled = true;
+      try {
+        await API.updateScreen(screenId, { playlistId: newPlaylistId });
+        showToast('Плейлист обновлён', 'success');
+        await loadScreens();
+      } catch (err) {
+        showToast(err.message || 'Ошибка сохранения', 'error');
+        restore();
+      }
+    });
+
+    select.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.stopPropagation(); restore(); }
+    });
+
+    select.addEventListener('blur', function () {
+      setTimeout(function () {
+        if (cell.contains(document.activeElement)) return;
+        restore();
+      }, 150);
+    });
   }
 
   function escapeHtml(str) {
@@ -307,17 +371,22 @@
     // Не сбрасываем saveInProgress при успехе — иначе второй submit из очереди снова вызовет API
   }
 
-  async function deleteScreen(btn) {
+  function deleteScreen(btn) {
     var id = btn.dataset.id;
     var name = (btn.getAttribute('data-name') || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-    if (!confirm('Удалить экран «' + name + '»?')) return;
-    try {
-      await API.deleteScreen(id);
-      showToast('Экран удалён', 'success');
-      loadScreens();
-    } catch (err) {
-      showToast(err.message || 'Ошибка удаления', 'error');
-    }
+    var row = btn.closest('tr');
+    if (row) { row.style.opacity = '.4'; row.style.pointerEvents = 'none'; }
+    showUndoToast(
+      'Экран «' + name + '» удалён.',
+      function () {
+        API.deleteScreen(id)
+          .then(function () { loadScreens(); })
+          .catch(function (err) { showToast(err.message || 'Ошибка удаления', 'error'); loadScreens(); });
+      },
+      function () {
+        if (row) { row.style.opacity = ''; row.style.pointerEvents = ''; }
+      }
+    );
   }
 
   function openPairByCodeModal() {
@@ -373,6 +442,25 @@
 
     if (screensList) {
       screensList.addEventListener('click', function (e) {
+        // Toggle overflow dropdown
+        var moreToggle = e.target.closest('[data-action="screens-more-toggle"]');
+        if (moreToggle) {
+          var wrap = moreToggle.closest('.screens-actions-more');
+          if (wrap) {
+            var wasOpen = wrap.classList.contains('open');
+            document.querySelectorAll('.screens-actions-more.open').forEach(function (el) { el.classList.remove('open'); });
+            if (!wasOpen) wrap.classList.add('open');
+          }
+          return;
+        }
+        // Close dropdown on any other click inside list
+        document.querySelectorAll('.screens-actions-more.open').forEach(function (el) { el.classList.remove('open'); });
+        // Quick-assign: click on playlist cell (but not on the go-to-playlist link)
+        var quickCell = e.target.closest('[data-action="quick-assign-cell"]');
+        if (quickCell && !e.target.closest('[data-action="screen-go-playlist"]')) {
+          openQuickAssign(quickCell);
+          return;
+        }
         var btn = e.target.closest('[data-action]');
         if (!btn) return;
         var action = btn.dataset.action;
@@ -388,6 +476,11 @@
         }
       });
     }
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.screens-actions-more')) {
+        document.querySelectorAll('.screens-actions-more.open').forEach(function (el) { el.classList.remove('open'); });
+      }
+    });
 
     var sortEl = document.getElementById('screensSort');
     if (sortEl) {

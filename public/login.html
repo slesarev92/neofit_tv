@@ -9,6 +9,43 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <title>Вход — NeoFit_TV</title>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    :root { --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .login-card {
+      border-radius: 20px;
+      padding: 2.5rem 2.5rem 2rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,.13), 0 4px 16px rgba(0,0,0,.08);
+    }
+    .login-logo img { filter: drop-shadow(0 2px 10px rgba(79,70,229,.25)); }
+    h1 { letter-spacing: -0.03em; }
+    .login-subtitle { font-size: .9375rem; margin-top: .25rem; }
+    .form-group input {
+      border-radius: 10px;
+      padding: .875rem 1rem;
+      font-size: .9375rem;
+      font-family: inherit;
+    }
+    .btn-primary {
+      border-radius: 10px;
+      padding: .875rem 1.5rem;
+      font-size: .9375rem;
+      font-weight: 600;
+      letter-spacing: .01em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+    }
+    .btn-secondary { border-radius: 10px; }
+    @media (max-width: 768px) {
+      .login-card { padding: 1.5rem; border-radius: 14px; }
+      .btn-primary { padding: .875rem 1.25rem; }
+    }
+  </style>
   <script src="/js/theme.js"></script>
 </head>
 <body class="login-page" data-page-title="Вход">
@@ -29,34 +66,99 @@
     <h1>NeoFit TV</h1>
     <p class="login-subtitle">Панель управления</p>
     <form id="loginForm">
-      <div class="form-group">
-        <label for="password">Пароль администратора</label>
-        <input type="password" id="password" name="password" required autofocus placeholder="Введите пароль">
+      <div id="passwordStep">
+        <div class="form-group">
+          <label for="password">Пароль администратора</label>
+          <input type="password" id="password" name="password" required autofocus placeholder="Введите пароль">
+        </div>
+      </div>
+      <div id="totpStep" style="display:none;">
+        <div class="form-group">
+          <label for="totpCode">Код из Google Authenticator</label>
+          <input type="text" id="totpCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000">
+        </div>
+        <button type="button" id="backToPassword" class="btn btn-secondary btn-block" style="margin-bottom:0.5rem;">← Назад</button>
       </div>
       <div id="errorMsg" class="error-msg" hidden></div>
-      <button type="submit" class="btn btn-primary btn-block">Войти</button>
+      <button type="submit" id="submitBtn" class="btn btn-primary btn-block">
+        Войти
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
     </form>
   </div>
   <script src="/js/api.js"></script>
   <!-- nav.js не подключаем на странице входа: он дергает /api/settings, получает 401 и может вызывать лишний редирект -->
   <script>
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const errEl = document.getElementById('errorMsg');
-      errEl.hidden = true;
-      const btn = e.target.querySelector('button');
-      btn.disabled = true;
-      try {
-        await API.login(document.getElementById('password').value);
-        const returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
-        window.location.href = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/admin/index.html';
-      } catch (err) {
-        errEl.textContent = err.message;
-        errEl.hidden = false;
-      } finally {
-        btn.disabled = false;
+    (function () {
+      var form = document.getElementById('loginForm');
+      var passwordStep = document.getElementById('passwordStep');
+      var totpStep = document.getElementById('totpStep');
+      var passwordInput = document.getElementById('password');
+      var totpInput = document.getElementById('totpCode');
+      var errorEl = document.getElementById('errorMsg');
+      var submitBtn = document.getElementById('submitBtn');
+      var backBtn = document.getElementById('backToPassword');
+
+      function showError(msg) {
+        if (msg) {
+          errorEl.textContent = msg;
+          errorEl.hidden = false;
+        } else {
+          errorEl.hidden = true;
+        }
       }
-    });
+
+      function showTotpStep() {
+        passwordStep.style.display = 'none';
+        totpStep.style.display = 'block';
+        totpInput.value = '';
+        totpInput.focus();
+        submitBtn.textContent = 'Подтвердить';
+        showError('');
+      }
+
+      function showPasswordStep() {
+        totpStep.style.display = 'none';
+        passwordStep.style.display = 'block';
+        passwordInput.focus();
+        submitBtn.textContent = 'Войти';
+        showError('');
+      }
+
+      backBtn.addEventListener('click', function () {
+        showPasswordStep();
+      });
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (submitBtn.disabled) return;
+        submitBtn.disabled = true;
+        showError('');
+        try {
+          if (totpStep.style.display === 'none') {
+            var res = await API.login(passwordInput.value);
+            if (res && res.step === 'totp') {
+              showTotpStep();
+              return;
+            }
+            var returnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+            window.location.href = (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//'))
+              ? returnUrl : '/admin/index.html';
+          } else {
+            var code = (totpInput.value || '').trim();
+            if (!code) { showError('Введите код'); return; }
+            await API.verifyTotp(code);
+            var returnUrl2 = new URLSearchParams(window.location.search).get('returnUrl');
+            window.location.href = (returnUrl2 && returnUrl2.startsWith('/') && !returnUrl2.startsWith('//'))
+              ? returnUrl2 : '/admin/index.html';
+          }
+        } catch (err) {
+          showError(err.message || 'Ошибка входа');
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    })();
   </script>
 </body>
 </html>

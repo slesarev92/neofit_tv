@@ -7,7 +7,27 @@
   <link rel="icon" type="image/png" href="/favicon.png">
   <title>Плейлисты — NeoFit_TV</title>
   <link rel="stylesheet" href="/css/style.css">
-  <style>.auth-pending{visibility:hidden!important}</style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <style>
+    .auth-pending{visibility:hidden!important}
+    :root{--font-sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+    .page-header h1{letter-spacing:-.025em}
+    .playlist-items{gap:.375rem}
+    .playlist-item{border-radius:10px;transition:background .12s,box-shadow .12s}
+    .playlist-item:hover{box-shadow:0 2px 10px rgba(0,0,0,.09)}
+    .drag-handle{transition:color .15s;opacity:.5}
+    .playlist-item:hover .drag-handle{opacity:1;color:var(--primary)}
+    .modal .modal-header h2{letter-spacing:-.02em}
+    @media (max-width: 768px) {
+      .page-header-actions .btn{width:100%;justify-content:center}
+      .modal-footer{flex-direction:column}
+      .modal-footer .btn{width:100%;justify-content:center}
+      .playlist-item .item-name{font-size:.8125rem}
+    }
+  </style>
   <script src="/js/theme.js"></script>
   <script>(function(){document.documentElement.classList.add('auth-pending');var ru=encodeURIComponent(location.pathname+location.search);fetch('/api/settings',{credentials:'include'}).then(function(r){if(r.status===401){location.href='/login.html?returnUrl='+ru;return;}document.documentElement.classList.remove('auth-pending');}).catch(function(){location.href='/login.html?returnUrl='+ru;});})();</script>
 </head>
@@ -26,7 +46,10 @@
   <main class="main-content">
     <header class="page-header">
       <h1>Плейлисты</h1>
-      <button type="button" class="btn btn-primary" id="btnCreatePlaylist">Создать плейлист</button>
+      <button type="button" class="btn btn-primary" id="btnCreatePlaylist" style="display:inline-flex;align-items:center;gap:.4rem;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Создать плейлист
+      </button>
     </header>
     <div id="playlistsList"></div>
     <div class="modal-overlay" id="playlistModal">
@@ -60,6 +83,7 @@
           <button type="button" class="close-btn" id="mediaSelectModalClose" aria-label="Закрыть">&times;</button>
         </div>
         <div class="modal-body">
+          <input type="text" id="mediaSelectSearch" class="media-select-search" placeholder="Поиск по имени…" autocomplete="off">
           <div class="media-select-grid" id="mediaSelectGrid"></div>
         </div>
         <div class="modal-footer">
