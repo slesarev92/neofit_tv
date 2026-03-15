@@ -23,6 +23,26 @@
     .upload-zone .uz-hint{font-size:.75rem;color:var(--gray-400);margin:0}
     .media-toolbar .form-group label{font-size:.8125rem;font-weight:500}
     .card.media-card-section{border-radius:14px}
+
+    /* View toggle */
+    .media-view-toggle{display:flex;gap:2px}
+    .media-view-btn{background:var(--gray-100);border:1px solid var(--gray-200);border-radius:6px;padding:.3rem .45rem;cursor:pointer;color:var(--gray-500);transition:background .15s,color .15s;display:flex;align-items:center}
+    .media-view-btn:hover{background:var(--gray-200);color:var(--gray-700)}
+    .media-view-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+
+    /* Media list view */
+    .media-grid.list-view{display:flex;flex-direction:column;gap:0;background:var(--bg-primary);border:1px solid var(--gray-200);border-radius:12px;overflow:hidden}
+    .media-grid.list-view .media-card{display:flex;flex-direction:row;align-items:center;gap:.625rem;padding:.45rem .75rem;border-radius:0;border-bottom:1px solid var(--gray-100);box-shadow:none;min-width:0}
+    .media-grid.list-view .media-card:last-child,.media-grid.list-view .media-load-more-sentinel{border-bottom:none}
+    .media-grid.list-view .media-thumb{width:64px;height:48px;flex-shrink:0;border-radius:6px;overflow:hidden;min-height:unset}
+    .media-grid.list-view .media-thumb img,.media-grid.list-view .media-thumb video{width:100%;height:100%;object-fit:cover}
+    .media-grid.list-view .media-info{flex:1;min-width:0;display:flex;align-items:center;gap:0;flex-wrap:nowrap}
+    .media-grid.list-view .media-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0;padding-right:.5rem}
+    .media-grid.list-view .media-meta{width:240px;flex-shrink:0;display:flex;align-items:center;gap:.35rem;white-space:nowrap;margin-bottom:0;font-size:.8rem;border-right:1px solid var(--gray-200);margin-right:.75rem;padding-right:.75rem}
+    .media-grid.list-view .media-usage{width:210px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:0;font-size:.8rem;padding-right:.5rem}
+    .media-grid.list-view .media-info .btn{flex-shrink:0;margin-top:0;margin-left:auto}
+    .media-grid.list-view .bulk-checkbox{flex-shrink:0}
+
     @media (max-width: 768px) {
       .upload-zone{padding:1.5rem 1rem;gap:.25rem}
       .upload-zone .uz-icon{width:32px;height:32px;margin-bottom:0}
@@ -99,6 +119,16 @@
               <option value="image">Изображения</option>
               <option value="video">Видео</option>
             </select>
+          </div>
+          <div class="form-group" style="justify-content:flex-end;align-self:flex-end;">
+            <div class="media-view-toggle">
+              <button type="button" class="media-view-btn active" id="mediaViewGrid" title="Сетка" aria-label="Вид: сетка">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              </button>
+              <button type="button" class="media-view-btn" id="mediaViewList" title="Список" aria-label="Вид: список">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

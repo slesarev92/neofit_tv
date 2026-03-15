@@ -4,6 +4,55 @@
   let playlistItems = [];
   let savePlaylistInProgress = false;
   let defaultImageDuration = 10;
+  var mediaSelectView = localStorage.getItem('mediaSelectView') || 'grid';
+  var mediaSelectReadyItems = [];
+  var mediaSelectSort = localStorage.getItem('mediaSelectSort') || 'date-desc';
+
+  function sortMediaItems(items, order) {
+    var arr = items.slice();
+    if (order === 'date-desc') arr.sort(function (a, b) { return new Date(b.createdAt || 0) - new Date(a.createdAt || 0); });
+    else if (order === 'date-asc') arr.sort(function (a, b) { return new Date(a.createdAt || 0) - new Date(b.createdAt || 0); });
+    else if (order === 'name-asc') arr.sort(function (a, b) { return (a.originalName || a.filename || '').localeCompare(b.originalName || b.filename || '', 'ru'); });
+    else if (order === 'name-desc') arr.sort(function (a, b) { return (b.originalName || b.filename || '').localeCompare(a.originalName || a.filename || '', 'ru'); });
+    else if (order === 'size-desc') arr.sort(function (a, b) { return (b.size || 0) - (a.size || 0); });
+    else if (order === 'size-asc') arr.sort(function (a, b) { return (a.size || 0) - (b.size || 0); });
+    return arr;
+  }
+
+  function renderMediaSelectGrid(items) {
+    var grid = document.getElementById('mediaSelectGrid');
+    var sorted = sortMediaItems(items, mediaSelectSort);
+    var html = '';
+    sorted.forEach(function (m) {
+      var name = m.originalName || m.filename || '';
+      var isVid = m.mimeType && m.mimeType.startsWith('video/');
+      var typeLabel = isVid ? 'Видео' : 'Изображение';
+      var thumbSrc = getMediaThumbUrl(m) || '';
+      var thumbHtml = isVid
+        ? '<div class="msi-thumb-inner" style="position:relative;width:100%;height:100%;"><video src="' + thumbSrc + '#t=2" preload="metadata" muted class="msi-thumb-media"></video><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:.6rem;padding:1px 4px;border-radius:3px;">VIDEO</span></div>'
+        : '<img src="' + thumbSrc + '" alt="" class="msi-thumb-media">';
+      var metaParts = [typeLabel];
+      if (m.size) metaParts.push(formatSize(m.size));
+      if (m.createdAt) metaParts.push(formatDateShort(m.createdAt));
+      html += '<label class="media-select-item"'
+        + ' data-media-id="' + escapeAttr(m.id) + '"'
+        + ' data-media-name="' + escapeAttr(name) + '"'
+        + ' data-mime="' + escapeAttr(m.mimeType || '') + '">'
+        + '<input type="checkbox" class="media-select-checkbox">'
+        + '<div class="msi-thumb">' + thumbHtml + '</div>'
+        + '<div class="msi-info">'
+        + '<div class="msi-name">' + escapeHtml(name) + '</div>'
+        + '<div class="msi-meta">' + metaParts.join(' · ') + '</div>'
+        + '</div>'
+        + '</label>';
+    });
+    grid.innerHTML = html;
+    grid.classList.toggle('list-view', mediaSelectView === 'list');
+    var btnGrid = document.getElementById('msiViewGrid');
+    var btnList = document.getElementById('msiViewList');
+    if (btnGrid) btnGrid.classList.toggle('active', mediaSelectView === 'grid');
+    if (btnList) btnList.classList.toggle('active', mediaSelectView === 'list');
+  }
 
   function getMediaThumbUrl(media) {
     if (!media || !media.path) return null;
@@ -58,7 +107,7 @@
   function loadPlaylists() {
     const params = new URLSearchParams(window.location.search);
     const activePlaylistId = params.get('playlistId') || null;
-    Promise.all([API.getPlaylists(), API.getScreens(), API.getMedia()])
+    return Promise.all([API.getPlaylists(), API.getScreens(), API.getMedia()])
       .then(([playlistsRes, screensRes, mediaRes]) => {
         const items = playlistsRes.items || [];
         const screensMap = buildPlaylistScreensMap(screensRes.items || []);
@@ -96,7 +145,7 @@
               : `<button type="button" class="link-button" data-action="playlist-go-screens" data-id="${escapeAttr(pl.id)}" title="${escapeAttr(screenNames.join(', '))}" style="background:none;border:none;padding:0;color:var(--primary);text-decoration:underline;cursor:pointer;">${screensText}</button>`;
             const isActive = activePlaylistId && pl.id === activePlaylistId;
             return `
-          <div class="card" style="margin-bottom: 1rem;">
+          <div class="card" data-playlist-id="${escapeAttr(pl.id)}" style="margin-bottom: 1rem;">
             <div class="card-body${isActive ? ' card-active' : ''}" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;${isActive ? ' border:1px solid var(--primary);box-shadow:0 0 0 1px var(--primary);' : ''}">
               <div>
                 <div style="font-weight: 600; margin-bottom: 0.25rem;">${escapeHtml(pl.name)}</div>
@@ -120,6 +169,21 @@
         showToast(err.message || 'Ошибка загрузки плейлистов', 'error');
         document.getElementById('playlistsList').innerHTML = '<div class="empty-state"><p>Не удалось загрузить плейлисты</p></div>';
       });
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' КБ';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
+  }
+
+  function formatDateShort(iso) {
+    if (!iso) return '';
+    try {
+      var d = new Date(iso);
+      return d.getDate().toString().padStart(2, '0') + '.' + (d.getMonth() + 1).toString().padStart(2, '0') + '.' + d.getFullYear();
+    } catch (e) { return ''; }
   }
 
   function escapeHtml(s) {
@@ -257,9 +321,6 @@
         // settingsRes приходит как { settings: {...} }
         const s = (settingsRes && settingsRes.settings) || settingsRes || {};
         defaultImageDuration = Math.min(3600, Math.max(1, Math.round(Number(s.imageDuration) || 10)));
-        // #region agent log
-        fetch('http://127.0.0.1:7245/ingest/9e083e65-9113-413f-bd68-284c44a9b523',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-playlists.js:openMediaSelectModal',message:'after set defaultImageDuration',data:{hasSettings:!!settingsRes,hasSettingsSettings:!!(settingsRes&&settingsRes.settings),sImageDuration:s.imageDuration,settingsImageDuration:settingsRes&&settingsRes.settings&&settingsRes.settings.imageDuration,defaultImageDuration:defaultImageDuration},timestamp:Date.now(),hypothesisId:'H1'})}).catch(function(){});
-        // #endregion
         const readyMedia = mediaCache.filter((m) => !m.status || m.status === 'ready');
         const grid = document.getElementById('mediaSelectGrid');
         if (readyMedia.length === 0) {
@@ -267,17 +328,10 @@
           document.getElementById('mediaSelectModal').classList.add('active');
           return;
         }
-        grid.innerHTML = readyMedia
-          .map(
-            (m) => `
-          <label class="media-select-item" data-media-id="${m.id}" data-media-name="${escapeHtml(m.originalName || m.filename || '')}" data-mime="${escapeHtml(m.mimeType || '')}">
-            <input type="checkbox" class="media-select-checkbox">
-            ${m.mimeType && m.mimeType.startsWith('video/') ? `<div style="position:relative;"><video src="${getMediaThumbUrl(m)}#t=2" preload="metadata" muted style="width:100%;height:80px;object-fit:cover;"></video><span style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;font-size:.6rem;padding:1px 4px;border-radius:3px;">VIDEO</span></div>` : `<img src="${getMediaThumbUrl(m) || ''}" alt="">`}
-            <div class="name">${escapeHtml(m.originalName || m.filename || '')}</div>
-          </label>
-        `
-          )
-          .join('');
+        mediaSelectReadyItems = readyMedia;
+        var msiSortEl = document.getElementById('msiSort');
+        if (msiSortEl) msiSortEl.value = mediaSelectSort;
+        renderMediaSelectGrid(readyMedia);
         var searchEl = document.getElementById('mediaSelectSearch');
         if (searchEl) { searchEl.value = ''; }
         document.getElementById('mediaSelectModal').classList.add('active');
@@ -293,9 +347,6 @@
   }
 
   function addSelectedMediaToPlaylist() {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/9e083e65-9113-413f-bd68-284c44a9b523',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-playlists.js:addSelectedMediaToPlaylist',message:'entry',data:{defaultImageDuration:defaultImageDuration},timestamp:Date.now(),hypothesisId:'H3'})}).catch(function(){});
-    // #endregion
     const grid = document.getElementById('mediaSelectGrid');
     const checked = grid.querySelectorAll('.media-select-checkbox:checked');
     let added = 0;
@@ -305,9 +356,6 @@
       const mime = item.dataset.mime || '';
       const isVid = mime.indexOf('video/') === 0;
       const duration = isVid ? 10 : defaultImageDuration;
-      // #region agent log
-      fetch('http://127.0.0.1:7245/ingest/9e083e65-9113-413f-bd68-284c44a9b523',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'admin-playlists.js:addSelectedMediaToPlaylist:item',message:'per item',data:{mime:mime,isVid:isVid,duration:duration},timestamp:Date.now(),hypothesisId:'H4'})}).catch(function(){});
-      // #endregion
       playlistItems.push({
         id: newItemId(),
         mediaId: item.dataset.mediaId,
@@ -402,26 +450,34 @@
       li.draggable = true;
       li.dataset.index = String(idx);
       li.dataset.itemId = item.id;
+      const vidDur = isVid && media && media.durationSeconds
+        ? formatDurationSeconds(media.durationSeconds)
+        : null;
       let thumbHtml;
       if (isVid && thumbUrl) {
-        thumbHtml = `<div class="item-thumb" style="position:relative;overflow:hidden;"><video src="${thumbUrl}#t=2" preload="metadata" muted style="width:100%;height:100%;object-fit:cover;"></video><span style="position:absolute;bottom:1px;right:1px;background:rgba(0,0,0,.7);color:#fff;font-size:.55rem;padding:1px 3px;border-radius:2px;">MP4</span></div>`;
+        thumbHtml = `<div class="item-thumb" style="position:relative;overflow:hidden;"><video src="${thumbUrl}#t=2" preload="metadata" muted style="width:100%;height:100%;object-fit:cover;"></video></div>`;
       } else if (!isVid && thumbUrl) {
         thumbHtml = `<img class="item-thumb" src="${thumbUrl}" alt="">`;
       } else {
         thumbHtml = `<div class="item-thumb" style="background:var(--gray-200);display:flex;align-items:center;justify-content:center;color:var(--gray-400);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>`;
       }
 
-      li.innerHTML = `
-        <span class="drag-handle" aria-label="Перетащить" title="Перетащить для изменения порядка">⠿</span>
-        ${thumbHtml}
-        <span class="item-name">${escapeHtml(name)}${dupBadge}</span>
-        ${isVid
-          ? '<div class="item-duration" style="display:flex;align-items:center;"><span style="font-size:.75rem;color:var(--gray-500);white-space:nowrap;">до конца</span></div>'
-          : `<div class="item-duration"><input type="number" min="1" max="3600" value="${item.duration}" data-item-id="${escapeAttr(item.id)}"></div>`
-        }
-        <button type="button" class="btn btn-secondary btn-icon btn-sm" onclick="duplicatePlaylistItem('${escapeAttr(item.id)}')" title="Дублировать этот элемент" aria-label="Дублировать">⧉</button>
-        <button type="button" class="btn btn-danger btn-icon btn-sm" onclick="removePlaylistItem('${escapeAttr(item.id)}')" title="Удалить">×</button>
-      `;
+      var durationHtml = isVid
+        ? '<div class="item-duration" style="display:flex;align-items:center;"><span style="font-size:.75rem;color:var(--gray-500);white-space:nowrap;">' + (vidDur || '—') + '</span></div>'
+        : '<div class="item-duration"><input type="number" min="1" max="3600" value="' + item.duration + '" data-item-id="' + escapeAttr(item.id) + '"></div>';
+      li.innerHTML = ''
+        + '<span class="drag-handle" aria-label="Перетащить" title="Перетащить для изменения порядка">⠿</span>'
+        + thumbHtml
+        + '<span class="item-name">' + escapeHtml(name) + dupBadge + '</span>'
+        + durationHtml
+        + '<button type="button" class="btn btn-secondary btn-icon btn-sm" data-action="dup-item" title="Дублировать этот элемент" aria-label="Дублировать">⧉</button>'
+        + '<button type="button" class="btn btn-danger btn-icon btn-sm" data-action="rm-item" title="Удалить">×</button>';
+      li.querySelector('[data-action="dup-item"]').addEventListener('click', function () {
+        window.duplicatePlaylistItem(item.id);
+      });
+      li.querySelector('[data-action="rm-item"]').addEventListener('click', function () {
+        window.removePlaylistItem(item.id);
+      });
       const thumbEl = li.querySelector('.item-thumb');
       if (thumbEl && media) {
         thumbEl.style.cursor = 'pointer';
@@ -590,8 +646,9 @@
   window.duplicatePlaylist = duplicatePlaylist;
 
   function duplicatePlaylist(id) {
+    var newId = null;
     API.getPlaylist(id)
-      .then((res) => {
+      .then(function (res) {
         var pl = res.item || res;
         var items = (pl.items || []).map(function (it, idx) {
           return { mediaId: it.mediaId, duration: it.duration ?? 10, order: idx };
@@ -599,11 +656,26 @@
         var newName = (pl.name || 'Плейлист').trim() + ' (копия)';
         return API.createPlaylist({ name: newName, items });
       })
-      .then(() => {
+      .then(function (createRes) {
+        var created = (createRes && createRes.item) || createRes || {};
+        newId = created.id || null;
         showToast('Плейлист скопирован', 'success');
-        loadPlaylists();
+        return loadPlaylists();
       })
-      .catch((err) => {
+      .then(function () {
+        if (!newId) return;
+        var listEl = document.getElementById('playlistsList');
+        if (!listEl) return;
+        var origCard = listEl.querySelector('[data-playlist-id="' + id + '"]');
+        var newCard = listEl.querySelector('[data-playlist-id="' + newId + '"]');
+        if (origCard && newCard && origCard !== newCard) {
+          origCard.parentNode.insertBefore(newCard, origCard.nextSibling);
+          newCard.style.transition = 'box-shadow .4s';
+          newCard.style.boxShadow = '0 0 0 2px var(--primary)';
+          setTimeout(function () { newCard.style.boxShadow = ''; }, 1500);
+        }
+      })
+      .catch(function (err) {
         showToast(err.message || 'Ошибка копирования', 'error');
       });
   }
@@ -712,6 +784,25 @@
   if (mediaSelectModalCancel) mediaSelectModalCancel.addEventListener('click', closeMediaSelectModal);
   var mediaSelectAddBtn = document.getElementById('mediaSelectAddBtn');
   if (mediaSelectAddBtn) mediaSelectAddBtn.addEventListener('click', addSelectedMediaToPlaylist);
+
+  ['msiViewGrid', 'msiViewList'].forEach(function (btnId) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      mediaSelectView = btnId === 'msiViewGrid' ? 'grid' : 'list';
+      localStorage.setItem('mediaSelectView', mediaSelectView);
+      if (mediaSelectReadyItems.length) renderMediaSelectGrid(mediaSelectReadyItems);
+    });
+  });
+
+  var msiSortEl = document.getElementById('msiSort');
+  if (msiSortEl) {
+    msiSortEl.addEventListener('change', function () {
+      mediaSelectSort = msiSortEl.value;
+      localStorage.setItem('mediaSelectSort', mediaSelectSort);
+      if (mediaSelectReadyItems.length) renderMediaSelectGrid(mediaSelectReadyItems);
+    });
+  }
 
   // Media-select search: filter grid items by name
   var mediaSelectSearchEl = document.getElementById('mediaSelectSearch');

@@ -145,9 +145,12 @@ pm2 logs signage
 ```bash
 cd /opt/digital-signage
 git pull
-npm install --production
+npm install --production   # ОБЯЗАТЕЛЬНО — устанавливает новые зависимости из package-lock.json
 pm2 restart signage
+pm2 logs signage --lines 20  # убедиться, что нет ошибок MODULE_NOT_FOUND
 ```
+
+> ⚠️ Если пропустить `npm install` после добавления новых зависимостей — новые API-маршруты вернут 404 (модуль не загрузится из-за `MODULE_NOT_FOUND`).
 
 Если в репозитории обновлялся **nginx.conf** (например, добавлен `location = /neofit_tv.apk`), после `git pull` примените конфиг и перезагрузите Nginx:
 
@@ -183,7 +186,7 @@ cd /opt/digital-signage
 npm run reset-password НовыйПароль
 ```
 
-Пароль должен быть не короче 6 символов. После успешного выполнения выведется: `✅ Пароль успешно изменён`.
+Пароль должен быть не короче 8 символов. После успешного выполнения выведется: `✅ Пароль успешно изменён`.
 
 ---
 
@@ -238,7 +241,10 @@ pm2 start signage
 
 ## Возможные проблемы
 
-**Ошибка 502 Bad Gateway**  
+**Ошибка 404 на новых API-маршрутах (например /api/auth/totp/setup)**
+→ После `git pull` не был выполнен `npm install`. Выполнить: `npm install --production && pm2 restart signage`
+
+**Ошибка 502 Bad Gateway**
 → Node.js не запущен. Выполнить: `pm2 start ecosystem.config.js`
 
 **Сертификат не получается**  

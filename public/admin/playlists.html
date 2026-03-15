@@ -21,6 +21,49 @@
     .drag-handle{transition:color .15s;opacity:.5}
     .playlist-item:hover .drag-handle{opacity:1;color:var(--primary)}
     .modal .modal-header h2{letter-spacing:-.02em}
+
+    /* View toggle buttons */
+    .msi-view-toggle{display:flex;gap:2px;margin-bottom:.5rem;justify-content:flex-end}
+    .msi-view-btn{background:var(--gray-100);border:1px solid var(--gray-200);border-radius:6px;padding:.3rem .45rem;cursor:pointer;color:var(--gray-500);transition:background .15s,color .15s;display:flex;align-items:center}
+    .msi-view-btn:hover{background:var(--gray-200);color:var(--gray-700)}
+    .msi-view-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+
+    /* Shared item structure */
+    .msi-thumb{flex-shrink:0}
+    .msi-info{min-width:0}
+    .msi-name{font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .msi-meta{font-size:.7rem;color:var(--gray-500);margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* Grid view (default) */
+    .media-select-grid:not(.list-view) .media-select-item{display:block}
+    .media-select-grid:not(.list-view) .msi-thumb{overflow:hidden;height:80px;width:100%}
+    .media-select-grid:not(.list-view) .msi-thumb-inner{width:100%;height:100%}
+    .media-select-grid:not(.list-view) .msi-thumb-media{width:100%!important;height:80px!important;object-fit:cover!important;display:block!important}
+    .media-select-grid:not(.list-view) .msi-meta{display:none}
+    .media-select-grid:not(.list-view) .msi-info{padding:.375rem}
+    .media-select-grid:not(.list-view) .media-select-checkbox{position:absolute;top:.35rem;left:.35rem;z-index:1}
+
+    /* List view */
+    .media-select-grid.list-view{display:flex;flex-direction:column;gap:0}
+    .media-select-grid.list-view .media-select-item{display:flex!important;align-items:center;gap:.625rem;padding:.5rem .625rem;border:none!important;border-radius:0;border-bottom:1px solid var(--gray-100)}
+    .media-select-grid.list-view .media-select-item:last-child{border-bottom:none}
+    .media-select-grid.list-view .media-select-item:hover{background:var(--primary-light,#eff6ff)}
+    .media-select-grid.list-view .media-select-checkbox{position:static!important;flex-shrink:0;margin:0}
+    .media-select-grid.list-view .msi-thumb{width:52px!important;height:38px!important;flex-shrink:0;overflow:hidden;border-radius:4px}
+    .media-select-grid.list-view .msi-thumb-inner{width:100%;height:100%}
+    .media-select-grid.list-view .msi-thumb-media{width:52px!important;height:38px!important;object-fit:cover!important;display:block!important;border-radius:4px}
+    .media-select-grid.list-view .msi-info{flex:1;min-width:0}
+    .media-select-grid.list-view .msi-name{font-size:.8125rem}
+    .media-select-grid.list-view .msi-meta{display:block}
+
+    /* Компактные строки плейлиста */
+    .playlist-item{padding:.35rem .625rem!important;gap:.5rem!important;margin-bottom:.25rem!important}
+    .playlist-item .item-thumb{width:38px!important;height:28px!important}
+    .playlist-item .item-name{font-size:.8125rem!important}
+    .playlist-item .item-duration{width:62px!important}
+    .playlist-item .item-duration input{padding:.2rem .4rem!important;font-size:.75rem!important}
+    .playlist-item .drag-handle{font-size:.85rem!important}
+
     @media (max-width: 768px) {
       .page-header-actions .btn{width:100%;justify-content:center}
       .modal-footer{flex-direction:column}
@@ -53,7 +96,7 @@
     </header>
     <div id="playlistsList"></div>
     <div class="modal-overlay" id="playlistModal">
-      <div class="modal" style="max-width: 520px;">
+      <div class="modal" style="max-width: 860px;">
         <div class="modal-header">
           <h2 id="playlistModalTitle">Создать плейлист</h2>
           <button type="button" class="close-btn" id="playlistModalClose" aria-label="Закрыть">&times;</button>
@@ -77,12 +120,30 @@
       </div>
     </div>
     <div class="modal-overlay" id="mediaSelectModal">
-      <div class="modal" style="max-width: 560px;">
+      <div class="modal" style="max-width: 640px;">
         <div class="modal-header">
           <h2>Выбрать медиафайлы</h2>
           <button type="button" class="close-btn" id="mediaSelectModalClose" aria-label="Закрыть">&times;</button>
         </div>
         <div class="modal-body">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;justify-content:flex-end;flex-wrap:wrap;">
+            <select id="msiSort" style="font-size:.8125rem;padding:.25rem .5rem;border:1px solid var(--gray-200);border-radius:6px;background:var(--bg-card);color:var(--text-primary);cursor:pointer;">
+              <option value="date-desc">Сначала новые</option>
+              <option value="date-asc">Сначала старые</option>
+              <option value="name-asc">По имени А–Я</option>
+              <option value="name-desc">По имени Я–А</option>
+              <option value="size-desc">По размеру ↓</option>
+              <option value="size-asc">По размеру ↑</option>
+            </select>
+          <div class="msi-view-toggle" style="margin-bottom:0">
+            <button type="button" class="msi-view-btn active" id="msiViewGrid" title="Сетка" aria-label="Вид: сетка">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            </button>
+            <button type="button" class="msi-view-btn" id="msiViewList" title="Список" aria-label="Вид: список">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+          </div>
+          </div>
           <input type="text" id="mediaSelectSearch" class="media-select-search" placeholder="Поиск по имени…" autocomplete="off">
           <div class="media-select-grid" id="mediaSelectGrid"></div>
         </div>

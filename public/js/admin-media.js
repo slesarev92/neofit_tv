@@ -5,6 +5,16 @@
   let bulkMode = false;
   const bulkSelectedIds = new Set();
   const SORT_STORAGE_KEY = 'mediaSort';
+  var mediaView = localStorage.getItem('mediaPageView') || 'grid';
+
+  function applyMediaView() {
+    var grid = document.getElementById('mediaGrid');
+    if (grid) grid.classList.toggle('list-view', mediaView === 'list');
+    var bGrid = document.getElementById('mediaViewGrid');
+    var bList = document.getElementById('mediaViewList');
+    if (bGrid) bGrid.classList.toggle('active', mediaView === 'grid');
+    if (bList) bList.classList.toggle('active', mediaView === 'list');
+  }
 
   const SORT_VALUES = ['date-desc', 'date-asc', 'name-asc', 'name-desc', 'size-desc', 'size-asc'];
 
@@ -218,11 +228,13 @@
       video.playsInline = true;
       video.style.cssText = 'width:100%;height:100%;object-fit:cover;pointer-events:none;';
       video.addEventListener('loadeddata', () => { video.currentTime = 2; });
-      const badge = document.createElement('div');
-      badge.style.cssText = 'position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.7);color:#fff;padding:2px 6px;border-radius:4px;font-size:.7rem;pointer-events:none;';
-      badge.textContent = 'VIDEO';
+      const durationBadge = document.createElement('div');
+      durationBadge.className = 'media-thumb-duration';
+      durationBadge.style.cssText = 'position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;padding:2px 5px;border-radius:4px;font-size:.7rem;pointer-events:none;';
+      durationBadge.textContent = item.durationSeconds ? formatDuration(item.durationSeconds) : '';
+      if (!item.durationSeconds) durationBadge.style.display = 'none';
       thumb.appendChild(video);
-      thumb.appendChild(badge);
+      thumb.appendChild(durationBadge);
       if (status === 'ready') {
         thumb.style.cursor = 'pointer';
         thumb.addEventListener('click', function () { if (bulkMode) return; openMediaPreview(item); });
@@ -254,24 +266,24 @@
       ? 'В плейлистах: ' + namesEscaped.slice(0, 3).join(', ') + (names.length > 3 ? ' (+' + (names.length - 3) + ')' : '')
       : 'Не используется';
     const usageTitle = escapeAttr((names || []).join(', ') || 'Не используется');
-    const dateOrDuration = isVideo(item.mimeType) ? formatDuration(item.durationSeconds) : formatDate(item.createdAt);
     info.innerHTML = `
       <div class="media-name">${escapeHtml(truncate(item.originalName))}</div>
       <div class="media-meta">
         <span>${sizeText}${badge}</span>
-        <span class="media-duration">${dateOrDuration}</span>
+        <span class="media-duration">${formatDate(item.createdAt)}</span>
       </div>
       <div class="media-usage" title="${usageTitle}">${usageText}</div>
       ${errorText}
     `;
 
     if (isVideo(item.mimeType) && status === 'ready') {
-      const durationSpan = info.querySelector('.media-duration');
       const videoEl = thumb.querySelector('video');
-      if (durationSpan && videoEl && (item.durationSeconds == null || item.durationSeconds === '')) {
+      const durBadge = thumb.querySelector('.media-thumb-duration');
+      if (videoEl && durBadge && (item.durationSeconds == null || item.durationSeconds === '')) {
         videoEl.addEventListener('loadedmetadata', () => {
           if (videoEl.duration && isFinite(videoEl.duration)) {
-            durationSpan.textContent = formatDuration(Math.round(videoEl.duration));
+            durBadge.textContent = formatDuration(Math.round(videoEl.duration));
+            durBadge.style.display = '';
           }
         });
       }
@@ -584,6 +596,17 @@
           });
         }
       );
+    });
+
+    applyMediaView();
+    ['mediaViewGrid', 'mediaViewList'].forEach(function (btnId) {
+      var btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        mediaView = btnId === 'mediaViewGrid' ? 'grid' : 'list';
+        localStorage.setItem('mediaPageView', mediaView);
+        applyMediaView();
+      });
     });
 
     loadMedia();
