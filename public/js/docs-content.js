@@ -393,30 +393,6 @@
         '<li><code>upload-apk.ps1</code> — PowerShell‑скрипт загрузки <code>neofit_tv.apk</code> на сервер по SCP.</li>' +
         '</ul>'
     },
-    {
-      id: 'changelog-v17',
-      title: 'Изменения v1.7',
-      icon: '📋',
-      group: 'Система',
-      content: '<h4>v1.7-NEO — Оптимизация видео для Android TV</h4>' +
-        '<ul>' +
-        '<li><strong>Service Worker:</strong> видео (.mp4/.webm/.mov) больше не кэшируются через Cache API — стримятся напрямую из сети. Устраняет OOM на устройствах с 2 ГБ RAM (ранее весь файл загружался в RAM при Range-запросах).</li>' +
-        '<li><strong>Prefetch видео:</strong> <code>preload="metadata"</code> вместо <code>"auto"</code> — загружает только первые ~100 КБ (moov atom) вместо всего файла.</li>' +
-        '<li><strong>ffmpeg:</strong> добавлен <code>-profile:v baseline -level 3.1</code> — гарантирует аппаратное декодирование на слабых Android-чипах (Allwinner, Amlogic).</li>' +
-        '<li><strong>videoMaxWidth:</strong> значение по умолчанию изменено с «без ограничения» на <strong>1920 px</strong> — защита от загрузки 4K видео.</li>' +
-        '<li><strong>Nginx:</strong> <code>/uploads/</code> раздаётся напрямую через Nginx (sendfile), минуя Node.js.</li>' +
-        '<li><strong>Android:</strong> добавлен <code>android:largeHeap="true"</code> — увеличенный heap (~2×) на устройствах с малым объёмом RAM.</li>' +
-        '<li><strong>pollInterval:</strong> минимальное значение изменено с 5 на <strong>10 секунд</strong> (ограничение rate limiter).</li>' +
-        '</ul>' +
-        '<h4>v1.7.1 — Аудит админки</h4>' +
-        '<ul>' +
-        '<li>Массовое удаление медиа: информативные сообщения при ошибках.</li>' +
-        '<li>Валидация размера файла перед загрузкой на клиенте.</li>' +
-        '<li>Экранирование HTML-атрибутов (XSS-защита) в экранах.</li>' +
-        '<li>Авто-обновление экранов не прерывает открытый dropdown.</li>' +
-        '<li>Индикация активного режима порога онлайн (множитель / фиксированный).</li>' +
-        '</ul>'
-    },
   ];
 
   function renderDocs() {

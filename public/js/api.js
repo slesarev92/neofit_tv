@@ -13,7 +13,14 @@ const API = {
       config.body = options.body;
     }
 
-    const res = await fetch(url, config);
+    var res;
+    try {
+      res = await fetch(url, config);
+    } catch (netErr) {
+      _updateOfflineBanner(false);
+      throw netErr;
+    }
+    _updateOfflineBanner(true);
 
     if (res.status === 401 && !url.includes('/api/auth/login') && !url.includes('/api/auth/verify-totp')) {
       var returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
@@ -206,15 +213,37 @@ function timeAgo(dateStr) {
   return `${days} дн. назад`;
 }
 
+var _apiFailCount = 0;
+function _updateOfflineBanner(ok) {
+  if (ok) {
+    _apiFailCount = 0;
+    var b = document.getElementById('offline-banner');
+    if (b) b.style.display = 'none';
+  } else {
+    _apiFailCount++;
+    if (_apiFailCount >= 3) {
+      var b = document.getElementById('offline-banner');
+      if (!b) {
+        b = document.createElement('div');
+        b.id = 'offline-banner';
+        b.textContent = '\u26A0\uFE0F Нет связи с сервером';
+        document.body.appendChild(b);
+      }
+      b.style.display = 'block';
+    }
+  }
+}
+
 function showToast(message, type = 'info') {
-  const existing = document.querySelector('.toast');
+  const existing = document.querySelector('.toast:not(.toast-undo)');
   if (existing) existing.remove();
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message;
   document.body.appendChild(toast);
+  var duration = type === 'error' ? 5000 : 3000;
   setTimeout(() => toast.classList.add('show'), 10);
-  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
 }
 
 // Branding (systemName, logo) загружается из nav.js — дублирующий fetch убран

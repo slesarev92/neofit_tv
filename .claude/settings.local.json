@@ -9,7 +9,21 @@
       "Bash(git push:*)",
       "Bash(find /c/Users/msksl/projects/signage/src/modules/backup -type f -name *.js)",
       "Bash(grep -r \"startScheduler\\\\|reschedule\" /c/Users/msksl/projects/signage/src --include=*.js)",
-      "Bash(find c:Usersmskslprojectssignageandroid-app -name *.properties -o -name *.gradle.properties)"
+      "Bash(find c:Usersmskslprojectssignageandroid-app -name *.properties -o -name *.gradle.properties)",
+      "Bash(curl -s http://127.0.0.1:3000/api/system/health)",
+      "Bash(node -e \"const s = require\\(''speakeasy''\\); console.log\\(''Current TOTP:'', s.totp\\({ secret: ''MESDQ323LBNWMNCSOJCFM4DLHI5CYVZ2'', encoding: ''base32'' }\\)\\); console.log\\(''Time:'', new Date\\(\\).toISOString\\(\\)\\); console.log\\(''Unix:'', Math.floor\\(Date.now\\(\\)/1000\\)\\); const step = Math.floor\\(Date.now\\(\\)/30000\\); console.log\\(''Step:'', step\\);\")",
+      "Bash(node -e \":*)",
+      "Bash(curl -s -c - -b - -X POST http://127.0.0.1:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"password\"\"\"\":\"\"\"\"test\"\"\"\"}')",
+      "Bash(curl -v -X POST http://127.0.0.1:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"password\"\"\"\":\"\"\"\"test123\"\"\"\"}')",
+      "Bash(curl -v http://127.0.0.1:3000/api/settings)",
+      "Bash(curl -v -X POST http://127.0.0.1:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"password\"\"\"\":\"\"\"\"Qwer1234\"\"\"\"}')",
+      "Bash(curl -s -v -c /tmp/cookies.txt -X POST http://127.0.0.1:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"password\"\"\"\":\"\"\"\"23458761\"\"\"\"}')",
+      "Bash(curl -s -v -c /tmp/cookies2.txt -b /tmp/cookies2.txt -X POST http://127.0.0.1:3000/api/auth/login -H \"Content-Type: application/json\" -d '{\"\"\"\"password\"\"\"\":\"\"\"\"23458761\"\"\"\"}')",
+      "Bash(tasklist)",
+      "Bash(taskkill //IM node.exe //F)",
+      "Bash(taskkill //PID 24448 //F)",
+      "Bash(taskkill //PID 7480 //F)",
+      "Bash(taskkill //PID 11420 //F)"
     ]
   }
 }

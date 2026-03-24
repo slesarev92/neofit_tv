@@ -247,7 +247,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
       var usedPct = data.memory.usedPercent;
       var freePct = 100 - usedPct;
       memEl.textContent = 'Свободно ' + data.memory.freeFormatted + ' из ' + data.memory.totalFormatted;
-      memEl.className = 'system-stat-value';
+      memEl.className = 'system-stat-value' + (usedPct > 80 ? ' system-stat-value--danger' : usedPct > 60 ? ' system-stat-value--warn' : ' system-stat-value--ok');
       if (memBarUsed) memBarUsed.style.flex = '0 0 ' + usedPct + '%';
       if (memBarFree) memBarFree.style.flex = '0 0 ' + freePct + '%';
       if (memCapUsed) { memCapUsed.textContent = '(' + usedPct + '% занято)'; memCapUsed.removeAttribute('style'); }
@@ -264,7 +264,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
         var diskUsedPct = data.disk.usedPercent;
         var diskFreePct = 100 - diskUsedPct;
         diskEl.textContent = 'Свободно ' + data.disk.freeFormatted + ' из ' + data.disk.totalFormatted;
-        diskEl.className = 'system-stat-value';
+        diskEl.className = 'system-stat-value' + (diskUsedPct > 80 ? ' system-stat-value--danger' : diskUsedPct > 60 ? ' system-stat-value--warn' : ' system-stat-value--ok');
         if (diskBarUsed) diskBarUsed.style.flex = '0 0 ' + diskUsedPct + '%';
         if (diskBarFree) diskBarFree.style.flex = '0 0 ' + diskFreePct + '%';
         if (diskCapUsed) { diskCapUsed.textContent = '(' + diskUsedPct + '% занято)'; diskCapUsed.removeAttribute('style'); }

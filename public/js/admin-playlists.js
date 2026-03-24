@@ -4,6 +4,7 @@
   let playlistItems = [];
   let savePlaylistInProgress = false;
   let defaultImageDuration = 10;
+  let playlistDirty = false;
   var mediaSelectView = localStorage.getItem('mediaSelectView') || 'grid';
   var mediaSelectReadyItems = [];
   var mediaSelectSort = localStorage.getItem('mediaSelectSort') || 'date-desc';
@@ -200,6 +201,7 @@
 
   function openCreateModal() {
     savePlaylistInProgress = false;
+    playlistDirty = false;
     var btn = document.querySelector('#playlistModal .modal-footer .btn-primary');
     if (btn) btn.disabled = false;
     editingPlaylistId = null;
@@ -212,6 +214,7 @@
 
   function openEditModal(id) {
     savePlaylistInProgress = false;
+    playlistDirty = false;
     var btn = document.querySelector('#playlistModal .modal-footer .btn-primary');
     if (btn) btn.disabled = false;
     editingPlaylistId = id;
@@ -240,7 +243,15 @@
       });
   }
 
-  function closePlaylistModal() {
+  function closePlaylistModal(force) {
+    if (!force && playlistDirty) {
+      showConfirm('Есть несохранённые изменения. Закрыть без сохранения?', function () {
+        playlistDirty = false;
+        document.getElementById('playlistModal').classList.remove('active');
+      }, { confirmLabel: 'Закрыть', confirmClass: 'btn-danger' });
+      return;
+    }
+    playlistDirty = false;
     document.getElementById('playlistModal').classList.remove('active');
   }
 
@@ -368,7 +379,7 @@
     });
     renderPlaylistItems();
     closeMediaSelectModal();
-    if (added > 0) showToast('Добавлено: ' + added, 'success');
+    if (added > 0) { playlistDirty = true; showToast('Добавлено: ' + added, 'success'); }
   }
 
   window.addSelectedMediaToPlaylist = addSelectedMediaToPlaylist;
@@ -486,10 +497,13 @@
         });
       }
       if (!isVid) {
-        li.querySelector('input').addEventListener('change', (e) => {
+        var durInput = li.querySelector('input');
+        durInput.setAttribute('inputmode', 'numeric');
+        durInput.setAttribute('pattern', '[0-9]*');
+        durInput.addEventListener('change', (e) => {
           const val = parseInt(e.target.value, 10);
           const p = playlistItems.find((x) => x.id === item.id);
-          if (p && !isNaN(val) && val >= 1) p.duration = val;
+          if (p && !isNaN(val) && val >= 1) { p.duration = val; playlistDirty = true; }
         });
       }
       li.addEventListener('dragstart', onDragStart);
@@ -515,6 +529,7 @@
   window.removePlaylistItem = function (itemId) {
     playlistItems = playlistItems.filter((p) => p.id !== itemId);
     playlistItems.forEach((p, i) => (p.order = i));
+    playlistDirty = true;
     renderPlaylistItems();
   };
 
@@ -532,6 +547,7 @@
     playlistItems.push(copy);
     playlistItems.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     playlistItems.forEach((p, i) => (p.order = i));
+    playlistDirty = true;
     renderPlaylistItems();
   };
 
@@ -544,15 +560,23 @@
     e.dataTransfer.setData('text/plain', e.currentTarget.dataset.index);
   }
 
+  function clearDragIndicators() {
+    document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(function (el) {
+      el.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+  }
+
   function onDragOver(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const target = e.currentTarget;
+    clearDragIndicators();
     if (target !== draggedEl && target.classList.contains('playlist-item')) {
       const ul = document.getElementById('playlistItems');
       const all = Array.from(ul.querySelectorAll('.playlist-item'));
       const dragIdx = all.indexOf(draggedEl);
       const targetIdx = all.indexOf(target);
+      target.classList.add(dragIdx < targetIdx ? 'drag-over-bottom' : 'drag-over-top');
       if (dragIdx < targetIdx) {
         target.parentNode.insertBefore(draggedEl, target.nextSibling);
       } else {
@@ -563,11 +587,13 @@
 
   function onDrop(e) {
     e.preventDefault();
+    clearDragIndicators();
     recalcOrderFromDom();
   }
 
   function onDragEnd(e) {
     e.currentTarget.classList.remove('dragging');
+    clearDragIndicators();
     draggedEl = null;
   }
 
@@ -583,6 +609,7 @@
       if (orderById[p.id] !== undefined) p.order = orderById[p.id];
     });
     playlistItems.sort((a, b) => a.order - b.order);
+    playlistDirty = true;
     renderPlaylistItems();
   }
 
@@ -615,7 +642,7 @@
       API.updatePlaylist(editingPlaylistId, { name, items })
         .then(() => {
           showToast('Плейлист сохранён', 'success');
-          closePlaylistModal();
+          closePlaylistModal(true);
           loadPlaylists();
         })
         .catch((err) => {
@@ -627,7 +654,7 @@
       API.createPlaylist({ name, items })
         .then(() => {
           showToast('Плейлист создан', 'success');
-          closePlaylistModal();
+          closePlaylistModal(true);
           loadPlaylists();
         })
         .catch((err) => {

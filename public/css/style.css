@@ -453,7 +453,7 @@ tr:hover td { background: var(--primary-light); }
 .playlist-item .playlist-item-dup-badge { font-size: 0.7rem; color: var(--gray-500); background: var(--gray-200); padding: 0.1rem 0.35rem; border-radius: 4px; flex-shrink: 0; }
 [data-theme="dark"] .playlist-item .playlist-item-dup-badge { color: var(--gray-400); background: var(--gray-700); }
 .playlist-item .item-duration { width: 70px; }
-.playlist-item .item-duration input { width: 100%; padding: .25rem .5rem; border: 1px solid var(--gray-300); border-radius: 4px; font-size: .8125rem; text-align: center; }
+.playlist-item .item-duration input { width: 100%; padding: .5rem .75rem; min-height: 36px; border: 1px solid var(--gray-300); border-radius: 4px; font-size: .875rem; text-align: center; }
 
 /* Modal */
 .modal-overlay {
@@ -780,6 +780,29 @@ body.sidebar-open .sidebar-backdrop { display: block; }
 /* Spinner */
 .spinner { width: 28px; height: 28px; border: 3px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Offline banner */
+#offline-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: var(--danger); color: var(--text-on-dark); text-align: center;
+  padding: 8px; font-size: 14px; font-weight: 500; display: none;
+}
+
+/* Undo toast progress bar */
+.toast-undo { position: relative; overflow: hidden; }
+.toast-progress {
+  position: absolute; bottom: 0; left: 0; height: 3px; width: 100%;
+  background: rgba(255,255,255,0.4);
+  animation: toast-countdown 5s linear forwards;
+}
+@keyframes toast-countdown { from { width: 100%; } to { width: 0%; } }
+
+/* Drag-and-drop position indicator */
+.playlist-item.drag-over-top { border-top: 2px solid var(--primary); }
+.playlist-item.drag-over-bottom { border-bottom: 2px solid var(--primary); }
+
+/* Settings tab dirty indicator */
+.settings-tabs .tab.tab-dirty::after { content: '\2022'; color: var(--warning); margin-left: .35rem; font-size: 1.1em; }
 
 /* Custom scrollbar (webkit) */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

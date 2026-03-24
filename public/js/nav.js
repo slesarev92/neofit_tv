@@ -214,7 +214,7 @@
     var toast = document.createElement('div');
     toast.id = '_undoToast';
     toast.className = 'toast toast-undo show';
-    toast.innerHTML = '<span>' + message + '</span><button type="button" class="toast-undo-btn">Отменить</button>';
+    toast.innerHTML = '<span>' + message + '</span><button type="button" class="toast-undo-btn">Отменить</button><div class="toast-progress"></div>';
     document.body.appendChild(toast);
     var cancelled = false;
     var undoBtn = toast.querySelector('.toast-undo-btn');

@@ -3,6 +3,7 @@
   var pendingLogoFile = null;
   var logoRemoveRequested = false;
   var currentLogoObjectUrl = null;
+  var settingsDirty = {};
 
   function getEl(id) {
     var el = document.getElementById(id);
@@ -159,6 +160,13 @@
     } catch (err) {
       showToast(err.message || 'Ошибка загрузки настроек', 'error');
     }
+  }
+
+  function updateDirtyTabs() {
+    document.querySelectorAll('.settings-tabs .tab').forEach(function (t) {
+      var tabId = t.getAttribute('data-tab');
+      t.classList.toggle('tab-dirty', !!settingsDirty[tabId]);
+    });
   }
 
   function switchTab(tabId) {
@@ -376,6 +384,13 @@
       });
     });
 
+    // Track dirty state per-tab
+    document.querySelectorAll('.settings-section').forEach(function (sec) {
+      var tabId = sec.getAttribute('data-section');
+      sec.addEventListener('input', function () { settingsDirty[tabId] = true; updateDirtyTabs(); });
+      sec.addEventListener('change', function () { settingsDirty[tabId] = true; updateDirtyTabs(); });
+    });
+
     document.getElementById('formPlayback').addEventListener('submit', async function (e) {
       e.preventDefault();
       if (saveInProgress) return;
@@ -384,6 +399,7 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectPlayback());
+        settingsDirty['playback'] = false; updateDirtyTabs();
         showToast('Настройки воспроизведения сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -401,6 +417,7 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectSchedule());
+        settingsDirty['schedule'] = false; updateDirtyTabs();
         showToast('Настройки расписания сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -426,6 +443,7 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectMonitor());
+        settingsDirty['monitor'] = false; updateDirtyTabs();
         showToast('Настройки мониторинга сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -443,6 +461,7 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectMedia());
+        settingsDirty['media'] = false; updateDirtyTabs();
         showToast('Настройки медиа сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -481,6 +500,7 @@
           var path = getCurrentLogoPath();
           updateSidebarBrand({ systemName: systemName, logoUrl: path ? (path.indexOf('?') === -1 ? path + '?t=' + Date.now() : path) : null });
         }
+        settingsDirty['system'] = false; updateDirtyTabs();
         showToast('Настройки системы сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -498,6 +518,7 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectTelegram());
+        settingsDirty['telegram'] = false; updateDirtyTabs();
         showToast('Настройки Telegram сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -531,6 +552,7 @@
       if (submitBtn) submitBtn.disabled = true;
       try {
         await API.updateSettings(collectBackup());
+        settingsDirty['backup'] = false; updateDirtyTabs();
         showToast('Настройки бэкапов сохранены', 'success');
       } catch (err) {
         showToast(err.message || 'Ошибка сохранения', 'error');
@@ -843,20 +865,50 @@
 
       var totpDisableBtn = document.getElementById('totpDisableBtn');
       if (totpDisableBtn) {
-        totpDisableBtn.addEventListener('click', async function () {
+        totpDisableBtn.addEventListener('click', function () {
           if (totpDisableBtn.disabled) return;
-          var password = window.prompt('Введите пароль для отключения 2FA:');
-          if (!password) return;
-          totpDisableBtn.disabled = true;
-          try {
-            await API.disableTotp(password);
-            showToast('2FA отключена', 'success');
-            setTotpStatus(false);
-          } catch (err) {
-            showToast(err.message || 'Ошибка отключения 2FA', 'error');
-          } finally {
-            totpDisableBtn.disabled = false;
-          }
+          // Custom password prompt instead of native prompt()
+          var existing = document.getElementById('_totpDisableDialog');
+          if (existing) existing.remove();
+          var overlay = document.createElement('div');
+          overlay.id = '_totpDisableDialog';
+          overlay.className = 'modal-overlay active';
+          overlay.style.zIndex = '300';
+          overlay.innerHTML =
+            '<div class="modal confirm-modal" role="dialog" aria-modal="true">' +
+            '<div class="modal-body" style="text-align:center;padding:1.5rem;">' +
+            '<p style="margin-bottom:1rem;">Введите пароль для отключения 2FA:</p>' +
+            '<input type="password" id="_totpDisablePwd" class="form-group-input" style="width:100%;padding:.625rem .75rem;border:1px solid var(--gray-300);border-radius:var(--radius);font-size:.875rem;background:var(--bg-card);color:var(--gray-800);" autocomplete="current-password">' +
+            '</div>' +
+            '<div class="modal-footer" style="justify-content:center;gap:.75rem;">' +
+            '<button type="button" class="btn btn-secondary" id="_totpDisableCancel">Отмена</button>' +
+            '<button type="button" class="btn btn-danger" id="_totpDisableOk">Отключить 2FA</button>' +
+            '</div></div>';
+          document.body.appendChild(overlay);
+          var pwdInput = document.getElementById('_totpDisablePwd');
+          setTimeout(function () { pwdInput.focus(); }, 50);
+          function close() { overlay.classList.remove('active'); setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 250); }
+          document.getElementById('_totpDisableCancel').addEventListener('click', close);
+          overlay.addEventListener('click', function (ev) { if (ev.target === overlay) close(); });
+          document.getElementById('_totpDisableOk').addEventListener('click', async function () {
+            var password = pwdInput.value;
+            if (!password) { pwdInput.focus(); return; }
+            close();
+            totpDisableBtn.disabled = true;
+            try {
+              await API.disableTotp(password);
+              showToast('2FA отключена', 'success');
+              setTotpStatus(false);
+            } catch (err) {
+              showToast(err.message || 'Ошибка отключения 2FA', 'error');
+            } finally {
+              totpDisableBtn.disabled = false;
+            }
+          });
+          pwdInput.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') { document.getElementById('_totpDisableOk').click(); }
+            if (ev.key === 'Escape') { close(); }
+          });
         });
       }
     })();

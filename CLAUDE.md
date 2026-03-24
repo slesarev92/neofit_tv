@@ -52,6 +52,7 @@ android-app/           # Kotlin Android приложение (WebView)
 - **Видео** кодируется в H.264 Baseline profile level 3.1 (`-profile:v baseline -level 3.1`)
 - **videoMaxWidth** по умолчанию 1920px — защита от 4K видео
 - **requireAuth** применяется на уровне router mount в `server.js`, а не в route-файлах
+- **НЕ добавлять** разделы changelog/изменения в `docs-content.js` — документация описывает текущее состояние системы, не историю изменений
 
 ### При правках player.js учитывать:
 - `isTransitioning` — флаг защиты от race condition (poll/watchdog/onended). Сбрасывать в canplay/onload/error
