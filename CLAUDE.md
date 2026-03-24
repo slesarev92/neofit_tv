@@ -102,7 +102,15 @@ android-app/           # Kotlin Android приложение (WebView)
 ## Сессии и Windows (локальная разработка)
 
 - На Windows задать `SESSION_USE_MEMORY=1` в `.env` — сессии в памяти
-- Перед запуском убедиться что нет старых процессов Node
+- **Перед запуском убить ВСЕ процессы Node** (`taskkill /IM node.exe /F`). Zombie-процессы держат порт 3000 и старый rate limit в памяти — новый сервер не может перехватить порт, запросы идут к старому процессу
+- Проверка: `netstat -ano | grep :3000 | grep LISTEN` — должен быть ровно один PID
 - На сервере НЕ задавать `SESSION_USE_MEMORY=1` — сессии в файлах, переживают pm2 restart
+
+### Rate limiter и TOTP login
+
+- `loginLimiter` (10 req / 15 min per IP) общий для `/login` И `/verify-totp`
+- Каждая попытка входа с 2FA = 2 запроса (login + verify-totp), итого 5 полных попыток до блокировки
+- При блокировке: перезапустить сервер (rate limit в памяти) или ждать 15 минут
+- **Если после перезапуска rate limit не сбросился** — значит старый процесс node жив (см. выше)
 
 - **After completing any task** — update CLAUDE.md if architecture, modules, or rules changed
