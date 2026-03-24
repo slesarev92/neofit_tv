@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npm audit:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(find /c/Users/msksl/projects/signage/src/modules/backup -type f -name *.js)",
+      "Bash(grep -r \"startScheduler\\\\|reschedule\" /c/Users/msksl/projects/signage/src --include=*.js)",
+      "Bash(find c:Usersmskslprojectssignageandroid-app -name *.properties -o -name *.gradle.properties)"
     ]
   }
 }

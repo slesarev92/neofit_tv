@@ -30,6 +30,10 @@
   let preloadedNextEl = null;
   let preloadedNextIndex = -1;
   let preloadedReady = false;
+  let preloadFallbackTimer = null;
+  let isTransitioning = false;
+  let transitionSafetyTimer = null;
+  let itemErrorCount = new Map();
 
   // =========================================================
   //  Work schedule — black screen outside configured hours
@@ -154,10 +158,17 @@
   function resetWatchdog(timeoutMs) {
     clearTimeout(watchdogTimer);
     watchdogTimer = setTimeout(() => {
+      var currentItem = currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex];
       if (DEBUG) console.warn('[Watchdog] Элемент завис, принудительное переключение.', {
         index: currentIndex,
-        type: (currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex] && currentPlaylist.items[currentIndex].media && currentPlaylist.items[currentIndex].media.mimeType) || 'unknown',
+        id: currentItem ? currentItem.id : '?',
+        type: (currentItem && currentItem.media && currentItem.media.mimeType) || 'unknown',
       });
+      if (currentItem) {
+        itemErrorCount.set(currentItem.id, (itemErrorCount.get(currentItem.id) || 0) + 1);
+      }
+      isTransitioning = false;
+      clearTimeout(transitionSafetyTimer);
       playNext();
     }, timeoutMs);
   }
@@ -186,6 +197,16 @@
   }
 
   // =========================================================
+  //  Playlist signature — stable comparison without cache-buster URLs
+  // =========================================================
+  function getPlaylistSignature(playlist) {
+    if (!playlist || !playlist.items) return '';
+    return playlist.id + ':' + playlist.items.map(function (it) {
+      return it.id + '|' + (it.media && it.media.mimeType || '') + '|' + (it.duration || 0) + '|' + it.order;
+    }).join(';');
+  }
+
+  // =========================================================
   //  Polling
   // =========================================================
   async function poll() {
@@ -207,11 +228,36 @@
           currentIndex = -1;
         }
       } else {
-        const newJSON = JSON.stringify(data.playlist);
-        if (newJSON !== JSON.stringify(currentPlaylist)) {
+        var newSig = getPlaylistSignature(data.playlist);
+        var oldSig = getPlaylistSignature(currentPlaylist);
+        if (newSig !== oldSig) {
+          // Structure changed — preserve position by current item id
+          var currentItemId = (currentPlaylist && currentIndex >= 0 && currentPlaylist.items[currentIndex])
+            ? currentPlaylist.items[currentIndex].id : null;
           currentPlaylist = data.playlist;
-          currentIndex = -1;
-          playNext();
+          itemErrorCount.clear();
+          if (currentItemId) {
+            var preserved = currentPlaylist.items.findIndex(function (it) { return it.id === currentItemId; });
+            if (preserved >= 0) {
+              currentIndex = preserved;
+              // Invalidate preload — playlist structure changed
+              if (preloadedNextEl) {
+                if (preloadedNextEl.tagName === 'VIDEO') { preloadedNextEl.pause(); preloadedNextEl.removeAttribute('src'); preloadedNextEl.load(); }
+                preloadedNextEl.remove(); preloadedNextEl = null; preloadedNextIndex = -1; preloadedReady = false;
+                clearTimeout(preloadFallbackTimer);
+              }
+              startPreloadNext();
+            } else {
+              currentIndex = -1;
+              playNext();
+            }
+          } else {
+            currentIndex = -1;
+            playNext();
+          }
+        } else {
+          // Only URLs changed (cache-buster) — update data silently, keep playing
+          currentPlaylist = data.playlist;
         }
         notifySwPrecache(data.playlist.items);
       }
@@ -244,6 +290,9 @@
 
   function clearMediaElements() {
     clearTimeout(imageTimer);
+    clearTimeout(preloadFallbackTimer);
+    isTransitioning = false;
+    clearTimeout(transitionSafetyTimer);
     if (preloadedNextEl) {
       if (preloadedNextEl.tagName === 'VIDEO') {
         preloadedNextEl.onended = null;
@@ -293,8 +342,26 @@
 
   function playNext() {
     if (!currentPlaylist || !currentPlaylist.items.length) return;
+    if (isTransitioning) return;
+    isTransitioning = true;
+    clearTimeout(transitionSafetyTimer);
+    transitionSafetyTimer = setTimeout(function () { isTransitioning = false; }, 10000);
 
-    const nextIndex = (currentIndex + 1) % currentPlaylist.items.length;
+    // P4: find next item, skipping those with >= 3 errors
+    var nextIndex = (currentIndex + 1) % currentPlaylist.items.length;
+    var skipAttempts = 0;
+    while (skipAttempts < currentPlaylist.items.length) {
+      var candidateId = currentPlaylist.items[nextIndex].id;
+      if ((itemErrorCount.get(candidateId) || 0) < 3) break;
+      if (DEBUG) console.warn('[Player] Skipping errored item:', candidateId, 'errors:', itemErrorCount.get(candidateId));
+      nextIndex = (nextIndex + 1) % currentPlaylist.items.length;
+      skipAttempts++;
+    }
+    if (skipAttempts >= currentPlaylist.items.length) {
+      if (DEBUG) console.warn('[Player] All items errored, resetting counts');
+      itemErrorCount.clear();
+    }
+
     const item = currentPlaylist.items[nextIndex];
     const prefetchOk = settings.prefetchEnabled !== false;
 
@@ -327,24 +394,27 @@
             resetWatchdog(video.duration * 2 * 1000);
           }
         };
-        video.onended = () => { clearWatchdog(); playNext(); };
+        video.onended = () => { clearWatchdog(); itemErrorCount.delete(item.id); playNext(); };
         video.onerror = () => {
           if (DEBUG) console.error('[Player] Video error (preloaded):', item.media.url);
           clearWatchdog();
+          itemErrorCount.set(item.id, (itemErrorCount.get(item.id) || 0) + 1);
+          isTransitioning = false; clearTimeout(transitionSafetyTimer);
           setTimeout(playNext, 2000);
         };
         video.onstalled = () => {
           if (DEBUG) console.warn('[Player] Video stalled (preloaded):', item.media.url);
           setTimeout(() => {
             if (video.paused && !video.ended) {
-              video.play().catch(() => playNext());
+              video.play().catch(() => { isTransitioning = false; clearTimeout(transitionSafetyTimer); playNext(); });
             }
           }, 5000);
         };
         video.play().catch(() => {
           video.muted = true;
-          video.play().catch(() => setTimeout(playNext, 2000));
+          video.play().catch(() => { isTransitioning = false; clearTimeout(transitionSafetyTimer); setTimeout(playNext, 2000); });
         });
+        isTransitioning = false; clearTimeout(transitionSafetyTimer);
       } else {
         const duration = (item.duration || settings.imageDuration || 10) * 1000;
         resetWatchdog(duration * 2);
@@ -355,19 +425,21 @@
             playNext();
           }
         }, duration);
+        isTransitioning = false; clearTimeout(transitionSafetyTimer);
       }
       preloadedNextEl = null;
       preloadedNextIndex = -1;
       preloadedReady = false;
+      clearTimeout(preloadFallbackTimer);
       startPreloadNext();
       return;
     }
 
     currentIndex = nextIndex;
     placeholder.style.display = 'none';
-    // Не удаляем старые элементы — они удалятся когда новый будет готов (removeOldMedia)
     clearTimeout(imageTimer);
     clearWatchdog();
+    clearTimeout(preloadFallbackTimer);
     // Убираем preloaded-слот если есть (он не пригодился)
     if (preloadedNextEl) {
       if (preloadedNextEl.tagName === 'VIDEO') {
@@ -416,10 +488,16 @@
       video.preload = 'metadata';
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
-      video.oncanplay = () => { preloadedReady = true; };
+      video.addEventListener('canplay', function () { preloadedReady = true; }, { once: true });
+      video.addEventListener('loadedmetadata', function () { preloadedReady = true; }, { once: true });
       video.onerror = () => { preloadedReady = false; };
       container.appendChild(video);
       preloadedNextEl = video;
+      // P3: fallback — if canplay/loadedmetadata don't fire in 3s on weak WebView, mark ready
+      clearTimeout(preloadFallbackTimer);
+      preloadFallbackTimer = setTimeout(function () {
+        if (preloadedNextEl === video && !preloadedReady) preloadedReady = true;
+      }, 3000);
     } else {
       const img = document.createElement('img');
       img.classList.add('preload-slot');
@@ -452,25 +530,30 @@
       }
     };
 
-    video.onended = () => { clearWatchdog(); playNext(); };
+    video.onended = () => { clearWatchdog(); itemErrorCount.delete(item.id); playNext(); };
 
     video.onerror = () => {
       if (DEBUG) console.error('[Player] Video error:', item.media.url);
       clearWatchdog();
+      itemErrorCount.set(item.id, (itemErrorCount.get(item.id) || 0) + 1);
       removeOldMedia(null);
+      isTransitioning = false; clearTimeout(transitionSafetyTimer);
       setTimeout(playNext, 2000);
     };
 
-    video.oncanplay = () => {
-      removeOldMedia(video); // Убрать старое медиа только когда новое видео готово
+    // P5: one-shot canplay — removeOldMedia и play вызываются ровно один раз
+    video.addEventListener('canplay', function () {
+      removeOldMedia(video);
+      isTransitioning = false; clearTimeout(transitionSafetyTimer);
       video.play().catch(() => {
         video.muted = true;
         video.play().catch(() => {
           if (DEBUG) console.error('[Player] Video play failed:', item.media.url);
+          isTransitioning = false; clearTimeout(transitionSafetyTimer);
           setTimeout(playNext, 2000);
         });
       });
-    };
+    }, { once: true });
 
     video.onstalled = () => {
       if (DEBUG) console.warn('[Player] Video stalled:', item.media.url);
@@ -478,6 +561,7 @@
         if (video.paused && !video.ended) {
           video.play().catch(() => {
             if (DEBUG) console.error('[Player] Stalled video cannot resume, skipping');
+            isTransitioning = false; clearTimeout(transitionSafetyTimer);
             playNext();
           });
         }
@@ -493,13 +577,16 @@
     img.alt = '';
 
     img.onload = () => {
-      removeOldMedia(img); // Убрать старое медиа только когда картинка загружена
+      removeOldMedia(img);
+      isTransitioning = false; clearTimeout(transitionSafetyTimer);
     };
 
     img.onerror = () => {
       if (DEBUG) console.error('[Player] Image error:', item.media.url);
       clearWatchdog();
+      itemErrorCount.set(item.id, (itemErrorCount.get(item.id) || 0) + 1);
       removeOldMedia(null);
+      isTransitioning = false; clearTimeout(transitionSafetyTimer);
       setTimeout(playNext, 2000);
     };
 
