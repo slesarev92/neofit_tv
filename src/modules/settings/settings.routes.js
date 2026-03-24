@@ -32,6 +32,7 @@ const uploadOffHoursImageFile = multer({
 router.get('/', async (req, res, next) => {
   try {
     const settings = await settingsService.get();
+    settings.activeThresholdMode = (settings.onlineThresholdMultiplier != null && Number(settings.onlineThresholdMultiplier) > 0) ? 'multiplier' : 'fixed';
     res.json({ settings });
   } catch (err) {
     next(err);

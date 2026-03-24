@@ -1,6 +1,7 @@
 const path = require('path');
 const { spawn } = require('child_process');
 const cron = require('node-cron');
+const logger = require('../../utils/logger');
 
 const PROJECT_ROOT = path.resolve(path.join(__dirname, '..', '..', '..'));
 const BACKUP_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'backup.js');
@@ -57,8 +58,22 @@ function runScheduledBackup() {
     cwd: PROJECT_ROOT,
     env: process.env,
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
+
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  child.on('close', (code) => {
+    if (code !== 0) {
+      logger.error('Scheduled backup failed', { code, stderr: stderr.trim().slice(0, 500) });
+    } else {
+      logger.info('Scheduled backup completed');
+    }
+  });
+  child.on('error', (err) => {
+    logger.error('Scheduled backup spawn error', { error: err.message });
+  });
+
   child.unref();
 }
 

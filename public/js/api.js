@@ -65,6 +65,7 @@ const API = {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/media');
+      xhr.withCredentials = true;
       xhr.onload = () => {
         try {
           const data = JSON.parse(xhr.responseText);
@@ -216,18 +217,4 @@ function showToast(message, type = 'info') {
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', setSidebarSystemName);
-} else {
-  setSidebarSystemName();
-}
-function setSidebarSystemName() {
-  var el = document.querySelector('.sidebar-brand-name');
-  if (!el) return;
-  fetch('/api/settings', { credentials: 'include' })
-    .then(function (r) { return r.status === 200 ? r.json() : null; })
-    .then(function (d) {
-      if (d && d.settings && d.settings.systemName) el.textContent = d.settings.systemName;
-    })
-    .catch(function () {});
-}
+// Branding (systemName, logo) загружается из nav.js — дублирующий fetch убран

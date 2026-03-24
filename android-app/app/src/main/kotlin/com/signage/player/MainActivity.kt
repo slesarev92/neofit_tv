@@ -1,6 +1,7 @@
 package com.signage.player
 
 import android.annotation.SuppressLint
+import android.content.ComponentCallbacks2
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
@@ -65,6 +66,9 @@ class MainActivity : AppCompatActivity() {
             val wv = findViewById<WebView>(R.id.webView)
             webView = wv
             setupWebView(wv)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+            }
 
             val loadingOverlay = findViewById<View>(R.id.loadingOverlay)
             val errorOverlay = findViewById<View>(R.id.errorOverlay)
@@ -138,8 +142,6 @@ class MainActivity : AppCompatActivity() {
 
             wv.loadUrl(playerUrl)
             setupLongPressForSettings(wv)
-
-            // Блок OnBackPressedCallback удален, чтобы кнопка Назад работала стандартно
         } catch (e: Throwable) {
             android.util.Log.e("MainActivity", "Startup failed", e)
             setContentView(R.layout.activity_main_error)
@@ -209,6 +211,18 @@ class MainActivity : AppCompatActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideSystemUI()
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        // Плеер не должен закрываться случайно — игнорируем кнопку Назад
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            webView?.clearCache(false)
+        }
     }
 
     override fun onDestroy() {

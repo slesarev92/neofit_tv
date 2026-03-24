@@ -6,7 +6,7 @@ const router = Router();
 router.post('/run', async (req, res, next) => {
   try {
     const name = req.body && typeof req.body.name === 'string' ? req.body.name.trim() : null;
-    const result = backupService.runBackup(name || undefined);
+    const result = await backupService.runBackup(name || undefined);
     if (result.ok) {
       res.json({ ok: true, message: 'Бэкап создан' });
     } else {

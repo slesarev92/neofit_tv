@@ -133,14 +133,16 @@
 
   function downloadPlayerFile(id, name) {
     const url = getPlayerUrl(id);
+    const safeUrl = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    const jsUrl = url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
     const titleText = escapeHtml(name || 'NeoFit_TV');
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>${titleText}</title>
 <style>*{margin:0;padding:0;}html,body{width:100%;height:100%;overflow:hidden;background:#000;}</style>
 </head><body>
-<script>window.location.replace("${url}");<\/script>
-<noscript><meta http-equiv="refresh" content="0;url=${url}"></noscript>
+<script>window.location.replace("${jsUrl}");<\/script>
+<noscript><meta http-equiv="refresh" content="0;url=${safeUrl}"></noscript>
 </body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const a = document.createElement('a');
@@ -269,7 +271,7 @@
 
   function escapeAttr(str) {
     if (!str) return '';
-    return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;');
   }
 
   async function loadScreens() {
@@ -522,7 +524,10 @@
     }
 
     loadScreens();
-    setInterval(loadScreens, 15000);
+    setInterval(function () {
+      if (document.querySelector('.quick-assign-select, .screens-actions-more.open')) return;
+      loadScreens();
+    }, 15000);
   });
 
   screenModal?.addEventListener('click', (e) => {

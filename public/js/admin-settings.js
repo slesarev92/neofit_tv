@@ -39,6 +39,30 @@
     return padTimePart(h) + ':' + padTimePart(min);
   }
 
+  function updateThresholdModeHint(mode) {
+    var thresholdEl = getEl('onlineThreshold');
+    var multiplierEl = getEl('onlineThresholdMultiplier');
+    var isMultiplier = mode === 'multiplier';
+    if (thresholdEl) thresholdEl.style.opacity = isMultiplier ? '0.5' : '';
+    if (multiplierEl) multiplierEl.style.opacity = isMultiplier ? '' : '0.5';
+    var hintId = '_thresholdModeHint';
+    var existing = document.getElementById(hintId);
+    if (!existing) {
+      var multiplierGroup = multiplierEl && multiplierEl.closest('.form-group');
+      if (multiplierGroup) {
+        existing = document.createElement('small');
+        existing.id = hintId;
+        existing.style.cssText = 'display:block;margin-top:0.25rem;color:var(--gray-500);font-size:.75rem;';
+        multiplierGroup.appendChild(existing);
+      }
+    }
+    if (existing) {
+      existing.textContent = isMultiplier
+        ? 'Активен: множитель (приоритет над фиксированным порогом)'
+        : 'Активен: фиксированный порог';
+    }
+  }
+
   function applyToForm(s) {
     setValue('imageDuration', s.imageDuration ?? 10);
     setValue('pollInterval', s.pollInterval ?? 10);
@@ -56,6 +80,7 @@
     setValue('onlineThreshold', s.onlineThreshold ?? 30);
     setValue('monitorCheckIntervalSec', s.monitorCheckIntervalSec ?? 10);
     setValue('onlineThresholdMultiplier', s.onlineThresholdMultiplier == null ? '' : s.onlineThresholdMultiplier);
+    updateThresholdModeHint(s.activeThresholdMode || ((s.onlineThresholdMultiplier != null && Number(s.onlineThresholdMultiplier) > 0) ? 'multiplier' : 'fixed'));
     setValue('maxFileSizeMb', s.maxFileSizeMb ?? 500);
     setValue('videoCrf', s.videoCrf ?? 23);
     setValue('videoMaxWidth', s.videoMaxWidth == null ? '' : s.videoMaxWidth);
@@ -384,6 +409,14 @@
         if (submitBtn) submitBtn.disabled = false;
       }
     });
+
+    var mulInput = document.getElementById('onlineThresholdMultiplier');
+    if (mulInput) {
+      mulInput.addEventListener('input', function () {
+        var v = this.value.trim();
+        updateThresholdModeHint((v !== '' && Number(v) > 0) ? 'multiplier' : 'fixed');
+      });
+    }
 
     document.getElementById('formMonitor').addEventListener('submit', async function (e) {
       e.preventDefault();

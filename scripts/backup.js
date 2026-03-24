@@ -17,7 +17,9 @@ const DATA_DIR = path.resolve(PROJECT_ROOT, process.env.DATA_DIR || 'data');
 const UPLOADS_DIR = path.resolve(PROJECT_ROOT, process.env.UPLOADS_DIR || 'uploads');
 const BACKUPS_DIR = path.join(PROJECT_ROOT, 'backups');
 const BACKUP_STATUS_FILE = path.join(DATA_DIR, 'backup-status.json');
+const LOCK_FILE = path.join(DATA_DIR, '.backup.lock');
 const DEFAULT_KEEP_LAST = 30;
+const TAR_TIMEOUT_MS = 5 * 60 * 1000; // 5 минут
 
 function writeBackupStatusSync(obj) {
   try {
@@ -89,14 +91,38 @@ function sanitizeBackupName(name) {
   return s || null;
 }
 
+function acquireLock() {
+  try {
+    fsSync.writeFileSync(LOCK_FILE, String(process.pid), { flag: 'wx' });
+    return true;
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      console.error('Бэкап уже выполняется (lock-файл:', LOCK_FILE + ')');
+      return false;
+    }
+    // Если ошибка не EEXIST — продолжаем без lock (data/ может не существовать ещё)
+    return true;
+  }
+}
+
+function releaseLock() {
+  try { fsSync.unlinkSync(LOCK_FILE); } catch (_) {}
+}
+
 async function main() {
   const now = new Date().toISOString();
+
+  if (!acquireLock()) {
+    writeBackupStatusSync({ lastRun: now, success: false, error: 'Бэкап уже выполняется' });
+    process.exit(1);
+  }
 
   try {
     await fs.mkdir(BACKUPS_DIR, { recursive: true });
   } catch (err) {
     console.error('Ошибка создания папки backups:', err.message);
     writeBackupStatusSync({ lastRun: now, success: false, error: err.message });
+    releaseLock();
     process.exit(1);
   }
 
@@ -105,6 +131,7 @@ async function main() {
   } catch {
     console.error('Папка data не найдена:', DATA_DIR);
     writeBackupStatusSync({ lastRun: now, success: false, error: 'Папка data не найдена' });
+    releaseLock();
     process.exit(1);
   }
 
@@ -127,16 +154,21 @@ async function main() {
     const tar = spawnSync('tar', tarArgs, {
       stdio: 'pipe',
       maxBuffer: 10 * 1024 * 1024,
+      timeout: TAR_TIMEOUT_MS,
     });
-    if (tar.status !== 0) {
-      const msg = (tar.stderr && tar.stderr.toString()) || 'tar завершился с ошибкой';
+    if (tar.status !== 0 || tar.error) {
+      const msg = tar.error
+        ? (tar.error.code === 'ETIMEDOUT' ? 'Превышено время tar (5 мин)' : tar.error.message)
+        : ((tar.stderr && tar.stderr.toString()) || 'tar завершился с ошибкой');
       console.error('Ошибка создания архива:', msg.trim() || 'Ошибка tar');
       writeBackupStatusSync({ lastRun: now, success: false, error: msg.trim() || 'Ошибка tar' });
+      releaseLock();
       process.exit(1);
     }
   } catch (err) {
     console.error('Ошибка создания архива:', err.message);
     writeBackupStatusSync({ lastRun: now, success: false, error: err.message });
+    releaseLock();
     process.exit(1);
   }
 
@@ -166,6 +198,7 @@ async function main() {
     }
   }
 
+  releaseLock();
   writeBackupStatusSync({
     lastRun: now,
     success: true,
@@ -177,6 +210,7 @@ async function main() {
 }
 
 main().catch((err) => {
+  releaseLock();
   console.error('Ошибка:', err.message);
   process.exit(1);
 });

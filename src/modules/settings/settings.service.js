@@ -37,7 +37,7 @@ function validate(data) {
   }
   if (data.pollInterval !== undefined) {
     const v = Number(data.pollInterval);
-    if (!Number.isInteger(v) || v < 5 || v > 3600) errors.push('pollInterval: 5–3600');
+    if (!Number.isInteger(v) || v < 10 || v > 3600) errors.push('pollInterval: 10–3600');
   }
   if (data.onlineThreshold !== undefined) {
     const v = Number(data.onlineThreshold);
@@ -128,7 +128,7 @@ async function update(data) {
     sanitized[key] = min != null && max != null && Number.isInteger(min) && Number.isInteger(max) ? Math.round(v) : v;
   }
   if (data.imageDuration !== undefined) setNum('imageDuration', data.imageDuration, 1, 3600);
-  if (data.pollInterval !== undefined) setNum('pollInterval', data.pollInterval, 5, 3600);
+  if (data.pollInterval !== undefined) setNum('pollInterval', data.pollInterval, 10, 3600);
   if (data.onlineThreshold !== undefined) setNum('onlineThreshold', data.onlineThreshold, 5, 300);
   if (data.requestTimeout !== undefined) setNum('requestTimeout', data.requestTimeout, 1, 120);
   if (data.maxRetries !== undefined) setNum('maxRetries', data.maxRetries, 0, 10);

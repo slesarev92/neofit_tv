@@ -205,10 +205,11 @@
     var DELAY = 5000;
     var existing = document.getElementById('_undoToast');
     if (existing) {
+      // Запускаем предыдущее удаление асинхронно, не блокируя показ нового тоста
       var fn = existing._pendingExecute;
-      if (fn) fn();
       clearTimeout(existing._timer);
       existing.remove();
+      if (fn) setTimeout(fn, 0);
     }
     var toast = document.createElement('div');
     toast.id = '_undoToast';

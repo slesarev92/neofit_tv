@@ -2,6 +2,7 @@
   let pollTimers = {};
   let lastMediaItems = [];
   let mediaUsageMap = {};
+  let maxFileSizeMb = 500;
   let bulkMode = false;
   const bulkSelectedIds = new Set();
   const SORT_STORAGE_KEY = 'mediaSort';
@@ -455,9 +456,14 @@
       showToast('Поддерживаются только изображения и видео', 'error');
       return;
     }
+    const limitBytes = maxFileSizeMb * 1024 * 1024;
     const total = allowed.length;
     for (let i = 0; i < total; i++) {
       const file = allowed[i];
+      if (file.size > limitBytes) {
+        showToast('«' + file.name + '» превышает лимит ' + maxFileSizeMb + ' МБ', 'error');
+        continue;
+      }
       const label = 'Загружается файл ' + (i + 1) + ' из ' + total + ': ' + file.name;
       try {
         showProgress((i / total) * 100, label);
@@ -543,6 +549,7 @@
     // Load real file size limit from settings
     API.getSettings().then(function (data) {
       var s = (data && data.settings) || data || {};
+      if (s.maxFileSizeMb) maxFileSizeMb = s.maxFileSizeMb;
       var limitEl = document.getElementById('uploadZoneLimitLabel');
       if (limitEl && s.maxFileSizeMb) limitEl.textContent = s.maxFileSizeMb;
     }).catch(function () {});
@@ -583,10 +590,16 @@
       showUndoToast(
         'Удалено файлов: ' + count + '.',
         async function () {
+          var deleted = 0;
+          var failed = 0;
           for (var i = 0; i < ids.length; i++) {
-            try { await API.deleteMedia(ids[i]); } catch (e) {}
+            try { await API.deleteMedia(ids[i]); deleted++; } catch (e) { failed++; }
           }
-          showToast('Удалено файлов: ' + count, 'success');
+          if (failed === 0) {
+            showToast('Удалено файлов: ' + deleted, 'success');
+          } else {
+            showToast('Удалено: ' + deleted + ', не удалось: ' + failed + ' (файлы используются или обрабатываются)', 'error');
+          }
           await loadMedia();
         },
         function () {
@@ -607,6 +620,11 @@
         localStorage.setItem('mediaPageView', mediaView);
         applyMediaView();
       });
+    });
+
+    window.addEventListener('beforeunload', function () {
+      Object.values(pollTimers).forEach(clearInterval);
+      pollTimers = {};
     });
 
     loadMedia();

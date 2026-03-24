@@ -1,48 +1,72 @@
 const path = require('path');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const config = require('../../config');
+const logger = require('../../utils/logger');
 
 const PROJECT_ROOT = path.resolve(path.join(__dirname, '..', '..', '..'));
 const BACKUP_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'backup.js');
 const BACKUPS_DIR = path.join(PROJECT_ROOT, 'backups');
 const DATA_DIR = path.resolve(config.dataDir);
 const RUN_TIMEOUT_MS = 5 * 60 * 1000; // 5 минут
-const MAX_BUFFER = 10 * 1024 * 1024; // 10 МБ
+
+let isRunning = false;
 
 /**
- * Запускает скрипт резервного копирования.
+ * Запускает скрипт резервного копирования (async, не блокирует event loop).
  * @param {string} [customName] - имя архива (без пути); если не задано — авто backup-YYYY-MM-DD-HH-mm.tar.gz
- * Возвращает { ok: true, fileName? } или { ok: false, error: string }.
+ * @returns {Promise<{ ok: true } | { ok: false, error: string }>}
  */
-function runBackup(customName) {
+async function runBackup(customName) {
+  if (isRunning) {
+    return { ok: false, error: 'Резервное копирование уже выполняется' };
+  }
+  isRunning = true;
+
   const env = { ...process.env };
   if (customName && typeof customName === 'string' && customName.trim()) {
     env.BACKUP_NAME = customName.trim();
   }
-  const result = spawnSync(process.execPath, [BACKUP_SCRIPT], {
-    cwd: PROJECT_ROOT,
-    env,
-    timeout: RUN_TIMEOUT_MS,
-    maxBuffer: MAX_BUFFER,
-    encoding: 'utf-8',
-  });
 
-  if (result.error) {
-    if (result.error.code === 'ETIMEDOUT' || result.error.code === 'SPAWN_TIMEOUT') {
-      return { ok: false, error: 'Превышено время ожидания (5 мин)' };
-    }
-    return { ok: false, error: result.error.message || 'Ошибка запуска скрипта' };
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [BACKUP_SCRIPT], {
+        cwd: PROJECT_ROOT,
+        env,
+        stdio: 'pipe',
+      });
+
+      let stderr = '';
+      child.stderr.on('data', (chunk) => { stderr += chunk; });
+
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        reject(new Error('Превышено время ожидания (5 мин)'));
+      }, RUN_TIMEOUT_MS);
+
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        if (code === 0) {
+          resolve({ ok: true });
+        } else {
+          const msg = stderr.trim() || `Скрипт завершился с кодом ${code}`;
+          resolve({ ok: false, error: msg.slice(0, 500) });
+        }
+      });
+
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+
+    return result;
+  } catch (err) {
+    return { ok: false, error: err.message || 'Ошибка запуска скрипта' };
+  } finally {
+    isRunning = false;
   }
-
-  if (result.status !== 0) {
-    const stderr = (result.stderr || '').trim();
-    const msg = stderr || result.signal || 'Скрипт завершился с ошибкой';
-    return { ok: false, error: msg.slice(0, 500) };
-  }
-
-  return { ok: true };
 }
 
 /**
@@ -108,10 +132,13 @@ function restoreBackup(fileName) {
   const tar = spawnSync('tar', ['-xzf', archivePath, '-C', PROJECT_ROOT], {
     stdio: 'pipe',
     maxBuffer: 50 * 1024 * 1024,
+    timeout: RUN_TIMEOUT_MS,
   });
 
-  if (tar.status !== 0) {
-    const msg = (tar.stderr && tar.stderr.toString()) || 'Ошибка распаковки';
+  if (tar.status !== 0 || tar.error) {
+    const msg = tar.error
+      ? (tar.error.code === 'ETIMEDOUT' ? 'Превышено время распаковки (5 мин)' : tar.error.message)
+      : ((tar.stderr && tar.stderr.toString()) || 'Ошибка распаковки');
     if (backupCreated) {
       try {
         fs.rmSync(DATA_DIR, { recursive: true, force: true });

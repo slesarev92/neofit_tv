@@ -21,6 +21,13 @@ function escapeForTelegramHtml(str) {
  * @returns {Promise<string>} - Response body on success
  */
 function sendTelegram(token, chatId, text, options = {}) {
+  if (!token || typeof token !== 'string' || !token.trim()) {
+    return Promise.reject(new Error('Telegram bot token не задан'));
+  }
+  if (chatId == null || (typeof chatId !== 'string' && typeof chatId !== 'number') || String(chatId).trim() === '') {
+    return Promise.reject(new Error('Telegram chat ID не задан'));
+  }
+
   const retries = options.retries != null ? options.retries : 2;
   let lastError;
 
@@ -42,8 +49,16 @@ function sendTelegram(token, chatId, text, options = {}) {
           let body = '';
           res.on('data', (c) => (body += c));
           res.on('end', () => {
-            if (res.statusCode === 200) resolve(body);
-            else reject(new Error(`Telegram API ${res.statusCode}: ${body}`));
+            if (res.statusCode !== 200) {
+              return reject(new Error(`Telegram API ${res.statusCode}: ${body}`));
+            }
+            try {
+              const parsed = JSON.parse(body);
+              if (parsed.ok === false) {
+                return reject(new Error(`Telegram API error: ${parsed.error_code} - ${parsed.description}`));
+              }
+            } catch (_) { /* non-JSON 200 — treat as success */ }
+            resolve(body);
           });
         }
       );
@@ -60,7 +75,9 @@ function sendTelegram(token, chatId, text, options = {}) {
     } catch (err) {
       lastError = err;
       if (attemptsLeft > 0) {
-        await new Promise((r) => setTimeout(r, 2000));
+        const attempt_num = retries - attemptsLeft;
+        const delay = Math.min(2000 * Math.pow(2, attempt_num), 30000) + Math.random() * 1000;
+        await new Promise((r) => setTimeout(r, delay));
         return attempt(attemptsLeft - 1);
       }
       throw lastError;
