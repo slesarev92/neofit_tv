@@ -152,12 +152,32 @@ pm2 logs signage --lines 20  # убедиться, что нет ошибок MO
 
 > ⚠️ Если пропустить `npm install` после добавления новых зависимостей — новые API-маршруты вернут 404 (модуль не загрузится из-за `MODULE_NOT_FOUND`).
 
-Если в репозитории обновлялся **nginx.conf** (например, добавлен `location = /neofit_tv.apk`), после `git pull` примените конфиг и перезагрузите Nginx:
+Если в репозитории обновлялся **nginx.conf**, после `git pull` примените конфиг и перезагрузите Nginx:
 
 ```bash
 sudo cp /opt/digital-signage/nginx.conf /etc/nginx/sites-available/signage
-sudo nginx -t && sudo systemctl reload nginx
+sudo nginx -t && sudo nginx -s reload
 ```
+
+> ⚠️ **Nginx proxy:** в конфиге используется `proxy_pass http://127.0.0.1:3000` (не `localhost`). На некоторых серверах `localhost` резолвится в IPv6 `::1`, что приводит к 502. Всегда использовать `127.0.0.1`.
+
+> ⚠️ **Nginx /uploads/:** раздаётся напрямую через `sendfile`, минуя Node.js. Путь `alias` в конфиге должен указывать на `/opt/digital-signage/uploads/`.
+
+### Тегирование версий
+
+```bash
+# Создать новый тег
+git tag v1.7.1-NEO
+git push origin v1.7.1-NEO
+
+# Обновить существующий тег (force)
+git tag -f v1.7.1-NEO <commit-hash>
+git push origin v1.7.1-NEO --force
+```
+
+### APK
+
+APK пересобирать только если менялись файлы в `android-app/`. После деплоя `player.js` достаточно перезапустить приложение на приставке (или дождаться авто-перезагрузки в 04:00).
 
 Файл **neofit_tv.apk** лежит в корне репозитория; после `git pull` на сервере подтягивается актуальная версия, и «Загрузить APK» в админке отдаёт её.
 

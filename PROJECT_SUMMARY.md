@@ -6,7 +6,7 @@
 **Домен:** https://s9a.ru  
 **Хостинг:** Timeweb Cloud (VPS, Ubuntu)  
 **Сервер:** 2 x 3.3 ГГц CPU · 2 ГБ RAM · 40 ГБ NVMe · 1 Гбит/с канал  
-**Текущая версия:** v1.5-NEO (package.json: 1.5-NEO)
+**Текущая версия:** v1.7.1-NEO (package.json: 1.7.1-NEO)
 
 ---
 
@@ -597,6 +597,48 @@ curl -X POST http://localhost:3000/api/auth/login \
 pm2 status
 pm2 logs signage --lines 50
 ```
+
+---
+
+## Изменения v1.7-NEO → v1.7.1-NEO
+
+### v1.7-NEO — Оптимизация видео для Android TV
+- Service Worker: видео не кэшируются Cache API — стримятся напрямую (экономия RAM)
+- Prefetch видео: `preload="metadata"` вместо `"auto"`
+- ffmpeg: `-profile:v baseline -level 3.1` для аппаратного декодирования на слабых чипах
+- `videoMaxWidth` default: null → 1920 (защита от 4K)
+- Nginx: `/uploads/` раздаётся напрямую через sendfile
+- Android: `largeHeap=true`
+- `pollInterval` минимум 10 сек
+
+### v1.7.1-NEO — Аудит и баг-фиксы плеера
+**player.js (критические исправления):**
+- Исправлен сброс позиции плейлиста при polling — `getPlaylistSignature()` сравнивает без URL (cache-buster `?v=`), сохраняет позицию по id элемента
+- Исправлен race condition — `isTransitioning` guard защищает от одновременных вызовов playNext()
+- Добавлен счётчик ошибок per-item (`itemErrorCount`) — элемент пропускается после 3 ошибок
+- `oncanplay` → `addEventListener('canplay', ..., { once: true })` — предотвращает многократный вызов
+- `preload="metadata"` + fallback таймер 3 сек + `loadedmetadata` для слабых WebView
+
+**Админ-панель (12 правок):**
+- XHR `uploadMedia` — добавлен `withCredentials`
+- Массовое удаление медиа — информативные сообщения при ошибках
+- Валидация размера файла перед загрузкой на клиенте
+- `escapeAttr()` — полная XSS-защита в экранах
+- Авто-обновление экранов не прерывает открытый dropdown
+- Индикация активного режима порога онлайн (множитель / фиксированный)
+- `pollInterval` min 5 → 10 (HTML + валидация + sanitize)
+
+**Telegram:** exponential backoff с jitter, валидация token/chatId, парсинг JSON ответа
+
+**Backup:** async spawn (не блокирует event loop), `isRunning` guard, lock-файл, timeout 5 мин для restore
+
+**Android:**
+- `onTrimMemory` — очистка кэша при нехватке RAM
+- `setRendererPriorityPolicy(IMPORTANT)` для API 26+
+- `onBackPressed` заблокирован — плеер не закрывается случайно
+- R8 minify + shrinkResources для release, proguard-rules.pro
+
+**Документация:** обновлена под v1.7.1, добавлен changelog
 
 ---
 
