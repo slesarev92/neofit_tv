@@ -15,7 +15,7 @@ class LaunchService : Service() {
 
     companion object {
         /** Задержка (мс) перед запуском MainActivity после boot. Увеличьте на медленных устройствах. */
-        private const val BOOT_LAUNCH_DELAY_MS = 3000L
+        private const val BOOT_LAUNCH_DELAY_MS = 5000L
     }
 
     private val launchHandler = Handler(Looper.getMainLooper())

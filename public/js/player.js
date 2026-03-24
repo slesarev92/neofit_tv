@@ -273,6 +273,24 @@
     });
   }
 
+  // Удалить все медиа-элементы кроме указанного (и preload-слотов)
+  function removeOldMedia(keepEl) {
+    container.querySelectorAll('img, video').forEach(function (el) {
+      if (el === keepEl || el.classList.contains('preload-slot')) return;
+      if (el.tagName === 'VIDEO') {
+        el.onended = null;
+        el.onerror = null;
+        el.onstalled = null;
+        el.oncanplay = null;
+        el.onloadedmetadata = null;
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+      }
+      el.remove();
+    });
+  }
+
   function playNext() {
     if (!currentPlaylist || !currentPlaylist.items.length) return;
 
@@ -347,8 +365,21 @@
 
     currentIndex = nextIndex;
     placeholder.style.display = 'none';
-    clearMediaElements();
+    // Не удаляем старые элементы — они удалятся когда новый будет готов (removeOldMedia)
+    clearTimeout(imageTimer);
     clearWatchdog();
+    // Убираем preloaded-слот если есть (он не пригодился)
+    if (preloadedNextEl) {
+      if (preloadedNextEl.tagName === 'VIDEO') {
+        preloadedNextEl.pause();
+        preloadedNextEl.removeAttribute('src');
+        preloadedNextEl.load();
+      }
+      preloadedNextEl.remove();
+      preloadedNextEl = null;
+      preloadedNextIndex = -1;
+      preloadedReady = false;
+    }
 
     if (item.media.mimeType.startsWith('video/')) {
       playVideo(item);
@@ -382,7 +413,7 @@
       video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;visibility:hidden;opacity:0;z-index:-1;pointer-events:none;';
       video.src = nextItem.media.url;
       video.muted = true;
-      video.preload = 'auto';
+      video.preload = 'metadata';
       video.setAttribute('playsinline', '');
       video.setAttribute('webkit-playsinline', '');
       video.oncanplay = () => { preloadedReady = true; };
@@ -426,10 +457,12 @@
     video.onerror = () => {
       if (DEBUG) console.error('[Player] Video error:', item.media.url);
       clearWatchdog();
+      removeOldMedia(null);
       setTimeout(playNext, 2000);
     };
 
     video.oncanplay = () => {
+      removeOldMedia(video); // Убрать старое медиа только когда новое видео готово
       video.play().catch(() => {
         video.muted = true;
         video.play().catch(() => {
@@ -459,9 +492,14 @@
     img.src = item.media.url;
     img.alt = '';
 
+    img.onload = () => {
+      removeOldMedia(img); // Убрать старое медиа только когда картинка загружена
+    };
+
     img.onerror = () => {
       if (DEBUG) console.error('[Player] Image error:', item.media.url);
       clearWatchdog();
+      removeOldMedia(null);
       setTimeout(playNext, 2000);
     };
 

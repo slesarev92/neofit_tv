@@ -26,7 +26,7 @@ const DEFAULTS = {
   logoUrl: null,
   timezone: 'Europe/Moscow',
   videoCrf: 23,
-  videoMaxWidth: null,
+  videoMaxWidth: 1920,
   monitorCheckIntervalSec: 10,
   onlineThresholdMultiplier: null,
   maxFileSizeMb: config.maxFileSizeMb || 500,

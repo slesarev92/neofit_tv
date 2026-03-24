@@ -11,6 +11,8 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.graphics.Bitmap
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -18,7 +20,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -82,68 +83,65 @@ class MainActivity : AppCompatActivity() {
             }
 
             wv.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String?) {
-                cancelErrorCountdown()
-                loadingOverlay.animate().alpha(0f).withEndAction {
-                    loadingOverlay.visibility = View.GONE
-                }.start()
-                errorOverlay.visibility = View.GONE
-                reloadPending = false
-            }
+                override fun onPageFinished(view: WebView, url: String?) {
+                    cancelErrorCountdown()
+                    loadingOverlay.animate().alpha(0f).withEndAction {
+                        loadingOverlay.visibility = View.GONE
+                    }.start()
+                    errorOverlay.visibility = View.GONE
+                    reloadPending = false
+                }
 
-            override fun onReceivedError(
-                view: WebView,
-                request: WebResourceRequest,
-                error: WebResourceError
-            ) {
-                if (!request.isForMainFrame || reloadPending) return
-                reloadPending = true
-                loadingText.setText(R.string.msg_no_connection)
-                loadingOverlay.visibility = View.GONE
-                errorOverlay.visibility = View.VISIBLE
-                errorCountdownSeconds = 10
-                errorCountdownText.text = getString(R.string.msg_retry_in_seconds, errorCountdownSeconds)
-                cancelErrorCountdown()
-                retryCountdownRunnable = object : Runnable {
-                    override fun run() {
-                        if (errorCountdownSeconds <= 0) return
-                        errorCountdownSeconds--
-                        if (errorCountdownSeconds > 0) {
-                            errorCountdownText.text = getString(R.string.msg_retry_in_seconds, errorCountdownSeconds)
-                            handler.postDelayed(this, 1000)
+                override fun onReceivedError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    error: WebResourceError
+                ) {
+                    if (!request.isForMainFrame || reloadPending) return
+                    reloadPending = true
+                    loadingText.setText(R.string.msg_no_connection)
+                    loadingOverlay.visibility = View.GONE
+                    errorOverlay.visibility = View.VISIBLE
+                    errorCountdownSeconds = 10
+                    errorCountdownText.text = getString(R.string.msg_retry_in_seconds, errorCountdownSeconds)
+                    cancelErrorCountdown()
+                    retryCountdownRunnable = object : Runnable {
+                        override fun run() {
+                            if (errorCountdownSeconds <= 0) return
+                            errorCountdownSeconds--
+                            if (errorCountdownSeconds > 0) {
+                                errorCountdownText.text = getString(R.string.msg_retry_in_seconds, errorCountdownSeconds)
+                                handler.postDelayed(this, 1000)
+                            }
                         }
                     }
+                    handler.postDelayed(retryCountdownRunnable!!, 1000)
+                    reloadAfterErrorRunnable = Runnable {
+                        reloadAfterErrorRunnable = null
+                        retryCountdownRunnable?.let { handler.removeCallbacks(it) }
+                        retryCountdownRunnable = null
+                        errorOverlay.visibility = View.GONE
+                        loadingOverlay.visibility = View.VISIBLE
+                        loadingOverlay.alpha = 1f
+                        loadingText.setText(R.string.msg_loading)
+                        reloadPending = false
+                        view.reload()
+                    }
+                    handler.postDelayed(reloadAfterErrorRunnable!!, 10_000)
                 }
-                handler.postDelayed(retryCountdownRunnable!!, 1000)
-                reloadAfterErrorRunnable = Runnable {
-                    reloadAfterErrorRunnable = null
-                    retryCountdownRunnable?.let { handler.removeCallbacks(it) }
-                    retryCountdownRunnable = null
-                    errorOverlay.visibility = View.GONE
-                    loadingOverlay.visibility = View.VISIBLE
-                    loadingOverlay.alpha = 1f
-                    loadingText.setText(R.string.msg_loading)
-                    reloadPending = false
-                    view.reload()
-                }
-                handler.postDelayed(reloadAfterErrorRunnable!!, 10_000)
-            }
 
-            override fun shouldOverrideUrlLoading(
-                view: WebView,
-                request: WebResourceRequest
-            ): Boolean = false
-        }
+                override fun shouldOverrideUrlLoading(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): Boolean = false
+            }
 
             wv.loadUrl(playerUrl)
             setupLongPressForSettings(wv)
 
-            onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() { /* киоск: игнорируем Back */ }
-            })
+            // Блок OnBackPressedCallback удален, чтобы кнопка Назад работала стандартно
         } catch (e: Throwable) {
             android.util.Log.e("MainActivity", "Startup failed", e)
-            App.logCrash(applicationContext, e)
             setContentView(R.layout.activity_main_error)
             findViewById<Button>(R.id.btnOpenSettingsFallback).setOnClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java))
@@ -172,6 +170,13 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
             builtInZoomControls = false
             displayZoomControls = false
+        }
+        wv.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        // Прозрачный 1×1 poster вместо стандартной иконки Play на видео
+        wv.webChromeClient = object : WebChromeClient() {
+            override fun getDefaultVideoPoster(): Bitmap? {
+                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+            }
         }
     }
 

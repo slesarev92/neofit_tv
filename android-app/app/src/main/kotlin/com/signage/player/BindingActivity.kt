@@ -34,6 +34,7 @@ class BindingActivity : AppCompatActivity() {
         private const val KEY_SERVER_URL = "server_url"
         private const val POLL_INTERVAL_MS = 3000L
         private const val COUNTDOWN_UPDATE_MS = 1000L
+        const val EXTRA_CLEAR_FIELDS = "clear_fields"
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -75,7 +76,7 @@ class BindingActivity : AppCompatActivity() {
             }
             findViewById<Button>(R.id.bindingManual)?.setOnClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java).apply {
-                    putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
+                    putExtra(EXTRA_CLEAR_FIELDS, true)
                 })
                 finish()
             }
@@ -89,11 +90,10 @@ class BindingActivity : AppCompatActivity() {
             }, 400)
         } catch (e: Throwable) {
             Log.e(TAG, "Binding screen init failed", e)
-            // App.logCrash(applicationContext, e) // Закомментировал, так как не уверен в наличии метода
             setContentView(R.layout.activity_binding_error)
             findViewById<Button>(R.id.btnOpenSettingsFallback)?.setOnClickListener {
                 startActivity(Intent(this, SettingsActivity::class.java).apply {
-                    putExtra(SettingsActivity.EXTRA_CLEAR_FIELDS, true)
+                    putExtra(EXTRA_CLEAR_FIELDS, true)
                 })
                 finish()
             }
@@ -109,7 +109,7 @@ class BindingActivity : AppCompatActivity() {
     private fun launchQrScanner() {
         scanQrLauncher.launch(
             ScanOptions().apply {
-                setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                setDesiredBarcodeFormats(listOf(ScanOptions.QR_CODE))
             }
         )
     }
@@ -243,7 +243,6 @@ class BindingActivity : AppCompatActivity() {
                 val remaining = (expiresAtMs - System.currentTimeMillis()) / 1000
                 if (remaining <= 0) {
                     countdownView.text = getString(R.string.binding_code_expired)
-                    // Код истёк — останавливаем polling, countdown больше не планируем
                     pollRunnable?.let { handler.removeCallbacks(it) }
                     pollRunnable = null
                     return
