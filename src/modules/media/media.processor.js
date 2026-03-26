@@ -73,7 +73,7 @@ async function compressVideo(inputPath) {
 
       const chain = ffmpeg(inputPath)
         .videoCodec('libx264')
-        .addOptions(['-crf', String(crf), '-preset', 'veryfast', '-an', '-threads', '2', '-movflags', '+faststart', '-profile:v', 'baseline', '-level', '3.1']);
+        .addOptions(['-crf', String(crf), '-preset', 'medium', '-r', '30', '-maxrate', '4M', '-bufsize', '8M', '-an', '-threads', '2', '-movflags', '+faststart', '-profile:v', 'baseline', '-level', '3.1']);
       if (maxWidth) chain.size(`${maxWidth}x?`);
       chain
         .output(tmpOutput)
