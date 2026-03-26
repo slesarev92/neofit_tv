@@ -106,6 +106,10 @@ function validate(data) {
     const parts = str.split(',').map((p) => parseInt(p.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
     if (parts.length === 0) errors.push('backupScheduleMonthDays: числа 1–31 через запятую');
   }
+  if (data.cacheMaxSizeMb !== undefined) {
+    const v = Number(data.cacheMaxSizeMb);
+    if (!Number.isInteger(v) || v < 100 || v > 10000) errors.push('cacheMaxSizeMb: 100–10000');
+  }
   return errors;
 }
 
@@ -174,6 +178,7 @@ async function update(data) {
     const parts = String(data.backupScheduleMonthDays).trim().split(',').map((p) => parseInt(p.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
     sanitized.backupScheduleMonthDays = [...new Set(parts)].sort((a, b) => a - b).join(',') || '1,10,20';
   }
+  if (data.cacheMaxSizeMb !== undefined) setNum('cacheMaxSizeMb', data.cacheMaxSizeMb, 100, 10000);
 
   const settings = await settingsRepository.save(sanitized);
   return { ok: true, settings };

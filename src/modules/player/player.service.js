@@ -27,6 +27,7 @@ async function getPlayerData(screenId) {
     timezone: rawSettings.timezone,
     systemName: rawSettings.systemName,
     logoUrl: rawSettings.logoUrl,
+    cacheMaxSizeMb: rawSettings.cacheMaxSizeMb,
   };
 
   if (!screen.playlistId) {

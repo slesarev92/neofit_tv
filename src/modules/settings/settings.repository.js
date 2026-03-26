@@ -36,6 +36,7 @@ const DEFAULTS = {
   backupScheduleFrequency: 'daily',
   backupScheduleWeekday: 0,
   backupScheduleMonthDays: '1,10,20',
+  cacheMaxSizeMb: 2048,
 };
 
 let cache = null;

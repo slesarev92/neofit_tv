@@ -85,6 +85,7 @@
     setValue('maxFileSizeMb', s.maxFileSizeMb ?? 500);
     setValue('videoCrf', s.videoCrf ?? 23);
     setValue('videoMaxWidth', s.videoMaxWidth == null ? '' : s.videoMaxWidth);
+    setValue('cacheMaxSizeMb', s.cacheMaxSizeMb ?? 2048);
     setValue('systemName', s.systemName || '');
     pendingLogoFile = null;
     logoRemoveRequested = false;
@@ -218,6 +219,7 @@
       maxFileSizeMb: parseInt(getValue('maxFileSizeMb'), 10) || 500,
       videoCrf: parseInt(getValue('videoCrf'), 10) || 23,
       videoMaxWidth: (parsed === 0 || parsed === null || Number.isNaN(parsed)) ? null : parsed,
+      cacheMaxSizeMb: parseInt(getValue('cacheMaxSizeMb'), 10) || 2048,
     };
   }
   function collectBackup() {

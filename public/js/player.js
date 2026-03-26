@@ -610,6 +610,13 @@
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/player/sw.js').then((reg) => {
       if (DEBUG) console.log('[SW] Registered, scope:', reg.scope);
+      // Send cache limit to SW once ready
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SET_CACHE_LIMIT',
+          cacheMaxSizeMb: settings.cacheMaxSizeMb || 2048,
+        });
+      }
     }).catch((err) => {
       if (DEBUG) console.error('[SW] Registration failed:', err);
     });
@@ -618,10 +625,17 @@
   function notifySwPrecache(items) {
     if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
     const urls = items.map((i) => i.media && i.media.url).filter(Boolean);
+    // Reorder: next item first for priority precaching
+    var nextUrls = urls.slice();
+    if (currentIndex >= 0 && currentIndex < nextUrls.length - 1) {
+      var nextUrl = nextUrls.splice(currentIndex + 1, 1)[0];
+      if (nextUrl) nextUrls.unshift(nextUrl);
+    }
     navigator.serviceWorker.controller.postMessage({
       type: 'PRECACHE',
-      urls: urls,
+      urls: nextUrls,
       currentUrls: urls,
+      cacheMaxSizeMb: settings.cacheMaxSizeMb || 2048,
     });
   }
 
