@@ -620,6 +620,12 @@
     }).catch((err) => {
       if (DEBUG) console.error('[SW] Registration failed:', err);
     });
+    // Request persistent storage to prevent Android from evicting cache
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().then((granted) => {
+        if (DEBUG) console.log('[Storage] Persistent:', granted);
+      });
+    }
   }
 
   function notifySwPrecache(items) {
