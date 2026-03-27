@@ -158,6 +158,20 @@
     return screen.isOnline ? 'онлайн' : 'офлайн';
   }
 
+  function formatMetrics(m) {
+    if (!m || !m.ts) return '';
+    var parts = [];
+    if (m.totalFrames > 0) {
+      var color = m.dropPercent > 5 ? 'var(--danger)' : m.dropPercent > 2 ? 'var(--warning, orange)' : 'var(--success, green)';
+      parts.push('<span style="color:' + color + '">' + escapeHtml(m.dropPercent + '% drop') + '</span>');
+    }
+    parts.push(m.fromCache ? 'cache' : 'net');
+    if (m.blobTimeMs > 0) parts.push(m.blobTimeMs + 'ms blob');
+    if (m.canplayTimeMs > 0) parts.push(m.canplayTimeMs + 'ms canplay');
+    if (m.fileSizeKb > 0) parts.push(Math.round(m.fileSizeKb / 1024) + ' MB');
+    return '<div style="font-size:.7rem;color:var(--gray-500);margin-top:2px;">' + parts.join(' · ') + '</div>';
+  }
+
   function renderRow(screen, playlistMap) {
     const tr = document.createElement('tr');
     const statusClass = getStatusClass(screen);
@@ -186,7 +200,7 @@
           ? '<span class="quick-assign-label">' + escapeHtml(playlistText) + '</span>'
           : `<span class="quick-assign-label"><button type="button" class="link-button" data-action="screen-go-playlist" data-playlist-id="${escapeAttr(screen.playlistId)}" style="background:none;border:none;padding:0;color:var(--primary);text-decoration:underline;cursor:pointer;">${escapeHtml(playlistText)}</button></span>`
       }</td>
-      <td data-label="Последняя активность">${escapeHtml(lastSeenText)}</td>
+      <td data-label="Последняя активность">${escapeHtml(lastSeenText)}${formatMetrics(screen.playbackMetrics)}</td>
       <td data-label="Действия" class="screens-actions">
         <button type="button" class="btn btn-secondary btn-sm" data-action="screen-edit" data-id="${escapeAttr(screen.id)}">Редактировать</button>
         <a href="${escapeAttr(getPlayerUrl(screen.id))}" target="_blank" class="btn btn-secondary btn-sm screens-secondary-btn">Открыть плеер</a>

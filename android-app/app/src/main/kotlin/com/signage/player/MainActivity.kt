@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity() {
 
         try {
             setContentView(R.layout.activity_main)
+            WebView.setWebContentsDebuggingEnabled(true)
             val wv = findViewById<WebView>(R.id.webView)
             webView = wv
             setupWebView(wv)

@@ -40,18 +40,19 @@
   //  Blob URL helpers — fetch from cache, create blob URL for native playback
   // =========================================================
   function toBlobUrl(mediaUrl) {
-    // Reuse existing blob URL if already created
     var existing = activeBlobUrls.get(mediaUrl);
-    if (existing) return Promise.resolve(existing);
+    if (existing) return Promise.resolve({ src: existing, blobTimeMs: 0, fromCache: true, fileSizeKb: 0 });
+    var t0 = Date.now();
     return fetch(mediaUrl).then(function (resp) {
-      if (!resp.ok) return mediaUrl; // fallback to original URL
+      var fromCache = resp.headers.get('x-sw-cache') === 'hit' || !navigator.onLine;
+      if (!resp.ok) return { src: mediaUrl, blobTimeMs: Date.now() - t0, fromCache: false, fileSizeKb: 0 };
       return resp.blob().then(function (blob) {
         var blobUrl = URL.createObjectURL(blob);
         activeBlobUrls.set(mediaUrl, blobUrl);
-        return blobUrl;
+        return { src: blobUrl, blobTimeMs: Date.now() - t0, fromCache: fromCache, fileSizeKb: Math.round(blob.size / 1024) };
       });
     }).catch(function () {
-      return mediaUrl; // fallback to original URL on error
+      return { src: mediaUrl, blobTimeMs: Date.now() - t0, fromCache: false, fileSizeKb: 0 };
     });
   }
 
@@ -61,6 +62,17 @@
       URL.revokeObjectURL(blobUrl);
       activeBlobUrls.delete(mediaUrl);
     }
+  }
+
+  function sendMetrics(data) {
+    if (!screenId) return;
+    try {
+      fetch('/api/player/' + screenId + '/metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).catch(function () {});
+    } catch (e) {}
   }
 
   // =========================================================
@@ -561,6 +573,9 @@
     video.setAttribute('playsinline', '');
     video.setAttribute('webkit-playsinline', '');
 
+    var metricsData = { videoUrl: item.media.url, blobTimeMs: 0, fromCache: false, fileSizeKb: 0, canplayTimeMs: 0 };
+    var srcSetAt = 0;
+
     const MAX_VIDEO_FALLBACK = 600;
     resetWatchdog(MAX_VIDEO_FALLBACK * 2 * 1000);
 
@@ -572,6 +587,14 @@
 
     video.onended = () => {
       clearWatchdog(); itemErrorCount.delete(item.id);
+      // Collect and send playback metrics
+      if (video.getVideoPlaybackQuality) {
+        var q = video.getVideoPlaybackQuality();
+        metricsData.droppedFrames = q.droppedVideoFrames;
+        metricsData.totalFrames = q.totalVideoFrames;
+        metricsData.dropPercent = q.totalVideoFrames > 0 ? Math.round(q.droppedVideoFrames / q.totalVideoFrames * 1000) / 10 : 0;
+      }
+      sendMetrics(metricsData);
       revokeBlobUrl(item.media.url);
       playNext();
     };
@@ -588,6 +611,7 @@
 
     // P5: one-shot canplay — removeOldMedia и play вызываются ровно один раз
     video.addEventListener('canplay', function () {
+      metricsData.canplayTimeMs = srcSetAt > 0 ? Date.now() - srcSetAt : 0;
       removeOldMedia(video);
       isTransitioning = false; clearTimeout(transitionSafetyTimer);
       video.play().catch(() => {
@@ -614,19 +638,13 @@
     };
 
     // Fetch from cache → blob URL → native playback without SW Range interception
-    toBlobUrl(item.media.url).then(function (src) {
-      video.src = src;
+    toBlobUrl(item.media.url).then(function (result) {
+      metricsData.blobTimeMs = result.blobTimeMs;
+      metricsData.fromCache = result.fromCache;
+      metricsData.fileSizeKb = result.fileSizeKb;
+      srcSetAt = Date.now();
+      video.src = result.src;
       container.appendChild(video);
-      // Diagnostics: log dropped frames when video ends
-      if (DEBUG && video.getVideoPlaybackQuality) {
-        var qualityTimer = setInterval(function () {
-          if (video.ended || video.paused) { clearInterval(qualityTimer); return; }
-          var q = video.getVideoPlaybackQuality();
-          if (q.droppedVideoFrames > 0) {
-            console.warn('[Quality]', q.totalVideoFrames, 'total,', q.droppedVideoFrames, 'dropped (' + (q.droppedVideoFrames / q.totalVideoFrames * 100).toFixed(1) + '%)');
-          }
-        }, 5000);
-      }
     });
   }
 
