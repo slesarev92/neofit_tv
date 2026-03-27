@@ -33,7 +33,35 @@
   let preloadFallbackTimer = null;
   let isTransitioning = false;
   let transitionSafetyTimer = null;
+  let activeBlobUrls = new Map(); // url → blobUrl, for cleanup
   let itemErrorCount = new Map();
+
+  // =========================================================
+  //  Blob URL helpers — fetch from cache, create blob URL for native playback
+  // =========================================================
+  function toBlobUrl(mediaUrl) {
+    // Reuse existing blob URL if already created
+    var existing = activeBlobUrls.get(mediaUrl);
+    if (existing) return Promise.resolve(existing);
+    return fetch(mediaUrl).then(function (resp) {
+      if (!resp.ok) return mediaUrl; // fallback to original URL
+      return resp.blob().then(function (blob) {
+        var blobUrl = URL.createObjectURL(blob);
+        activeBlobUrls.set(mediaUrl, blobUrl);
+        return blobUrl;
+      });
+    }).catch(function () {
+      return mediaUrl; // fallback to original URL on error
+    });
+  }
+
+  function revokeBlobUrl(mediaUrl) {
+    var blobUrl = activeBlobUrls.get(mediaUrl);
+    if (blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      activeBlobUrls.delete(mediaUrl);
+    }
+  }
 
   // =========================================================
   //  Work schedule — black screen outside configured hours
@@ -236,13 +264,16 @@
             ? currentPlaylist.items[currentIndex].id : null;
           currentPlaylist = data.playlist;
           itemErrorCount.clear();
+          // Clean up blob URLs from previous playlist
+          activeBlobUrls.forEach(function (blobUrl) { URL.revokeObjectURL(blobUrl); });
+          activeBlobUrls.clear();
           if (currentItemId) {
             var preserved = currentPlaylist.items.findIndex(function (it) { return it.id === currentItemId; });
             if (preserved >= 0) {
               currentIndex = preserved;
               // Invalidate preload — playlist structure changed
               if (preloadedNextEl) {
-                if (preloadedNextEl.tagName === 'VIDEO') { preloadedNextEl.pause(); preloadedNextEl.removeAttribute('src'); preloadedNextEl.load(); }
+                if (preloadedNextEl.tagName === 'VIDEO') { if (preloadedNextEl.src && preloadedNextEl.src.startsWith('blob:')) URL.revokeObjectURL(preloadedNextEl.src); preloadedNextEl.pause(); preloadedNextEl.removeAttribute('src'); preloadedNextEl.load(); }
                 preloadedNextEl.remove(); preloadedNextEl = null; preloadedNextIndex = -1; preloadedReady = false;
                 clearTimeout(preloadFallbackTimer);
               }
@@ -299,6 +330,7 @@
         preloadedNextEl.onerror = null;
         preloadedNextEl.onstalled = null;
         preloadedNextEl.oncanplay = null;
+        if (preloadedNextEl.src && preloadedNextEl.src.startsWith('blob:')) URL.revokeObjectURL(preloadedNextEl.src);
         preloadedNextEl.pause();
         preloadedNextEl.removeAttribute('src');
         preloadedNextEl.load();
@@ -332,6 +364,10 @@
         el.onstalled = null;
         el.oncanplay = null;
         el.onloadedmetadata = null;
+        // Revoke blob URL if video src is a blob
+        if (el.src && el.src.startsWith('blob:')) {
+          URL.revokeObjectURL(el.src);
+        }
         el.pause();
         el.removeAttribute('src');
         el.load();
@@ -443,6 +479,7 @@
     // Убираем preloaded-слот если есть (он не пригодился)
     if (preloadedNextEl) {
       if (preloadedNextEl.tagName === 'VIDEO') {
+        if (preloadedNextEl.src && preloadedNextEl.src.startsWith('blob:')) URL.revokeObjectURL(preloadedNextEl.src);
         preloadedNextEl.pause();
         preloadedNextEl.removeAttribute('src');
         preloadedNextEl.load();
@@ -469,6 +506,7 @@
 
     if (preloadedNextEl) {
       if (preloadedNextEl.tagName === 'VIDEO') {
+        if (preloadedNextEl.src && preloadedNextEl.src.startsWith('blob:')) URL.revokeObjectURL(preloadedNextEl.src);
         preloadedNextEl.pause();
         preloadedNextEl.removeAttribute('src');
         preloadedNextEl.load();
@@ -482,8 +520,7 @@
     if (nextItem.media.mimeType.startsWith('video/')) {
       const video = document.createElement('video');
       video.classList.add('preload-slot');
-      video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;visibility:hidden;opacity:0;z-index:-1;pointer-events:none;';
-      video.src = nextItem.media.url;
+      video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;visibility:hidden;pointer-events:none;';
       video.muted = true;
       video.preload = 'metadata';
       video.setAttribute('playsinline', '');
@@ -491,8 +528,12 @@
       video.addEventListener('canplay', function () { preloadedReady = true; }, { once: true });
       video.addEventListener('loadedmetadata', function () { preloadedReady = true; }, { once: true });
       video.onerror = () => { preloadedReady = false; };
-      container.appendChild(video);
       preloadedNextEl = video;
+      toBlobUrl(nextItem.media.url).then(function (src) {
+        if (preloadedNextEl !== video) return; // playlist changed while loading
+        video.src = src;
+        container.appendChild(video);
+      });
       // P3: fallback — if canplay/loadedmetadata don't fire in 3s on weak WebView, mark ready
       clearTimeout(preloadFallbackTimer);
       preloadFallbackTimer = setTimeout(function () {
@@ -513,7 +554,6 @@
 
   function playVideo(item) {
     const video = document.createElement('video');
-    video.src = item.media.url;
     video.muted = true;
     video.autoplay = true;
     video.playsInline = true;
@@ -530,11 +570,16 @@
       }
     };
 
-    video.onended = () => { clearWatchdog(); itemErrorCount.delete(item.id); playNext(); };
+    video.onended = () => {
+      clearWatchdog(); itemErrorCount.delete(item.id);
+      revokeBlobUrl(item.media.url);
+      playNext();
+    };
 
     video.onerror = () => {
       if (DEBUG) console.error('[Player] Video error:', item.media.url);
       clearWatchdog();
+      revokeBlobUrl(item.media.url);
       itemErrorCount.set(item.id, (itemErrorCount.get(item.id) || 0) + 1);
       removeOldMedia(null);
       isTransitioning = false; clearTimeout(transitionSafetyTimer);
@@ -568,7 +613,21 @@
       }, 5000);
     };
 
-    container.appendChild(video);
+    // Fetch from cache → blob URL → native playback without SW Range interception
+    toBlobUrl(item.media.url).then(function (src) {
+      video.src = src;
+      container.appendChild(video);
+      // Diagnostics: log dropped frames when video ends
+      if (DEBUG && video.getVideoPlaybackQuality) {
+        var qualityTimer = setInterval(function () {
+          if (video.ended || video.paused) { clearInterval(qualityTimer); return; }
+          var q = video.getVideoPlaybackQuality();
+          if (q.droppedVideoFrames > 0) {
+            console.warn('[Quality]', q.totalVideoFrames, 'total,', q.droppedVideoFrames, 'dropped (' + (q.droppedVideoFrames / q.totalVideoFrames * 100).toFixed(1) + '%)');
+          }
+        }, 5000);
+      }
+    });
   }
 
   function playImage(item) {

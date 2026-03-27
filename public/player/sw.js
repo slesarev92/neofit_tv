@@ -1,4 +1,4 @@
-const CACHE_NAME = 'signage-media-v4';
+const CACHE_NAME = 'signage-media-v5';
 var cacheMaxBytes = 2048 * 1024 * 1024; // default 2 GB, updated from player settings
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov)(\?|$)/i;
@@ -28,9 +28,13 @@ self.addEventListener('fetch', (e) => {
 
   if (url.pathname.startsWith('/uploads/')) {
     if (isVideoUrl(url.pathname)) {
-      e.respondWith(serveMedia(e.request, true));
+      // Video: serve full response from cache (player.js converts to blob URL)
+      // Range requests from blob URLs never reach SW — no blob.slice() needed
+      if (e.request.headers.get('Range')) return; // safety: don't intercept Range
+      e.respondWith(cacheFirst(e.request));
     } else {
-      e.respondWith(serveMedia(e.request, false));
+      // Images: cache-first as before
+      e.respondWith(cacheFirst(e.request));
     }
     return;
   }
@@ -42,39 +46,14 @@ self.addEventListener('fetch', (e) => {
 });
 
 // =========================================================
-//  Serve media — cache first, with Range support for video
+//  Cache-first strategy
 // =========================================================
-async function serveMedia(request, isVideo) {
+async function cacheFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request.url, { ignoreSearch: false });
+  if (cached) return cached;
 
-  if (cached) {
-    // Serve Range from cached full response
-    const rangeHeader = request.headers.get('Range');
-    if (rangeHeader && isVideo) {
-      return serveRange(cached, rangeHeader);
-    }
-    return cached;
-  }
-
-  // Not in cache — fetch from network
   try {
-    // For video Range requests: fetch full file for caching, return sliced
-    if (isVideo && request.headers.get('Range')) {
-      const fullReq = new Request(request.url, {
-        headers: buildHeadersWithoutRange(request.headers),
-        mode: 'cors',
-        credentials: 'same-origin',
-      });
-      const response = await fetch(fullReq);
-      if (response.ok && response.status === 200) {
-        await cachePut(cache, request.url, response.clone());
-        return serveRange(response, request.headers.get('Range'));
-      }
-      // If full fetch failed, fallback to original Range request
-      return fetch(request);
-    }
-
     const response = await fetch(request);
     if (response.ok && response.status === 200) {
       await cachePut(cache, request.url, response.clone());
@@ -86,49 +65,11 @@ async function serveMedia(request, isVideo) {
 }
 
 // =========================================================
-//  Range response from full cached blob
-// =========================================================
-async function serveRange(fullResponse, rangeHeader) {
-  try {
-    const blob = await fullResponse.clone().blob();
-    const total = blob.size;
-    const match = /bytes=(\d+)-(\d*)/.exec(rangeHeader || '');
-    if (!match) return fullResponse.clone();
-
-    const start = parseInt(match[1], 10);
-    const end = match[2] ? parseInt(match[2], 10) : total - 1;
-    const sliced = blob.slice(start, end + 1, blob.type);
-
-    return new Response(sliced, {
-      status: 206,
-      statusText: 'Partial Content',
-      headers: {
-        'Content-Type': blob.type || 'video/mp4',
-        'Content-Length': String(sliced.size),
-        'Content-Range': 'bytes ' + start + '-' + end + '/' + total,
-        'Accept-Ranges': 'bytes',
-      },
-    });
-  } catch {
-    return fullResponse.clone();
-  }
-}
-
-function buildHeadersWithoutRange(headers) {
-  const h = new Headers();
-  for (const [key, val] of headers.entries()) {
-    if (key.toLowerCase() !== 'range') h.set(key, val);
-  }
-  return h;
-}
-
-// =========================================================
 //  Cache put with size limit enforcement
 // =========================================================
 async function cachePut(cache, url, response) {
   try {
     await cache.put(url, response);
-    // Enforce size limit asynchronously
     enforceLimit(cache);
   } catch {}
 }
@@ -149,7 +90,7 @@ async function enforceLimit(cache) {
 
     if (totalSize <= cacheMaxBytes) return;
 
-    // Sort: videos first (largest), then by size descending — evict biggest first
+    // Evict largest videos first
     entries.sort((a, b) => {
       var aVid = isVideoUrl(a.url) ? 0 : 1;
       var bVid = isVideoUrl(b.url) ? 0 : 1;
