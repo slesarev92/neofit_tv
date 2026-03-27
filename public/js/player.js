@@ -541,11 +541,16 @@
       video.addEventListener('loadedmetadata', function () { preloadedReady = true; }, { once: true });
       video.onerror = () => { preloadedReady = false; };
       preloadedNextEl = video;
-      toBlobUrl(nextItem.media.url).then(function (src) {
-        if (preloadedNextEl !== video) return; // playlist changed while loading
-        video.src = src;
+      if (navigator.onLine) {
+        video.src = nextItem.media.url;
         container.appendChild(video);
-      });
+      } else {
+        toBlobUrl(nextItem.media.url).then(function (result) {
+          if (preloadedNextEl !== video) return; // playlist changed while loading
+          video.src = result.src;
+          container.appendChild(video);
+        });
+      }
       // P3: fallback — if canplay/loadedmetadata don't fire in 3s on weak WebView, mark ready
       clearTimeout(preloadFallbackTimer);
       preloadFallbackTimer = setTimeout(function () {
@@ -637,15 +642,22 @@
       }, 5000);
     };
 
-    // Fetch from cache → blob URL → native playback without SW Range interception
-    toBlobUrl(item.media.url).then(function (result) {
-      metricsData.blobTimeMs = result.blobTimeMs;
-      metricsData.fromCache = result.fromCache;
-      metricsData.fileSizeKb = result.fileSizeKb;
+    // Online: direct URL — Nginx streams via Range, no RAM allocation
+    // Offline: blob URL from SW cache — full file in RAM
+    if (navigator.onLine) {
       srcSetAt = Date.now();
-      video.src = result.src;
+      video.src = item.media.url;
       container.appendChild(video);
-    });
+    } else {
+      toBlobUrl(item.media.url).then(function (result) {
+        metricsData.blobTimeMs = result.blobTimeMs;
+        metricsData.fromCache = result.fromCache;
+        metricsData.fileSizeKb = result.fileSizeKb;
+        srcSetAt = Date.now();
+        video.src = result.src;
+        container.appendChild(video);
+      });
+    }
   }
 
   function playImage(item) {

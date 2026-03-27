@@ -1,5 +1,6 @@
 const CACHE_NAME = 'signage-media-v5';
 var cacheMaxBytes = 2048 * 1024 * 1024; // default 2 GB, updated from player settings
+var sizeMap = new Map(); // url → size in bytes, for lightweight enforceLimit
 
 const VIDEO_EXT_RE = /\.(mp4|webm|mov)(\?|$)/i;
 
@@ -28,9 +29,10 @@ self.addEventListener('fetch', (e) => {
 
   if (url.pathname.startsWith('/uploads/')) {
     if (isVideoUrl(url.pathname)) {
-      // Video: serve full response from cache (player.js converts to blob URL)
-      // Range requests from blob URLs never reach SW — no blob.slice() needed
-      if (e.request.headers.get('Range')) return; // safety: don't intercept Range
+      // Online: video.src = url, browser streams via Range (bypasses SW)
+      // Offline: player.js toBlobUrl() fetches full response from cache
+      // Non-Range requests go through cacheFirst to fill cache for offline
+      if (e.request.headers.get('Range')) return;
       e.respondWith(cacheFirst(e.request));
     } else {
       // Images: cache-first as before
@@ -69,6 +71,8 @@ async function cacheFirst(request) {
 // =========================================================
 async function cachePut(cache, url, response) {
   try {
+    var cl = response.headers.get('Content-Length');
+    if (cl) sizeMap.set(url, parseInt(cl, 10));
     await cache.put(url, response);
     enforceLimit(cache);
   } catch {}
@@ -81,11 +85,9 @@ async function enforceLimit(cache) {
     var entries = [];
 
     for (const req of keys) {
-      const resp = await cache.match(req);
-      if (!resp) continue;
-      const blob = await resp.blob();
-      entries.push({ url: req.url, size: blob.size });
-      totalSize += blob.size;
+      var size = sizeMap.get(req.url) || 0;
+      entries.push({ url: req.url, size: size });
+      totalSize += size;
     }
 
     if (totalSize <= cacheMaxBytes) return;
@@ -101,6 +103,7 @@ async function enforceLimit(cache) {
     for (const entry of entries) {
       if (totalSize <= cacheMaxBytes) break;
       await cache.delete(entry.url);
+      sizeMap.delete(entry.url);
       totalSize -= entry.size;
     }
   } catch {}
@@ -170,6 +173,7 @@ async function precacheUrls(urls, currentUrls) {
     const key = parsed.pathname + parsed.search;
     if (!currentFullSet.has(key)) {
       await cache.delete(req);
+      sizeMap.delete(req.url);
     }
   }
 }
