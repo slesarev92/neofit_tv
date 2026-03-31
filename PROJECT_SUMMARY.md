@@ -377,11 +377,17 @@ GET /api/system               — системная статистика (па�
 - GIF: пропускается
 
 ### Видео (асинхронно через ffmpeg, очередь concurrency: 1)
-- Параметры задаются в коде (media.processor.js), CRF и maxWidth — из settings (videoCrf, videoMaxWidth).
-- Текущие: `-c:v libx264 -crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart -profile:v high -level 4.0`
-- `-an` — без звука. `-movflags +faststart` — метаданные в начале. `-r 30` — принудительно 30fps. `-profile:v high -level 4.0` — для 1080p аппаратного декодирования.
+**Smart processing:** `probeVideo()` анализирует видео через ffprobe (codec, profile, level, bitrate, fps, resolution). Если совместимо с H96Max → быстрый remux (`-c:v copy -an -movflags +faststart`, секунды). Если нет → полный transcode.
 
-Результат: крупные файлы (300–400 МБ) могут сжиматься до 30–80 МБ в зависимости от исходника.
+Условия совместимости (все одновременно): h264, profile ≤ High, level ≤ 4.0, width ≤ 1920, fps ≤ 30, bitrate ≤ 8 Mbps.
+
+- Полный transcode: `-c:v libx264 -crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart -profile:v high -level 4.0`
+- CRF и maxWidth настраиваются в settings (videoCrf, videoMaxWidth)
+- **Прогресс**: ffmpeg `on('progress')` → polling `GET /api/media/:id/status` → progress bar с процентами в админке
+- **Отмена**: per-item (`DELETE /api/media/:id/cancel`) и всей очереди (`DELETE /api/media/queue`). ffmpeg убивается через SIGTERM
+- Кнопка `×` на каждой processing-карточке + кнопка «Остановить очередь»
+
+Результат: крупные файлы (300–400 МБ) могут сжиматься до 30–80 МБ в зависимости от исходника. Совместимые видео обрабатываются за секунды вместо минут.
 
 ---
 
@@ -498,6 +504,7 @@ Let's Encrypt через certbot, автообновление каждые 90 �
 | **v2.0-NEO** | ffmpeg: High Level 4.0 + `-r 30 -maxrate 8M -preset medium`. Blob URL вместо blob.slice(). Телеметрия воспроизведения (droppedFrames, canplayTimeMs). Онлайн: прямой URL (Nginx streaming), офлайн: blob URL fallback. SW: sizeMap для enforceLimit без resp.blob() |
 | **v3.0-NEO** | **Гибридный плеер:** ExoPlayer + SurfaceView для видео (zero-copy, hardware overlay), WebView fallback для ПК. VideoPlayerManager.kt + JavascriptInterface "NativePlayer". SimpleCache 2GB LRU для офлайн-видео. LAYER_TYPE_NONE. compileSdk 35, minSdk 23 |
 | **v3.1-NEO** | Fix: абсолютный URL для ExoPlayer, keep_content_on_player_reset=true (нет чёрного экрана), preloadVideo отключён (I/O конкуренция на H616), hidePlayer() убран из STATE_ENDED |
+| **v3.2-NEO** | Smart video processing: ffprobe → remux if compatible / full transcode if not. Прогресс обработки (progress bar + %). Отмена per-item и очереди (SIGTERM). beforeunload при загрузке файлов |
 
 ### Почему JSON, а не БД
 Сознательное решение для простоты. Репозиторий-слой изолирует хранилище — замена на SQLite/PostgreSQL не требует правок в сервисах. При одновременной записи из нескольких запросов возможна потеря данных; при 40 экранах обычно не критично, при росте — целесообразен переход на SQLite.

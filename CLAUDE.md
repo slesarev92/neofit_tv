@@ -8,8 +8,8 @@
 
 **Модули** (`src/modules/`):
 - `auth` — единый пароль (bcrypt) + 2FA (TOTP/speakeasy), сессии в памяти или файлах
-- `media` — загрузка, magic bytes валидация, sharp (изображения), ffmpeg (видео H.264 High Level 4.0)
-- `video.queue` — очередь перекодирования, восстанавливается после рестарта
+- `media` — загрузка, magic bytes валидация, sharp (изображения), ffmpeg (видео H.264 High Level 4.0). Smart processing: ffprobe → совместимое видео remux (`-c:v copy`), несовместимое → полный transcode. Прогресс обработки через polling. Отмена: per-item (`/:id/cancel`) и всей очереди (`/queue`)
+- `video.queue` — очередь перекодирования (concurrency: 1), восстанавливается после рестарта. `cancelCurrent()` / `removePending()` / `clearQueue()` для отмены
 - `playlists` — CRUD, порядок элементов; при удалении медиа — авто-удаление из плейлистов
 - `screens` — CRUD, назначение плейлиста, heartbeat, онлайн-статус
 - `screens.monitor` — периодические проверки + Telegram-уведомления
@@ -53,8 +53,9 @@ android-app/           # Kotlin Android приложение (WebView + ExoPlaye
 - **Atomic write** для ВСЕХ JSON файлов — использовать `src/utils/atomicWrite.js`
 - **Не трогать** `node_modules/`, `data/`, `uploads/` без явного запроса
 - **pollInterval** минимум 10 сек — rate limiter 3 req/10sec per screenId
-- **Видео** кодируется в H.264 High profile level 4.0 (`-profile:v high -level 4.0`), `-crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart`
+- **Видео** — smart processing: `probeVideo()` проверяет совместимость (h264, profile ≤ High, level ≤ 4.0, width ≤ 1920, fps ≤ 30, bitrate ≤ 8Mbps). Совместимое → remux (`-c:v copy -an -movflags +faststart`, секунды). Несовместимое → полный transcode (`-crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart -profile:v high -level 4.0`)
 - **videoMaxWidth** по умолчанию 1920px — защита от 4K видео
+- **Отмена обработки**: `DELETE /api/media/:id/cancel` (per-item) и `DELETE /api/media/queue` (вся очередь). ffmpeg убивается через SIGTERM. `cancelled` / `currentCancelled` флаги в video.queue предотвращают race condition с onComplete
 - **requireAuth** применяется на уровне router mount в `server.js`, а не в route-файлах
 - **НЕ добавлять** разделы changelog/изменения в `docs-content.js` — документация описывает текущее состояние системы, не историю изменений
 
@@ -77,10 +78,17 @@ android-app/           # Kotlin Android приложение (WebView + ExoPlaye
 - `released` guard — все callbacks и JS-вызовы проверяют флаг
 - `CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR` — при ошибке кэша fallback на сеть
 
+### При правках media.processor.js учитывать:
+- `probeVideo()` → `checkCompatibility()` → remux или fullTranscode. Не менять параметры ffmpeg в fullTranscode
+- `activeCommand` — текущий ffmpeg-процесс. `cancelCurrentJob()` → SIGTERM (не SIGKILL)
+- `currentProgress` — 0-100, обновляется через `.on('progress')`. `getCurrentProgress()` для polling
+
 ### При правках admin JS:
 - `showUndoToast` — каскадное удаление через `setTimeout(fn, 0)`, не синхронно
 - `escapeAttr()` — полная версия с `&`, `"`, `'`, `<` (в admin-screens.js была неполная, исправлено)
 - `maxFileSizeMb` — валидация размера на клиенте перед загрузкой
+- `uploadFiles()` — блокирует навигацию (beforeunload + sidebar disabled) на время загрузки
+- Processing cards: progress bar + `×` cancel button. Polling обновляет progress через `GET /:id/status`
 
 ## Известные особенности (не баги)
 
