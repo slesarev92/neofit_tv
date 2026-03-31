@@ -545,7 +545,8 @@
 
     // Native video preload — cache to disk via CacheWriter, no DOM element
     if (hasNativePlayer && nextItem.media.mimeType.startsWith('video/')) {
-      NativePlayer.preloadVideo(nextItem.media.url);
+      var preloadFullUrl = new URL(nextItem.media.url, window.location.origin).href;
+      NativePlayer.preloadVideo(preloadFullUrl);
       return;
     }
 
@@ -598,7 +599,8 @@
     clearTimeout(transitionSafetyTimer);
     var fallbackDuration = (item.media && item.media.duration) || 600;
     resetWatchdog(fallbackDuration * 2 * 1000);
-    NativePlayer.playVideo(item.media.url);
+    var fullUrl = new URL(item.media.url, window.location.origin).href;
+    NativePlayer.playVideo(fullUrl);
   }
 
   // Callbacks from VideoPlayerManager.kt via evaluateJavascript
