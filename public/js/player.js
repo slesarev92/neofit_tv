@@ -474,7 +474,7 @@
         });
         isTransitioning = false; clearTimeout(transitionSafetyTimer);
       } else {
-        // Promoted preload: image
+        // Promoted preload: image — already visible in DOM
         if (hasNativePlayer) NativePlayer.stopVideo();
         const duration = (item.duration || settings.imageDuration || 10) * 1000;
         resetWatchdog(duration * 2);
@@ -518,7 +518,6 @@
       if (hasNativePlayer) playVideoNative(item);
       else playVideoWebView(item);
     } else {
-      if (hasNativePlayer) NativePlayer.stopVideo();
       playImage(item);
     }
     startPreloadNext();
@@ -719,6 +718,7 @@
     img.alt = '';
 
     img.onload = () => {
+      if (hasNativePlayer) NativePlayer.stopVideo();
       removeOldMedia(img);
       isTransitioning = false; clearTimeout(transitionSafetyTimer);
     };
