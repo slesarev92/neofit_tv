@@ -488,6 +488,9 @@
     }
     const limitBytes = maxFileSizeMb * 1024 * 1024;
     const total = allowed.length;
+    window.onbeforeunload = function (e) { e.preventDefault(); return ''; };
+    var nav = document.querySelector('.sidebar-nav');
+    if (nav) { nav.style.opacity = '0.5'; nav.style.pointerEvents = 'none'; }
     for (let i = 0; i < total; i++) {
       const file = allowed[i];
       if (file.size > limitBytes) {
@@ -506,6 +509,8 @@
       }
     }
     hideProgress();
+    window.onbeforeunload = null;
+    if (nav) { nav.style.opacity = ''; nav.style.pointerEvents = ''; }
     await loadMedia();
   }
 
