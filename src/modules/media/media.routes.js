@@ -68,8 +68,22 @@ router.post('/', uploadSingle, async (req, res, next) => {
 
 router.delete('/queue', async (req, res, next) => {
   try {
+    console.log('[media] cancelQueue called');
     const result = await mediaService.cancelQueue();
+    console.log('[media] cancelQueue result:', result);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id/cancel', async (req, res, next) => {
+  try {
+    const result = await mediaService.cancelMediaProcessing(req.params.id);
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }

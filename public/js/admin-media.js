@@ -219,8 +219,29 @@
     const status = item.status || 'ready';
 
     if (status === 'processing') {
-      thumb.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.5rem;color:var(--gray-400);">
-        <div class="spinner"></div><span style="font-size:.75rem;">Оптимизация...</span></div>`;
+      thumb.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:.5rem;color:var(--gray-400);padding:0 1rem;">'
+        + '<div class="spinner"></div>'
+        + '<span class="processing-label" style="font-size:.75rem;">Оптимизация...</span>'
+        + '<div style="width:100%;height:4px;background:var(--gray-200);border-radius:2px;overflow:hidden;">'
+        + '<div class="processing-bar" style="height:100%;width:0%;background:var(--primary);transition:width .5s;"></div></div>'
+        + '</div>';
+      var cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.style.cssText = 'position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;';
+      cancelBtn.textContent = '\u00d7';
+      cancelBtn.title = 'Отменить обработку';
+      cancelBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        cancelBtn.disabled = true;
+        API.cancelMediaProcessing(item.id).then(function () {
+          showToast('Обработка отменена', 'success');
+          loadMedia();
+        }).catch(function (err) {
+          showToast(err.message || 'Ошибка отмены', 'error');
+          cancelBtn.disabled = false;
+        });
+      });
+      thumb.appendChild(cancelBtn);
     } else if (isVideo(item.mimeType)) {
       const video = document.createElement('video');
       video.src = `/uploads/${item.filename}#t=2`;
@@ -419,6 +440,14 @@
           clearInterval(pollTimers[mediaId]);
           delete pollTimers[mediaId];
           await loadMedia();
+        } else if (data.progress != null) {
+          var card = document.querySelector('.media-card[data-id="' + mediaId + '"]');
+          if (card) {
+            var bar = card.querySelector('.processing-bar');
+            var label = card.querySelector('.processing-label');
+            if (bar) bar.style.width = Math.min(100, data.progress) + '%';
+            if (label) label.textContent = 'Оптимизация... ' + Math.round(data.progress) + '%';
+          }
         }
       } catch {}
     }, 3000);

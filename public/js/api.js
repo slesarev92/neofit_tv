@@ -95,6 +95,9 @@ const API = {
   cancelQueue() {
     return this.request('/api/media/queue', { method: 'DELETE' });
   },
+  cancelMediaProcessing(id) {
+    return this.request(`/api/media/${id}/cancel`, { method: 'DELETE' });
+  },
 
   getPlaylists() {
     return this.request('/api/playlists');

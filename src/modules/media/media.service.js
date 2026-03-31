@@ -21,13 +21,17 @@ async function list() {
 async function getStatus(id) {
   const media = await mediaRepository.findById(id);
   if (!media) return null;
-  return {
+  const result = {
     id: media.id,
     status: media.status || 'ready',
     originalSize: media.originalSize || media.size,
     compressedSize: media.compressedSize || media.size,
     statusMessage: media.statusMessage || null,
   };
+  if (media.status === 'processing') {
+    result.progress = videoQueue.getCurrentId() === id ? processor.getCurrentProgress() : 0;
+  }
+  return result;
 }
 
 async function upload(file) {
@@ -157,4 +161,32 @@ async function cancelQueue() {
   return { cancelled: ids.length };
 }
 
-module.exports = { list, getStatus, upload, remove, cancelQueue };
+async function cancelMediaProcessing(id) {
+  const media = await mediaRepository.findById(id);
+  if (!media || media.status !== 'processing') {
+    return { ok: false, status: 404, error: 'Файл не в очереди обработки' };
+  }
+
+  const currentId = videoQueue.getCurrentId();
+
+  if (currentId === id) {
+    videoQueue.cancelCurrent();
+    processor.cancelCurrentJob();
+    await mediaRepository.update(id, { status: 'ready', statusMessage: null });
+    const tmpPath = path.join(path.resolve(config.uploadsDir), media.filename + '.tmp.mp4');
+    await fs.unlink(tmpPath).catch(() => {});
+    logger.info('Cancelled current video processing', { id });
+    return { ok: true };
+  }
+
+  const removed = await videoQueue.removePending(id);
+  if (removed) {
+    await mediaRepository.update(id, { status: 'ready', statusMessage: null });
+    logger.info('Removed pending video from queue', { id });
+    return { ok: true };
+  }
+
+  return { ok: false, status: 404, error: 'Файл не в очереди обработки' };
+}
+
+module.exports = { list, getStatus, upload, remove, cancelQueue, cancelMediaProcessing };

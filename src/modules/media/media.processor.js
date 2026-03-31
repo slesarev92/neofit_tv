@@ -160,12 +160,18 @@ function checkCompatibility(probe, maxWidth) {
 // =========================================================
 
 let activeCommand = null;
+let currentProgress = 0;
 
 function cancelCurrentJob() {
   if (activeCommand) {
-    try { activeCommand.kill('SIGKILL'); } catch (e) { /* already dead */ }
+    try { activeCommand.kill('SIGTERM'); } catch (e) { /* already dead */ }
     activeCommand = null;
   }
+  currentProgress = 0;
+}
+
+function getCurrentProgress() {
+  return Math.round(currentProgress);
 }
 
 // =========================================================
@@ -176,12 +182,15 @@ function remuxVideo(inputPath, durationSeconds) {
   return new Promise((resolve, reject) => {
     const tmpOutput = inputPath + '.tmp.mp4';
 
+    currentProgress = 0;
     const cmd = ffmpeg(inputPath)
       .videoCodec('copy')
       .addOptions(['-an', '-movflags', '+faststart'])
       .output(tmpOutput)
+      .on('progress', (info) => { if (info.percent != null) currentProgress = info.percent; })
       .on('end', async () => {
         activeCommand = null;
+        currentProgress = 100;
         try {
           const stat = await fs.stat(tmpOutput);
           const origStat = await fs.stat(inputPath);
@@ -224,6 +233,7 @@ function fullTranscode(inputPath, settings, durationSeconds) {
 
   return new Promise((resolve, reject) => {
     const tmpOutput = inputPath + '.tmp.mp4';
+    currentProgress = 0;
 
     const chain = ffmpeg(inputPath)
       .videoCodec('libx264')
@@ -231,8 +241,10 @@ function fullTranscode(inputPath, settings, durationSeconds) {
     if (maxWidth) chain.size(`${maxWidth}x?`);
     chain
       .output(tmpOutput)
+      .on('progress', (info) => { if (info.percent != null) currentProgress = info.percent; })
       .on('end', async () => {
         activeCommand = null;
+        currentProgress = 100;
         try {
           const stat = await fs.stat(tmpOutput);
           const origStat = await fs.stat(inputPath);
@@ -319,4 +331,4 @@ videoQueue.init(async (task) => {
   return compressVideo(task.filePath);
 });
 
-module.exports = { processImage, enqueueVideo, compressVideo, getVideoDuration, cancelCurrentJob };
+module.exports = { processImage, enqueueVideo, compressVideo, getVideoDuration, cancelCurrentJob, getCurrentProgress };
