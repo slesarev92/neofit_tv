@@ -543,10 +543,8 @@
     preloadedNextIndex = nextIndex;
     preloadedReady = false;
 
-    // Native video preload — cache to disk via CacheWriter, no DOM element
+    // Native video preload — temporarily disabled to test if I/O contention causes stuttering
     if (hasNativePlayer && nextItem.media.mimeType.startsWith('video/')) {
-      var preloadFullUrl = new URL(nextItem.media.url, window.location.origin).href;
-      NativePlayer.preloadVideo(preloadFullUrl);
       return;
     }
 
@@ -600,11 +598,13 @@
     var fallbackDuration = (item.media && item.media.duration) || 600;
     resetWatchdog(fallbackDuration * 2 * 1000);
     var fullUrl = new URL(item.media.url, window.location.origin).href;
+    console.log('[NP] playVideo:', fullUrl, 'duration:', item.media && item.media.duration, 'item.duration:', item.duration);
     NativePlayer.playVideo(fullUrl);
   }
 
   // Callbacks from VideoPlayerManager.kt via evaluateJavascript
   window.onExoVideoEnded = function () {
+    console.log('[NP] onExoVideoEnded, index:', currentIndex);
     clearWatchdog();
     var item = currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex];
     if (item) itemErrorCount.delete(item.id);
@@ -612,7 +612,7 @@
   };
 
   window.onExoVideoError = function (url) {
-    if (DEBUG) console.error('[Player] ExoPlayer error:', url);
+    console.log('[NP] onExoVideoError:', url);
     clearWatchdog();
     var item = currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex];
     if (item) {

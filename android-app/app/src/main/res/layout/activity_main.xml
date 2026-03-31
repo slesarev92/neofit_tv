@@ -17,7 +17,7 @@
         android:visibility="gone"
         app:surface_type="surface_view"
         app:use_controller="false"
-        app:keep_content_on_player_reset="false" />
+        app:keep_content_on_player_reset="true" />
 
     <LinearLayout
         android:id="@+id/loadingOverlay"
