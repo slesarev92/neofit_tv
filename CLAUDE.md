@@ -41,7 +41,11 @@ public/
   pair/                # Pairing page
   js/                  # Клиентский JS (api.js, nav.js, player.js, admin-*.js, docs-content.js)
 scripts/               # backup.js, reset-password.js, backfill-video-durations.js
-android-app/           # Kotlin Android приложение (WebView)
+android-app/           # Kotlin Android приложение (WebView + ExoPlayer)
+  MainActivity.kt      # WebView + VideoPlayerManager подключение
+  VideoPlayerManager.kt # ExoPlayer + SimpleCache + @JavascriptInterface
+  SettingsActivity.kt  # Настройки: URL, screenId, PIN
+  BindingActivity.kt   # Привязка устройств (QR)
 ```
 
 ## Правила разработки
@@ -55,13 +59,23 @@ android-app/           # Kotlin Android приложение (WebView)
 - **НЕ добавлять** разделы changelog/изменения в `docs-content.js` — документация описывает текущее состояние системы, не историю изменений
 
 ### При правках player.js учитывать:
+- `hasNativePlayer` — `typeof window.NativePlayer !== 'undefined'`. Определяет режим воспроизведения видео: ExoPlayer (приставка) или WebView `<video>` (ПК/браузер)
+- `playVideoNative(item)` — ExoPlayer путь. URL должен быть абсолютным: `new URL(path, window.location.origin).href`
+- `playVideoWebView(item)` — WebView `<video>` fallback для ПК-отладки. Вся старая логика сохранена без изменений
+- `window.onExoVideoEnded` / `window.onExoVideoError` — callbacks из VideoPlayerManager через evaluateJavascript
 - `isTransitioning` — флаг защиты от race condition (poll/watchdog/onended). Сбрасывать в canplay/onload/error
 - `itemErrorCount` — Map ошибок per-item. Элемент пропускается после 3 ошибок, сбрасывается при onended и смене плейлиста
 - `getPlaylistSignature()` — сравнение без URL (cache-buster `?v=`). При изменении структуры сохраняет позицию по id
-- `preloadFallbackTimer` — 3 сек fallback если canplay/loadedmetadata не сработали на слабом WebView
-- `addEventListener('canplay', ..., { once: true })` — one-shot обработчики, не использовать oncanplay
-- `activeBlobUrls` Map — blob URL создаются **только в офлайн-режиме** (`!navigator.onLine`). В онлайне `video.src = url` напрямую (Nginx стримит через Range)
-- `sendMetrics()` вызывается **только** в `playVideo()` → `onended`. Promoted preload path (`playNext()`) метрики не отправляет — только первое видео каждой сессии
+- `NativePlayer.stopVideo()` — вызывать при переходе от видео к изображению и в showPlaceholder(). НЕ вызывать при переходе видео → видео (ExoPlayer сам заменяет медиа)
+- `sendMetrics()` — работает только в WebView fallback (`playVideoWebView`). Нативный путь пока без метрик
+
+### При правках VideoPlayerManager.kt учитывать:
+- `hidePlayer()` — вызывать **только** в `stopVideo()` и `onPlayerError()`. **НЕ** в `onPlaybackStateChanged(STATE_ENDED)` — последний кадр должен оставаться видимым до первого кадра нового видео
+- Все `evaluateJavascript` — через `mainHandler.post {}` (UI thread)
+- URL для ExoPlayer — всегда абсолютный (передаётся из player.js)
+- `preloadVideo()` — отключён на стороне player.js (I/O конкуренция на H616). SimpleCache накапливает видео автоматически при воспроизведении
+- `released` guard — все callbacks и JS-вызовы проверяют флаг
+- `CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR` — при ошибке кэша fallback на сеть
 
 ### При правках admin JS:
 - `showUndoToast` — каскадное удаление через `setTimeout(fn, 0)`, не синхронно
@@ -70,11 +84,13 @@ android-app/           # Kotlin Android приложение (WebView)
 
 ## Известные особенности (не баги)
 
-- **SW Cache API**: все медиа (видео + изображения) кэшируются в Cache API для офлайн-воспроизведения. В онлайне видео стримит Nginx через Range-запросы напрямую (SW не участвует в воспроизведении). В офлайне `player.js` читает полный файл из кэша через `toBlobUrl()` → blob URL. `enforceLimit()` использует `sizeMap` (Content-Length при `cache.put()`) — без `resp.blob()`. Лимит кэша (`cacheMaxSizeMb`, по умолчанию 2048 МБ) задаётся в настройках админки. При превышении лимита самые большие видео удаляются первыми. При удалении медиа из плейлиста — кэш очищается автоматически при следующем poll.
+- **Видео на приставке (ExoPlayer)**: VideoPlayerManager.kt — ExoPlayer + SurfaceView (zero-copy через hardware overlay). SimpleCache хранит видео в `cacheDir/video-cache`, LRU-eviction 2GB. После 1-2 циклов плейлиста все видео на диске → офлайн работает автоматически. `preloadVideo()` отключён намеренно — на H616 CacheWriter конкурирует за I/O с воспроизведением
+- **Видео на ПК (WebView fallback)**: `playVideoWebView()` — стандартный `<video>` элемент. `toBlobUrl()` для офлайна, `video.src = url` для онлайна (Nginx Range). Используется когда `hasNativePlayer = false`
+- **SW Cache API**: **только изображения** кэшируются в SW Cache API (видео фильтруется в `notifySwPrecache()` при `hasNativePlayer`). `enforceLimit()` использует `sizeMap` (Content-Length при `cache.put()`). Лимит кэша (`cacheMaxSizeMb`, по умолчанию 2048 МБ) задаётся в настройках админки
 - **Nginx /uploads/**: раздаётся напрямую через sendfile, минуя Node.js
 - **Backup**: async spawn (не блокирует event loop), isRunning guard, lock-файл `data/.backup.lock`
 - **Telegram**: exponential backoff с jitter, валидация token/chatId, парсинг JSON ответа
-- **Android**: `largeHeap=true`, `setRendererPriorityPolicy(IMPORTANT)` для API 26+, `onTrimMemory` очищает кэш, `onBackPressed` заблокирован
+- **Android**: `largeHeap=true`, `setRendererPriorityPolicy(IMPORTANT)` для API 26+, `LAYER_TYPE_NONE` (не HARDWARE — лишняя GPU-копия), `onTrimMemory` очищает WebView кэш, `onBackPressed` заблокирован
 
 ## Сервер (production)
 
@@ -88,10 +104,10 @@ android-app/           # Kotlin Android приложение (WebView)
 
 ## Целевые устройства
 
-- **Android приставка H96Max**, 2GB RAM, Android 10+
-- WebView-плеер, аппаратное декодирование H.264 High Level 4.0
-- **Слабый чип** — не использовать `preload="auto"` для prefetch, не держать 2 video в DOM одновременно
-- `preload="metadata"` + fallback timer 3 сек для prefetch
+- **Android приставка H96Max**, Allwinner H616, 2GB RAM, Android 10+
+- Гибридный плеер: ExoPlayer + SurfaceView для видео, WebView для изображений и UI
+- Аппаратное декодирование H.264 High Level 4.0 через MediaCodec (VPU)
+- **Слабый чип** — не конкурировать за I/O (preloadVideo отключён), один HW decoder instance
 
 ## Деплой
 

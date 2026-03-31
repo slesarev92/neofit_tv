@@ -6,7 +6,7 @@
 **Домен:** https://s9a.ru  
 **Хостинг:** Timeweb Cloud (VPS, Ubuntu)  
 **Сервер:** 2 x 3.3 ГГц CPU · 2 ГБ RAM · 40 ГБ NVMe · 1 Гбит/с канал  
-**Текущая версия:** v2.0.0-NEO
+**Текущая версия:** v3.1-NEO
 
 ---
 
@@ -132,8 +132,11 @@
 │
 └── android-app/                  # Android APK проект
     └── app/src/main/kotlin/com/signage/player/
-        ├── MainActivity.kt       # WebView плеер
+        ├── MainActivity.kt       # WebView + VideoPlayerManager подключение
+        ├── VideoPlayerManager.kt # ExoPlayer + SimpleCache + @JavascriptInterface
         ├── SettingsActivity.kt   # Настройки: URL сервера, screenId, PIN; долгое нажатие для входа
+        ├── BindingActivity.kt    # Привязка устройств (QR-код)
+        ├── App.kt                # Application class, crash logging
         ├── BootReceiver.kt       # Автозапуск при включении
         ├── LaunchService.kt      # Сервис запуска
         └── UsbReceiver.kt        # Загрузка URL через флешку (.txt с URL плеера)
@@ -384,19 +387,32 @@ GET /api/system               — системная статистика (па�
 
 ## Плеер — ключевые механизмы
 
+### Гибридное воспроизведение (v3.1)
+- **Видео на приставке:** ExoPlayer + SurfaceView через VideoPlayerManager.kt (zero-copy, hardware overlay)
+- **Видео на ПК:** WebView `<video>` fallback (`playVideoWebView()`)
+- **Изображения:** WebView на всех платформах
+- `hasNativePlayer` = `typeof window.NativePlayer !== 'undefined'` — определяет режим в runtime
+- JavascriptInterface "NativePlayer": `playVideo(url)`, `stopVideo()`, `preloadVideo(url)`
+- Callbacks: `window.onExoVideoEnded()`, `window.onExoVideoError(url)`
+
+### ExoPlayer SimpleCache (офлайн видео)
+- Директория: `cacheDir/video-cache`, LRU-eviction 2GB
+- CacheDataSource: при воспроизведении автоматически кэширует на диск
+- После 1-2 циклов плейлиста все видео на диске → офлайн работает
+- `preloadVideo()` отключён — на H616 CacheWriter конкурирует за I/O с воспроизведением
+
 ### Watchdog таймер
-Если элемент не переключился за `duration × 2` секунд — принудительное переключение. Защита от зависших видео и незагрузившихся картинок.
+Если элемент не переключился за `duration × 2` секунд — принудительное переключение. Защита от зависших видео и незагрузившихся картинок. При срабатывании с NativePlayer — вызывает `stopVideo()` чтобы предотвратить поздний STATE_ENDED callback.
 
 ### Service Worker (sw.js)
-- Медиафайлы (`/uploads/`): Cache First (Range-запросы пропускаются — Nginx обслуживает напрямую)
+- **Изображения** (`/uploads/`): Cache First (при `hasNativePlayer` видео фильтруется из PRECACHE)
 - API запросы (`/api/player/`): Network only (свежие данные)
-- По сообщению PRECACHE: предкэширование медиа плейлиста и очистка устаревших записей кэша
+- По сообщению PRECACHE: предкэширование изображений плейлиста и очистка устаревших записей кэша
 - `sizeMap` (Map) — размеры файлов из Content-Length при cache.put(), `enforceLimit()` использует Map вместо resp.blob()
-- **Онлайн:** `video.src = url` — Nginx стримит через Range, SW не участвует в воспроизведении
-- **Офлайн:** `toBlobUrl()` — полный файл из кэша → blob URL → нативное воспроизведение
+- На ПК (без NativePlayer): кэширует и видео (WebView fallback режим)
 
 ### Автоперезагрузка
-Время задаётся в настройках (`autoReloadAt`, по умолчанию 04:00). Раз в сутки в это время — `location.reload()`. Service Worker восстанавливает контент из кэша. Цель: снижение утечек памяти Chrome на Android.
+Время задаётся в настройках (`autoReloadAt`, по умолчанию 04:00). Раз в сутки в это время — `location.reload()`. Цель: снижение утечек памяти WebView на Android.
 
 ### Polling
 Интервал из настроек (`pollInterval`, например 30 секунд) — `GET /api/player/:screenId`. Обновляет `lastSeenAt` (heartbeat для мониторинга).
@@ -405,18 +421,22 @@ GET /api/system               — системная статистика (па�
 
 ## Android APK
 
-**Тип:** WebView-обёртка над веб-плеером.  
+**Тип:** Гибридный плеер — WebView + ExoPlayer (SurfaceView).  
 **Язык:** Kotlin.  
-**Минимальная версия:** Android 5.0 (API 21).
+**Минимальная версия:** Android 6.0 (API 23).
 
 ### Компоненты
-- **MainActivity** — плеер (WebView), при отсутствии URL переходит в SettingsActivity.
+- **MainActivity** — WebView + VideoPlayerManager подключение, при отсутствии URL переходит в BindingActivity.
+- **VideoPlayerManager** — ExoPlayer + SimpleCache + @JavascriptInterface "NativePlayer". Управляет PlayerView (SurfaceView), кэширует видео на диск.
+- **BindingActivity** — привязка устройств (QR-код, polling).
 - **SettingsActivity** — сервер URL, screenId, проверка соединения, смена PIN, сохранение и запуск.
 - **BootReceiver** — автозапуск при включении.
 - **LaunchService** — сервис запуска.
 - **UsbReceiver** — обработка .txt с флешки (одна строка — URL плеера).
 
 ### Возможности APK
+- Нативное воспроизведение видео через ExoPlayer + SurfaceView (zero-copy)
+- Офлайн-кэш видео через SimpleCache (2GB LRU, cacheDir/video-cache)
 - Автозапуск при включении питания (BootReceiver)
 - Киоск-режим: блокировка кнопки Back, приложение как лаунчер
 - Wake Lock: экран не гаснет
@@ -476,6 +496,8 @@ Let's Encrypt через certbot, автообновление каждые 90 �
 | **v1.5-NEO** | UX-улучшения: undo-toast удаление (медиа/плейлисты/экраны), bulk-delete медиа, поиск в modal выбора медиа, Ctrl+S для форм, кастомный confirm для restore. Визуальный редизайн: Inter, градиентные иконки, segmented tabs. Мобильная оптимизация. npm: minimatch ReDoS пофикшен |
 | **v1.8-NEO** | Офлайн-кэширование: SW кэширует все медиа в Cache API, configurable лимит (`cacheMaxSizeMb`) |
 | **v2.0-NEO** | ffmpeg: High Level 4.0 + `-r 30 -maxrate 8M -preset medium`. Blob URL вместо blob.slice(). Телеметрия воспроизведения (droppedFrames, canplayTimeMs). Онлайн: прямой URL (Nginx streaming), офлайн: blob URL fallback. SW: sizeMap для enforceLimit без resp.blob() |
+| **v3.0-NEO** | **Гибридный плеер:** ExoPlayer + SurfaceView для видео (zero-copy, hardware overlay), WebView fallback для ПК. VideoPlayerManager.kt + JavascriptInterface "NativePlayer". SimpleCache 2GB LRU для офлайн-видео. LAYER_TYPE_NONE. compileSdk 35, minSdk 23 |
+| **v3.1-NEO** | Fix: абсолютный URL для ExoPlayer, keep_content_on_player_reset=true (нет чёрного экрана), preloadVideo отключён (I/O конкуренция на H616), hidePlayer() убран из STATE_ENDED |
 
 ### Почему JSON, а не БД
 Сознательное решение для простоты. Репозиторий-слой изолирует хранилище — замена на SQLite/PostgreSQL не требует правок в сервисах. При одновременной записи из нескольких запросов возможна потеря данных; при 40 экранах обычно не критично, при росте — целесообразен переход на SQLite.
@@ -614,21 +636,34 @@ pm2 logs signage --lines 50
 
 ## Ключевые изменения по версиям
 
-### v2.0-NEO (текущая)
-**Воспроизведение — архитектурное исправление:**
-- Онлайн: `video.src = url` — Nginx стримит через Range, без RAM-аллокаций на устройстве
-- Офлайн: `toBlobUrl()` из SW Cache — blob URL как fallback
-- Телеметрия: `getVideoPlaybackQuality()` → POST `/api/player/:screenId/metrics` → отображение в админке
+### v3.1-NEO (текущая)
+**Гибридный плеер — ExoPlayer + SurfaceView:**
+- Видео на приставке: ExoPlayer + SurfaceView (zero-copy через hardware overlay, минуя SurfaceTexture)
+- Видео на ПК: WebView `<video>` fallback (`hasNativePlayer` проверка в runtime)
+- VideoPlayerManager.kt: ExoPlayer + SimpleCache + @JavascriptInterface "NativePlayer"
+- SimpleCache: `cacheDir/video-cache`, LRU 2GB, автокэширование при воспроизведении
+- `preloadVideo()` отключён — на H616 CacheWriter конкурирует за I/O с воспроизведением
+- `hidePlayer()` только в `stopVideo()` и `onPlayerError()` — последний кадр остаётся между видео
+- `LAYER_TYPE_NONE` вместо `LAYER_TYPE_HARDWARE` (лишняя GPU-копия)
+- `keep_content_on_player_reset="true"` в PlayerView
 
 **SW (sw.js):**
-- `sizeMap` (Map) для `enforceLimit()` — размеры из Content-Length, без `resp.blob()` аллокаций
-- Range-запросы от `<video>` пропускаются (Nginx обслуживает), non-Range → cacheFirst (заполняет кеш для офлайна)
+- Кэширует **только изображения** при `hasNativePlayer` (видео фильтруется в `notifySwPrecache`)
+- На ПК (без NativePlayer): кэширует всё как раньше (WebView fallback)
+
+**Android APK:**
+- compileSdk 35, minSdk 23 (было 21), media3-exoplayer 1.9.2
+- `WebView.setWebContentsDebuggingEnabled(true)` для remote debug
+
+### v2.0-NEO
+**Воспроизведение (до ExoPlayer):**
+- Онлайн: `video.src = url` — Nginx стримит через Range
+- Офлайн: `toBlobUrl()` из SW Cache — blob URL fallback
+- Телеметрия: `getVideoPlaybackQuality()` → POST `/api/player/:screenId/metrics`
 
 **ffmpeg:**
 - `-profile:v high -level 4.0` (было baseline 3.1 — не поддерживает 1080p)
 - `-r 30 -maxrate 8M -bufsize 16M -preset medium`
-
-**Android:** `WebView.setWebContentsDebuggingEnabled(true)` для remote debug
 
 ### v1.8-NEO
 - SW кэширует ВСЕ медиа в Cache API для офлайн-воспроизведения
