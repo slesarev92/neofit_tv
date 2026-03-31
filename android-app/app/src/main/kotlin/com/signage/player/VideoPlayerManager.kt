@@ -88,7 +88,7 @@ class VideoPlayerManager(
                     val url = currentUrl
                     mainHandler.post {
                         if (released) return@post
-                        hidePlayer()
+                        // Don't hidePlayer() — keep last frame visible until next video renders
                         callJs("window.onExoVideoEnded && window.onExoVideoEnded()")
                         Log.d(TAG, "Video ended: $url")
                     }
