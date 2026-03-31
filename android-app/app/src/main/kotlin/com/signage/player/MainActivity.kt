@@ -20,6 +20,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
+import androidx.media3.ui.PlayerView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private var reloadPending = false
     private var longPressRunnable: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var videoPlayerManager: VideoPlayerManager? = null
     private var retryCountdownRunnable: Runnable? = null
     private var reloadAfterErrorRunnable: Runnable? = null
     private var errorCountdownSeconds = 0
@@ -67,6 +69,9 @@ class MainActivity : AppCompatActivity() {
             val wv = findViewById<WebView>(R.id.webView)
             webView = wv
             setupWebView(wv)
+            val playerView = findViewById<PlayerView>(R.id.exoPlayerView)
+            videoPlayerManager = VideoPlayerManager(this, wv, playerView)
+            wv.addJavascriptInterface(videoPlayerManager!!, "NativePlayer")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
             }
@@ -174,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = false
             displayZoomControls = false
         }
-        wv.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        wv.setLayerType(View.LAYER_TYPE_NONE, null)
         // Прозрачный 1×1 poster вместо стандартной иконки Play на видео
         wv.webChromeClient = object : WebChromeClient() {
             override fun getDefaultVideoPoster(): Bitmap? {
@@ -228,6 +233,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        videoPlayerManager?.release()
+        videoPlayerManager = null
         cancelErrorCountdown()
         longPressRunnable?.let { handler.removeCallbacks(it) }
         longPressRunnable = null

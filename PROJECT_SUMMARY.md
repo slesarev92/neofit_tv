@@ -6,7 +6,7 @@
 **Домен:** https://s9a.ru  
 **Хостинг:** Timeweb Cloud (VPS, Ubuntu)  
 **Сервер:** 2 x 3.3 ГГц CPU · 2 ГБ RAM · 40 ГБ NVMe · 1 Гбит/с канал  
-**Текущая версия:** v1.7.1-NEO (package.json: 1.7.1-NEO)
+**Текущая версия:** v2.0.0-NEO
 
 ---
 
@@ -67,7 +67,7 @@
 │   │
 │   ├── middleware/
 │   │   ├── auth.js               # requireAuth
-│   │   ├── rateLimit.js          # Rate limit на логин
+│   │   ├── rateLimit.js          # Rate limit (login, player, pair)
 │   │   ├── validate.js           # Валидация express-validator
 │   │   └── errorHandler.js       # Глобальный обработчик ошибок
 │   │
@@ -244,7 +244,8 @@ DELETE /api/screens/:id       — удаление
 
 ### Player (публичный, без auth)
 ```
-GET /api/player/:screenId     — плейлист для плеера + настройки + heartbeat (lastSeenAt)
+GET  /api/player/:screenId          — плейлист для плеера + настройки + heartbeat (lastSeenAt)
+POST /api/player/:screenId/metrics  — телеметрия воспроизведения (droppedFrames, canplayTimeMs и др.)
 ```
 
 ### Pair (привязка устройств)
@@ -295,6 +296,7 @@ GET /api/system               — системная статистика (па�
   "videoMaxWidth": null,
   "monitorCheckIntervalSec": 10,
   "maxFileSizeMb": 500,
+  "cacheMaxSizeMb": 2048,
   "telegramEnabled": false,
   "telegramBotToken": null,
   "telegramChatId": null
@@ -308,7 +310,12 @@ GET /api/system               — системная статистика (па�
   "name": "Зал 1",
   "playlistId": "uuid | null",
   "lastSeenAt": "ISO8601 | null",
-  "createdAt": "ISO8601"
+  "createdAt": "ISO8601",
+  "playbackMetrics": {
+    "droppedFrames": 0, "totalFrames": 5400, "dropPercent": 0,
+    "blobTimeMs": 0, "canplayTimeMs": 150, "fromCache": false,
+    "fileSizeKb": 0, "videoUrl": "/uploads/...", "ts": "ISO8601"
+  }
 }
 ```
 
@@ -368,8 +375,8 @@ GET /api/system               — системная статистика (па�
 
 ### Видео (асинхронно через ffmpeg, очередь concurrency: 1)
 - Параметры задаются в коде (media.processor.js), CRF и maxWidth — из settings (videoCrf, videoMaxWidth).
-- Пример: `-c:v libx264 -crf 23 -preset veryfast -an -movflags +faststart`
-- `-an` — без звука. `-movflags +faststart` — метаданные в начале.
+- Текущие: `-c:v libx264 -crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart -profile:v high -level 4.0`
+- `-an` — без звука. `-movflags +faststart` — метаданные в начале. `-r 30` — принудительно 30fps. `-profile:v high -level 4.0` — для 1080p аппаратного декодирования.
 
 Результат: крупные файлы (300–400 МБ) могут сжиматься до 30–80 МБ в зависимости от исходника.
 
@@ -381,9 +388,12 @@ GET /api/system               — системная статистика (па�
 Если элемент не переключился за `duration × 2` секунд — принудительное переключение. Защита от зависших видео и незагрузившихся картинок.
 
 ### Service Worker (sw.js)
-- Медиафайлы (`/uploads/`): Cache First
+- Медиафайлы (`/uploads/`): Cache First (Range-запросы пропускаются — Nginx обслуживает напрямую)
 - API запросы (`/api/player/`): Network only (свежие данные)
 - По сообщению PRECACHE: предкэширование медиа плейлиста и очистка устаревших записей кэша
+- `sizeMap` (Map) — размеры файлов из Content-Length при cache.put(), `enforceLimit()` использует Map вместо resp.blob()
+- **Онлайн:** `video.src = url` — Nginx стримит через Range, SW не участвует в воспроизведении
+- **Офлайн:** `toBlobUrl()` — полный файл из кэша → blob URL → нативное воспроизведение
 
 ### Автоперезагрузка
 Время задаётся в настройках (`autoReloadAt`, по умолчанию 04:00). Раз в сутки в это время — `location.reload()`. Service Worker восстанавливает контент из кэша. Цель: снижение утечек памяти Chrome на Android.
@@ -464,6 +474,8 @@ Let's Encrypt через certbot, автообновление каждые 90 �
 | **v1.3-NEO** | Android-исправления (USB thread, LaunchService, WebView). Admin UX: превью медиа, навигация плейлисты/экраны, фильтр по типу |
 | **v1.4-NEO** | **2FA (Google Authenticator)**: speakeasy + qrcode, TOTP setup/enable/disable/verify. Удаление Cursor agent injection из auth.js и auth.routes.js |
 | **v1.5-NEO** | UX-улучшения: undo-toast удаление (медиа/плейлисты/экраны), bulk-delete медиа, поиск в modal выбора медиа, Ctrl+S для форм, кастомный confirm для restore. Визуальный редизайн: Inter, градиентные иконки, segmented tabs. Мобильная оптимизация. npm: minimatch ReDoS пофикшен |
+| **v1.8-NEO** | Офлайн-кэширование: SW кэширует все медиа в Cache API, configurable лимит (`cacheMaxSizeMb`) |
+| **v2.0-NEO** | ffmpeg: High Level 4.0 + `-r 30 -maxrate 8M -preset medium`. Blob URL вместо blob.slice(). Телеметрия воспроизведения (droppedFrames, canplayTimeMs). Онлайн: прямой URL (Nginx streaming), офлайн: blob URL fallback. SW: sizeMap для enforceLimit без resp.blob() |
 
 ### Почему JSON, а не БД
 Сознательное решение для простоты. Репозиторий-слой изолирует хранилище — замена на SQLite/PostgreSQL не требует правок в сервисах. При одновременной записи из нескольких запросов возможна потеря данных; при 40 экранах обычно не критично, при росте — целесообразен переход на SQLite.
@@ -600,45 +612,35 @@ pm2 logs signage --lines 50
 
 ---
 
-## Изменения v1.7-NEO → v1.7.1-NEO
+## Ключевые изменения по версиям
 
-### v1.7-NEO — Оптимизация видео для Android TV
-- Service Worker: видео не кэшируются Cache API — стримятся напрямую (экономия RAM)
-- Prefetch видео: `preload="metadata"` вместо `"auto"`
-- ffmpeg: `-profile:v baseline -level 3.1` для аппаратного декодирования на слабых чипах
-- `videoMaxWidth` default: null → 1920 (защита от 4K)
-- Nginx: `/uploads/` раздаётся напрямую через sendfile
-- Android: `largeHeap=true`
-- `pollInterval` минимум 10 сек
+### v2.0-NEO (текущая)
+**Воспроизведение — архитектурное исправление:**
+- Онлайн: `video.src = url` — Nginx стримит через Range, без RAM-аллокаций на устройстве
+- Офлайн: `toBlobUrl()` из SW Cache — blob URL как fallback
+- Телеметрия: `getVideoPlaybackQuality()` → POST `/api/player/:screenId/metrics` → отображение в админке
 
-### v1.7.1-NEO — Аудит и баг-фиксы плеера
-**player.js (критические исправления):**
-- Исправлен сброс позиции плейлиста при polling — `getPlaylistSignature()` сравнивает без URL (cache-buster `?v=`), сохраняет позицию по id элемента
-- Исправлен race condition — `isTransitioning` guard защищает от одновременных вызовов playNext()
-- Добавлен счётчик ошибок per-item (`itemErrorCount`) — элемент пропускается после 3 ошибок
-- `oncanplay` → `addEventListener('canplay', ..., { once: true })` — предотвращает многократный вызов
-- `preload="metadata"` + fallback таймер 3 сек + `loadedmetadata` для слабых WebView
+**SW (sw.js):**
+- `sizeMap` (Map) для `enforceLimit()` — размеры из Content-Length, без `resp.blob()` аллокаций
+- Range-запросы от `<video>` пропускаются (Nginx обслуживает), non-Range → cacheFirst (заполняет кеш для офлайна)
 
-**Админ-панель (12 правок):**
-- XHR `uploadMedia` — добавлен `withCredentials`
-- Массовое удаление медиа — информативные сообщения при ошибках
-- Валидация размера файла перед загрузкой на клиенте
-- `escapeAttr()` — полная XSS-защита в экранах
-- Авто-обновление экранов не прерывает открытый dropdown
-- Индикация активного режима порога онлайн (множитель / фиксированный)
-- `pollInterval` min 5 → 10 (HTML + валидация + sanitize)
+**ffmpeg:**
+- `-profile:v high -level 4.0` (было baseline 3.1 — не поддерживает 1080p)
+- `-r 30 -maxrate 8M -bufsize 16M -preset medium`
 
-**Telegram:** exponential backoff с jitter, валидация token/chatId, парсинг JSON ответа
+**Android:** `WebView.setWebContentsDebuggingEnabled(true)` для remote debug
 
-**Backup:** async spawn (не блокирует event loop), `isRunning` guard, lock-файл, timeout 5 мин для restore
+### v1.8-NEO
+- SW кэширует ВСЕ медиа в Cache API для офлайн-воспроизведения
+- Настройка `cacheMaxSizeMb` (по умолчанию 2048 МБ) в админке
+- `navigator.storage.persist()` для защиты кеша от eviction
 
-**Android:**
-- `onTrimMemory` — очистка кэша при нехватке RAM
-- `setRendererPriorityPolicy(IMPORTANT)` для API 26+
-- `onBackPressed` заблокирован — плеер не закрывается случайно
-- R8 minify + shrinkResources для release, proguard-rules.pro
+### v1.7.1-NEO
+**player.js:** `getPlaylistSignature()` без URL, `isTransitioning` guard, `itemErrorCount`, one-shot canplay, preload fallback timer 3 сек
 
-**Документация:** обновлена под v1.7.1, добавлен changelog
+**Админ-панель:** XSS-защита (`escapeAttr`), валидация размера файла, авто-обновление экранов
+
+**Telegram:** exponential backoff, валидация token/chatId. **Backup:** async spawn, lock-файл. **Android:** `onTrimMemory`, `setRendererPriorityPolicy`, блокировка Back
 
 ---
 

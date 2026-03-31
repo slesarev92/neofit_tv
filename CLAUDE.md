@@ -8,12 +8,12 @@
 
 **Модули** (`src/modules/`):
 - `auth` — единый пароль (bcrypt) + 2FA (TOTP/speakeasy), сессии в памяти или файлах
-- `media` — загрузка, magic bytes валидация, sharp (изображения), ffmpeg (видео H.264 Baseline)
+- `media` — загрузка, magic bytes валидация, sharp (изображения), ffmpeg (видео H.264 High Level 4.0)
 - `video.queue` — очередь перекодирования, восстанавливается после рестарта
 - `playlists` — CRUD, порядок элементов; при удалении медиа — авто-удаление из плейлистов
 - `screens` — CRUD, назначение плейлиста, heartbeat, онлайн-статус
 - `screens.monitor` — периодические проверки + Telegram-уведомления
-- `player` — публичный GET `/api/player/:screenId` → плейлист + настройки + heartbeat
+- `player` — публичный GET `/api/player/:screenId` → плейлист + настройки + heartbeat; POST `/api/player/:screenId/metrics` → телеметрия воспроизведения (droppedFrames, canplayTimeMs и др.)
 - `pair` — 6-символьные коды привязки устройств, TTL 10 мин
 - `settings` — глобальные настройки, триггер перепланировки backup
 - `backup` — tar.gz архив `data/`, cron-планировщик (node-cron), async spawn
@@ -49,7 +49,7 @@ android-app/           # Kotlin Android приложение (WebView)
 - **Atomic write** для ВСЕХ JSON файлов — использовать `src/utils/atomicWrite.js`
 - **Не трогать** `node_modules/`, `data/`, `uploads/` без явного запроса
 - **pollInterval** минимум 10 сек — rate limiter 3 req/10sec per screenId
-- **Видео** кодируется в H.264 Baseline profile level 3.1 (`-profile:v baseline -level 3.1`)
+- **Видео** кодируется в H.264 High profile level 4.0 (`-profile:v high -level 4.0`), `-crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart`
 - **videoMaxWidth** по умолчанию 1920px — защита от 4K видео
 - **requireAuth** применяется на уровне router mount в `server.js`, а не в route-файлах
 - **НЕ добавлять** разделы changelog/изменения в `docs-content.js` — документация описывает текущее состояние системы, не историю изменений
@@ -60,6 +60,8 @@ android-app/           # Kotlin Android приложение (WebView)
 - `getPlaylistSignature()` — сравнение без URL (cache-buster `?v=`). При изменении структуры сохраняет позицию по id
 - `preloadFallbackTimer` — 3 сек fallback если canplay/loadedmetadata не сработали на слабом WebView
 - `addEventListener('canplay', ..., { once: true })` — one-shot обработчики, не использовать oncanplay
+- `activeBlobUrls` Map — blob URL создаются **только в офлайн-режиме** (`!navigator.onLine`). В онлайне `video.src = url` напрямую (Nginx стримит через Range)
+- `sendMetrics()` вызывается **только** в `playVideo()` → `onended`. Promoted preload path (`playNext()`) метрики не отправляет — только первое видео каждой сессии
 
 ### При правках admin JS:
 - `showUndoToast` — каскадное удаление через `setTimeout(fn, 0)`, не синхронно
@@ -68,7 +70,7 @@ android-app/           # Kotlin Android приложение (WebView)
 
 ## Известные особенности (не баги)
 
-- **SW Cache API**: все медиа (видео + изображения) кэшируются в Cache API для офлайн-воспроизведения. Range-запросы для видео обслуживаются из кэша через `blob.slice()`. Лимит кэша (`cacheMaxSizeMb`, по умолчанию 2048 МБ) задаётся в настройках админки и передаётся в SW. При превышении лимита самые большие видео удаляются первыми. При удалении медиа из плейлиста — кэш на устройстве очищается автоматически при следующем poll.
+- **SW Cache API**: все медиа (видео + изображения) кэшируются в Cache API для офлайн-воспроизведения. В онлайне видео стримит Nginx через Range-запросы напрямую (SW не участвует в воспроизведении). В офлайне `player.js` читает полный файл из кэша через `toBlobUrl()` → blob URL. `enforceLimit()` использует `sizeMap` (Content-Length при `cache.put()`) — без `resp.blob()`. Лимит кэша (`cacheMaxSizeMb`, по умолчанию 2048 МБ) задаётся в настройках админки. При превышении лимита самые большие видео удаляются первыми. При удалении медиа из плейлиста — кэш очищается автоматически при следующем poll.
 - **Nginx /uploads/**: раздаётся напрямую через sendfile, минуя Node.js
 - **Backup**: async spawn (не блокирует event loop), isRunning guard, lock-файл `data/.backup.lock`
 - **Telegram**: exponential backoff с jitter, валидация token/chatId, парсинг JSON ответа
@@ -87,7 +89,7 @@ android-app/           # Kotlin Android приложение (WebView)
 ## Целевые устройства
 
 - **Android приставка H96Max**, 2GB RAM, Android 10+
-- WebView-плеер, аппаратное декодирование H.264 Baseline
+- WebView-плеер, аппаратное декодирование H.264 High Level 4.0
 - **Слабый чип** — не использовать `preload="auto"` для prefetch, не держать 2 video в DOM одновременно
 - `preload="metadata"` + fallback timer 3 сек для prefetch
 

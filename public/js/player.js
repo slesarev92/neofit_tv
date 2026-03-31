@@ -33,11 +33,15 @@
   let preloadFallbackTimer = null;
   let isTransitioning = false;
   let transitionSafetyTimer = null;
-  let activeBlobUrls = new Map(); // url → blobUrl, for cleanup
+  let activeBlobUrls = new Map();
   let itemErrorCount = new Map();
 
+  // Detect native ExoPlayer bridge (Android APK with VideoPlayerManager)
+  var hasNativePlayer = typeof window.NativePlayer !== 'undefined';
+  if (DEBUG) console.log('[Player] NativePlayer:', hasNativePlayer ? 'available' : 'not available (WebView fallback)');
+
   // =========================================================
-  //  Blob URL helpers — fetch from cache, create blob URL for native playback
+  //  Blob URL helpers — WebView fallback only (not used with NativePlayer)
   // =========================================================
   function toBlobUrl(mediaUrl) {
     var existing = activeBlobUrls.get(mediaUrl);
@@ -207,6 +211,8 @@
       if (currentItem) {
         itemErrorCount.set(currentItem.id, (itemErrorCount.get(currentItem.id) || 0) + 1);
       }
+      // Stop native player to prevent late STATE_ENDED callback
+      if (hasNativePlayer) NativePlayer.stopVideo();
       isTransitioning = false;
       clearTimeout(transitionSafetyTimer);
       playNext();
@@ -325,6 +331,7 @@
   // =========================================================
   function showPlaceholder(title, subtitle) {
     clearWatchdog();
+    if (hasNativePlayer) NativePlayer.stopVideo();
     clearMediaElements();
     placeholder.style.display = 'flex';
     if (title) placeholder.querySelector('h2').textContent = title;
@@ -376,7 +383,6 @@
         el.onstalled = null;
         el.oncanplay = null;
         el.onloadedmetadata = null;
-        // Revoke blob URL if video src is a blob
         if (el.src && el.src.startsWith('blob:')) {
           URL.revokeObjectURL(el.src);
         }
@@ -395,7 +401,7 @@
     clearTimeout(transitionSafetyTimer);
     transitionSafetyTimer = setTimeout(function () { isTransitioning = false; }, 10000);
 
-    // P4: find next item, skipping those with >= 3 errors
+    // Find next item, skipping those with >= 3 errors
     var nextIndex = (currentIndex + 1) % currentPlaylist.items.length;
     var skipAttempts = 0;
     while (skipAttempts < currentPlaylist.items.length) {
@@ -406,8 +412,12 @@
       skipAttempts++;
     }
     if (skipAttempts >= currentPlaylist.items.length) {
-      if (DEBUG) console.warn('[Player] All items errored, resetting counts');
+      if (DEBUG) console.warn('[Player] All items errored, pausing 10s before retry');
       itemErrorCount.clear();
+      isTransitioning = false;
+      clearTimeout(transitionSafetyTimer);
+      setTimeout(playNext, 10000);
+      return;
     }
 
     const item = currentPlaylist.items[nextIndex];
@@ -464,6 +474,8 @@
         });
         isTransitioning = false; clearTimeout(transitionSafetyTimer);
       } else {
+        // Promoted preload: image
+        if (hasNativePlayer) NativePlayer.stopVideo();
         const duration = (item.duration || settings.imageDuration || 10) * 1000;
         resetWatchdog(duration * 2);
         currentIndex = nextIndex;
@@ -488,7 +500,7 @@
     clearTimeout(imageTimer);
     clearWatchdog();
     clearTimeout(preloadFallbackTimer);
-    // Убираем preloaded-слот если есть (он не пригодился)
+    // Clean up unused preloaded element
     if (preloadedNextEl) {
       if (preloadedNextEl.tagName === 'VIDEO') {
         if (preloadedNextEl.src && preloadedNextEl.src.startsWith('blob:')) URL.revokeObjectURL(preloadedNextEl.src);
@@ -503,8 +515,10 @@
     }
 
     if (item.media.mimeType.startsWith('video/')) {
-      playVideo(item);
+      if (hasNativePlayer) playVideoNative(item);
+      else playVideoWebView(item);
     } else {
+      if (hasNativePlayer) NativePlayer.stopVideo();
       playImage(item);
     }
     startPreloadNext();
@@ -529,7 +543,14 @@
     preloadedNextIndex = nextIndex;
     preloadedReady = false;
 
+    // Native video preload — cache to disk via CacheWriter, no DOM element
+    if (hasNativePlayer && nextItem.media.mimeType.startsWith('video/')) {
+      NativePlayer.preloadVideo(nextItem.media.url);
+      return;
+    }
+
     if (nextItem.media.mimeType.startsWith('video/')) {
+      // WebView fallback: hidden <video> element for preload
       const video = document.createElement('video');
       video.classList.add('preload-slot');
       video.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;visibility:hidden;pointer-events:none;';
@@ -546,12 +567,11 @@
         container.appendChild(video);
       } else {
         toBlobUrl(nextItem.media.url).then(function (result) {
-          if (preloadedNextEl !== video) return; // playlist changed while loading
+          if (preloadedNextEl !== video) return;
           video.src = result.src;
           container.appendChild(video);
         });
       }
-      // P3: fallback — if canplay/loadedmetadata don't fire in 3s on weak WebView, mark ready
       clearTimeout(preloadFallbackTimer);
       preloadFallbackTimer = setTimeout(function () {
         if (preloadedNextEl === video && !preloadedReady) preloadedReady = true;
@@ -569,7 +589,42 @@
     }
   }
 
-  function playVideo(item) {
+  // =========================================================
+  //  Native video — ExoPlayer via JavascriptInterface
+  // =========================================================
+  function playVideoNative(item) {
+    removeOldMedia(null);
+    isTransitioning = false;
+    clearTimeout(transitionSafetyTimer);
+    var fallbackDuration = (item.media && item.media.duration) || 600;
+    resetWatchdog(fallbackDuration * 2 * 1000);
+    NativePlayer.playVideo(item.media.url);
+  }
+
+  // Callbacks from VideoPlayerManager.kt via evaluateJavascript
+  window.onExoVideoEnded = function () {
+    clearWatchdog();
+    var item = currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex];
+    if (item) itemErrorCount.delete(item.id);
+    playNext();
+  };
+
+  window.onExoVideoError = function (url) {
+    if (DEBUG) console.error('[Player] ExoPlayer error:', url);
+    clearWatchdog();
+    var item = currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex];
+    if (item) {
+      itemErrorCount.set(item.id, (itemErrorCount.get(item.id) || 0) + 1);
+    }
+    isTransitioning = false;
+    clearTimeout(transitionSafetyTimer);
+    setTimeout(playNext, 2000);
+  };
+
+  // =========================================================
+  //  WebView video fallback — used when NativePlayer is not available (PC browser)
+  // =========================================================
+  function playVideoWebView(item) {
     const video = document.createElement('video');
     video.muted = true;
     video.autoplay = true;
@@ -592,7 +647,6 @@
 
     video.onended = () => {
       clearWatchdog(); itemErrorCount.delete(item.id);
-      // Collect and send playback metrics
       if (video.getVideoPlaybackQuality) {
         var q = video.getVideoPlaybackQuality();
         metricsData.droppedFrames = q.droppedVideoFrames;
@@ -614,7 +668,6 @@
       setTimeout(playNext, 2000);
     };
 
-    // P5: one-shot canplay — removeOldMedia и play вызываются ровно один раз
     video.addEventListener('canplay', function () {
       metricsData.canplayTimeMs = srcSetAt > 0 ? Date.now() - srcSetAt : 0;
       removeOldMedia(video);
@@ -642,8 +695,6 @@
       }, 5000);
     };
 
-    // Online: direct URL — Nginx streams via Range, no RAM allocation
-    // Offline: blob URL from SW cache — full file in RAM
     if (navigator.onLine) {
       srcSetAt = Date.now();
       video.src = item.media.url;
@@ -699,7 +750,6 @@
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/player/sw.js').then((reg) => {
       if (DEBUG) console.log('[SW] Registered, scope:', reg.scope);
-      // Send cache limit to SW once ready
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'SET_CACHE_LIMIT',
@@ -709,7 +759,6 @@
     }).catch((err) => {
       if (DEBUG) console.error('[SW] Registration failed:', err);
     });
-    // Request persistent storage to prevent Android from evicting cache
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().then((granted) => {
         if (DEBUG) console.log('[Storage] Persistent:', granted);
@@ -719,7 +768,11 @@
 
   function notifySwPrecache(items) {
     if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
-    const urls = items.map((i) => i.media && i.media.url).filter(Boolean);
+    let urls = items.map((i) => i.media && i.media.url).filter(Boolean);
+    // When native player handles video, don't cache video in SW — ExoPlayer SimpleCache handles it
+    if (hasNativePlayer) {
+      urls = urls.filter(function (u) { return !/\.(mp4|webm|mov)(\?|$)/i.test(u); });
+    }
     // Reorder: next item first for priority precaching
     var nextUrls = urls.slice();
     if (currentIndex >= 0 && currentIndex < nextUrls.length - 1) {

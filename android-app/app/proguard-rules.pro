@@ -30,3 +30,10 @@
 # ZXing
 -keep class com.google.zxing.** { *; }
 -keep class com.journeyapps.barcodescanner.** { *; }
+
+# Media3 / ExoPlayer
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+
+# VideoPlayerManager — JavascriptInterface bridge
+-keep class com.signage.player.VideoPlayerManager { *; }
