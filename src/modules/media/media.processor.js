@@ -56,7 +56,7 @@ async function processImage(filePath, mimeType) {
 // =========================================================
 
 const COMPATIBLE_PROFILES = ['Baseline', 'Main', 'High', 'Constrained Baseline', 'Constrained High'];
-const MAX_LEVEL = 40; // H.264 Level 4.0
+const MAX_LEVEL = 41; // H.264 Level 4.1
 const MAX_BITRATE = 8_000_000; // 8 Mbps
 const MAX_FPS = 30;
 
