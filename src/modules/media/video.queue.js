@@ -9,6 +9,7 @@ const QUEUE_FILE = () => path.resolve(config.dataDir, 'processing-queue.json');
 let queue = [];
 let processing = false;
 let workerFn = null;
+let cancelled = false;
 
 async function loadQueue() {
   try {
@@ -39,21 +40,28 @@ async function processNext() {
   if (processing || queue.length === 0 || !workerFn) return;
 
   processing = true;
+  cancelled = false;
   const task = queue[0];
   logger.info('Video processing started', { mediaId: task.mediaId, file: task.filePath });
 
   try {
     const result = await workerFn(task);
-    if (task.onComplete) await task.onComplete(result);
+    if (!cancelled && task.onComplete) await task.onComplete(result);
   } catch (err) {
-    logger.error('Video processing failed', { mediaId: task.mediaId, error: err.message });
-    if (task.onComplete) await task.onComplete({ error: err.message });
+    if (!cancelled) {
+      logger.error('Video processing failed', { mediaId: task.mediaId, error: err.message });
+      if (task.onComplete) await task.onComplete({ error: err.message });
+    } else {
+      logger.info('Video processing cancelled', { mediaId: task.mediaId });
+    }
   } finally {
-    await removeTask(task.mediaId).catch((err) =>
-      logger.error('Failed to remove task from queue', { mediaId: task.mediaId, error: err.message })
-    );
+    if (!cancelled) {
+      await removeTask(task.mediaId).catch((err) =>
+        logger.error('Failed to remove task from queue', { mediaId: task.mediaId, error: err.message })
+      );
+    }
     processing = false;
-    processNext();
+    if (!cancelled) processNext();
   }
 }
 
@@ -78,4 +86,18 @@ function getStatus(mediaId) {
   return queue.some((t) => t.mediaId === mediaId);
 }
 
-module.exports = { init, add, resumeUnfinished, getStatus };
+async function clearQueue() {
+  cancelled = true;
+  const currentId = processing && queue.length > 0 ? queue[0].mediaId : null;
+  const pendingIds = queue.slice(processing ? 1 : 0).map((t) => t.mediaId);
+  const allIds = currentId ? [currentId, ...pendingIds] : pendingIds;
+
+  queue = [];
+  processing = false;
+  await saveQueue();
+
+  logger.info('Video queue cleared', { cancelled: allIds.length });
+  return allIds;
+}
+
+module.exports = { init, add, resumeUnfinished, getStatus, clearQueue };

@@ -376,6 +376,36 @@
 
     const processing = page.filter((i) => i.status === 'processing');
     processing.forEach((item) => startPolling(item.id));
+    updateQueueStopButton(processing.length > 0);
+  }
+
+  function updateQueueStopButton(hasProcessing) {
+    var existing = document.getElementById('queueStopBtn');
+    if (!hasProcessing) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) return;
+    var grid = document.getElementById('mediaGrid');
+    if (!grid) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'queueStopBtn';
+    btn.className = 'btn btn-danger btn-sm';
+    btn.style.cssText = 'margin-bottom:.75rem;display:inline-flex;align-items:center;gap:.35rem;';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Остановить очередь';
+    btn.addEventListener('click', async function () {
+      btn.disabled = true;
+      btn.textContent = 'Останавливаю...';
+      try {
+        var result = await API.cancelQueue();
+        showToast('Очередь остановлена (' + (result.cancelled || 0) + ')', 'success');
+      } catch (err) {
+        showToast(err.message || 'Ошибка остановки очереди', 'error');
+      }
+      await loadMedia();
+    });
+    grid.parentNode.insertBefore(btn, grid);
   }
 
   function startPolling(mediaId) {

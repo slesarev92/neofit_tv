@@ -156,6 +156,19 @@ function checkCompatibility(probe, maxWidth) {
 }
 
 // =========================================================
+//  Active ffmpeg command — for cancellation
+// =========================================================
+
+let activeCommand = null;
+
+function cancelCurrentJob() {
+  if (activeCommand) {
+    try { activeCommand.kill('SIGKILL'); } catch (e) { /* already dead */ }
+    activeCommand = null;
+  }
+}
+
+// =========================================================
 //  Remux — copy video stream, strip audio, add faststart
 // =========================================================
 
@@ -163,11 +176,12 @@ function remuxVideo(inputPath, durationSeconds) {
   return new Promise((resolve, reject) => {
     const tmpOutput = inputPath + '.tmp.mp4';
 
-    ffmpeg(inputPath)
+    const cmd = ffmpeg(inputPath)
       .videoCodec('copy')
       .addOptions(['-an', '-movflags', '+faststart'])
       .output(tmpOutput)
       .on('end', async () => {
+        activeCommand = null;
         try {
           const stat = await fs.stat(tmpOutput);
           const origStat = await fs.stat(inputPath);
@@ -191,10 +205,12 @@ function remuxVideo(inputPath, durationSeconds) {
         }
       })
       .on('error', async (err) => {
+        activeCommand = null;
         await fs.unlink(tmpOutput).catch(() => {});
         reject(new Error(err.message + (err.stderr ? '\n' + err.stderr : '')));
-      })
-      .run();
+      });
+    activeCommand = cmd;
+    cmd.run();
   });
 }
 
@@ -216,6 +232,7 @@ function fullTranscode(inputPath, settings, durationSeconds) {
     chain
       .output(tmpOutput)
       .on('end', async () => {
+        activeCommand = null;
         try {
           const stat = await fs.stat(tmpOutput);
           const origStat = await fs.stat(inputPath);
@@ -239,10 +256,12 @@ function fullTranscode(inputPath, settings, durationSeconds) {
         }
       })
       .on('error', async (err) => {
+        activeCommand = null;
         await fs.unlink(tmpOutput).catch(() => {});
         reject(new Error(err.message + (err.stderr ? '\n' + err.stderr : '')));
-      })
-      .run();
+      });
+    activeCommand = chain;
+    chain.run();
   });
 }
 
@@ -300,4 +319,4 @@ videoQueue.init(async (task) => {
   return compressVideo(task.filePath);
 });
 
-module.exports = { processImage, enqueueVideo, compressVideo, getVideoDuration };
+module.exports = { processImage, enqueueVideo, compressVideo, getVideoDuration, cancelCurrentJob };

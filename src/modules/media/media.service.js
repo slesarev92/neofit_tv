@@ -8,6 +8,7 @@ const playlistsRepository = require('../playlists/playlists.repository');
 const { sanitizeFilename, isAllowedMimeType, decodeFilename } = require('../../utils/fileUtils');
 const logger = require('../../utils/logger');
 const processor = require('./media.processor');
+const videoQueue = require('./video.queue');
 
 function isImage(mime) {
   return mime && mime.startsWith('image/');
@@ -136,4 +137,24 @@ async function remove(id) {
   return { ok: true };
 }
 
-module.exports = { list, getStatus, upload, remove };
+async function cancelQueue() {
+  const ids = await videoQueue.clearQueue();
+  processor.cancelCurrentJob();
+
+  for (const id of ids) {
+    const media = await mediaRepository.findById(id);
+    if (media) {
+      await mediaRepository.update(id, { status: 'ready', statusMessage: null });
+      // Clean up .tmp file in case on('error') handler didn't run yet
+      const tmpPath = path.join(path.resolve(config.uploadsDir), media.filename + '.tmp.mp4');
+      await fs.unlink(tmpPath).catch(() => {});
+    }
+  }
+
+  if (ids.length > 0) {
+    logger.info('Video queue cancelled', { count: ids.length, mediaIds: ids });
+  }
+  return { cancelled: ids.length };
+}
+
+module.exports = { list, getStatus, upload, remove, cancelQueue };

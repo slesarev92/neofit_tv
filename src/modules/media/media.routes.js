@@ -66,6 +66,15 @@ router.post('/', uploadSingle, async (req, res, next) => {
   }
 });
 
+router.delete('/queue', async (req, res, next) => {
+  try {
+    const result = await mediaService.cancelQueue();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.delete('/:id', async (req, res, next) => {
   try {
     const result = await mediaService.remove(req.params.id);
