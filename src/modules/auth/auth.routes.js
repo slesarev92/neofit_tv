@@ -22,6 +22,7 @@ router.post('/login', loginLimiter, validate([
 
     const totpEnabled = await authService.isTotpEnabled();
     if (!totpEnabled) {
+      delete req.session.pendingAuth;
       req.session.authenticated = true;
       logger.info('Successful login (no 2FA)', { ip: req.ip });
       return req.session.save((err) => {

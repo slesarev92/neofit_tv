@@ -102,9 +102,9 @@ android-app/           # Kotlin Android приложение (WebView + ExoPlaye
 
 ## Сервер (production)
 
-- **Домен:** https://s9a.ru
-- **IP:** 5.129.223.35
-- **Путь:** `/opt/digital-signage/`
+- **Домен:** https://tv.n-fit.ru
+- **IP:** 5.35.91.125
+- **Путь:** `/opt/signage/`
 - **Стек:** Node 20, PM2, Nginx, Let's Encrypt
 - **Nginx** проксирует на `127.0.0.1:3000` (не `localhost` — IPv6 проблема)
 - **Nginx** раздаёт `/uploads/` напрямую через `sendfile`, минуя Node.js
