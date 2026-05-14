@@ -11,8 +11,12 @@
 ### Fixed
 - Удалены безусловные `console.log('[media] cancelQueue …')` в `src/modules/media/media.routes.js` — спамили серверные логи. (2026-05-14)
 - Дебажные `console.log('[NP] playVideo / onExoVideoEnded / onExoVideoError')` в `public/js/player.js` обёрнуты в `if (DEBUG)` для соответствия стилю файла — больше не спамят logcat на Android-плеере. (2026-05-14)
+- `src/modules/media/video.queue.js::resumeUnfinished` теперь валидирует `processing-queue.json` (массив, элементы с `mediaId`). При повреждённом файле очередь не падает молча, а пишет warning. (2026-05-14)
+- `src/modules/media/media.service.js::cleanupStaleTmpFiles()` + вызов из `server.js` подметают orphan-`.tmp.mp4` в `uploads/` после краша Node. Раньше при `SIGTERM` ffmpeg-tmp файлы оставались на диске и копились. Sweep делается **до** `videoQueue.resumeUnfinished`, чтобы не было гонки с воркером (Linux unlink на открытом файле ломал бы финальный rename). (2026-05-14)
+- `scripts/reset-password.js` переведён на `writeFileAtomic` — сбой между байтами больше не зальёт `auth.json` мусором и не потеряет TOTP-секрет. Минимальная длина пароля поднята с 6 до 8 символов (согласовано с API `auth.routes.js:89`). (2026-05-14)
 
 ### Changed
+- `package.json` версия `2.0.0-NEO` → `3.2.0`. Соответствует реальному релизу из CHANGELOG; `/api/system/health` и UI теперь показывают актуальное значение. (2026-05-14)
 - Введена документная инфраструктура: `CLAUDE.md` (главный entry-point), `CHANGELOG.md`, `docs/AUDIT.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`. Старые `lagi.md` и `v2.md` перенесены в `docs/archive/`. (2026-05-14)
 
 ---

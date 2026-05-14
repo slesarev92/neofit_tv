@@ -7,12 +7,13 @@
 const fs = require('fs').promises;
 const path = require('path');
 const bcrypt = require('bcrypt');
+const { writeFileAtomic } = require('../src/utils/atomicWrite');
 
 require('dotenv').config();
 
 const DATA_DIR = process.env.DATA_DIR || './data';
 const AUTH_FILE = path.resolve(DATA_DIR, 'auth.json');
-const MIN_LENGTH = 6;
+const MIN_LENGTH = 8;
 const BCRYPT_ROUNDS = 10;
 
 async function main() {
@@ -41,7 +42,7 @@ async function main() {
       // Файла нет или пустой — создаём только passwordHash
     }
     await fs.mkdir(path.dirname(AUTH_FILE), { recursive: true });
-    await fs.writeFile(AUTH_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    await writeFileAtomic(AUTH_FILE, JSON.stringify(data, null, 2));
     console.log('✅ Пароль успешно изменён');
   } catch (err) {
     console.error('Ошибка:', err.message);

@@ -77,10 +77,16 @@ function init(worker) {
 
 async function resumeUnfinished(onComplete) {
   const saved = await loadQueue();
-  if (saved.length === 0) return;
+  if (!Array.isArray(saved) || saved.length === 0) {
+    if (saved && !Array.isArray(saved)) {
+      logger.warn('Processing queue file is not an array, ignoring', { type: typeof saved });
+    }
+    return;
+  }
 
   logger.info('Resuming unfinished video tasks', { count: saved.length });
   for (const task of saved) {
+    if (!task || !task.mediaId) continue;
     task.onComplete = onComplete(task.mediaId);
     queue.push(task);
   }

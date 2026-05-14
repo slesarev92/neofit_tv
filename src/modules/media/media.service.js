@@ -161,6 +161,27 @@ async function cancelQueue() {
   return { cancelled: ids.length };
 }
 
+// Sweep orphan .tmp.mp4 files from a previous crash. Safe to call only at
+// startup before videoQueue.resumeUnfinished — by then no ffmpeg is running.
+async function cleanupStaleTmpFiles() {
+  const dir = path.resolve(config.uploadsDir);
+  try {
+    const names = await fs.readdir(dir);
+    const stale = names.filter((n) => n.endsWith('.tmp.mp4'));
+    if (stale.length === 0) return 0;
+    let removed = 0;
+    for (const name of stale) {
+      const ok = await fs.unlink(path.join(dir, name)).then(() => true).catch(() => false);
+      if (ok) removed++;
+    }
+    logger.info('Cleaned up stale .tmp.mp4 files', { found: stale.length, removed });
+    return removed;
+  } catch (err) {
+    if (err.code !== 'ENOENT') logger.warn('Stale tmp cleanup failed', { error: err.message });
+    return 0;
+  }
+}
+
 async function cancelMediaProcessing(id) {
   const media = await mediaRepository.findById(id);
   if (!media || media.status !== 'processing') {
@@ -189,4 +210,4 @@ async function cancelMediaProcessing(id) {
   return { ok: false, status: 404, error: 'Файл не в очереди обработки' };
 }
 
-module.exports = { list, getStatus, upload, remove, cancelQueue, cancelMediaProcessing };
+module.exports = { list, getStatus, upload, remove, cancelQueue, cancelMediaProcessing, cleanupStaleTmpFiles };

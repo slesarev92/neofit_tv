@@ -23,6 +23,7 @@ const settingsRoutes = require('./src/modules/settings/settings.routes');
 
 const screenMonitor = require('./src/modules/screens/screens.monitor');
 const videoQueue = require('./src/modules/media/video.queue');
+const mediaService = require('./src/modules/media/media.service');
 const mediaRepository = require('./src/modules/media/media.repository');
 const settingsRepository = require('./src/modules/settings/settings.repository');
 const backupScheduler = require('./src/modules/backup/backup.scheduler');
@@ -174,17 +175,24 @@ initAuth()
       logger.info(`Server running on 0.0.0.0:${config.port} [${config.nodeEnv}]`);
       settingsRepository.get().then((s) => backupScheduler.startScheduler(s)).catch(() => {});
       screenMonitor.start();
-      videoQueue.resumeUnfinished((mediaId) => async (result) => {
-        if (result.error) {
-          await mediaRepository.update(mediaId, { status: 'error', statusMessage: result.error });
-        } else {
-          await mediaRepository.update(mediaId, {
-            status: 'ready',
-            compressedSize: result.compressedSize,
-            ...(result.durationSeconds != null && { durationSeconds: result.durationSeconds }),
-          });
-        }
-      }).catch((err) => logger.error('Queue resume failed', { error: err.message }));
+      // Sweep orphan .tmp.mp4 from a previous crash BEFORE the queue worker
+      // starts — otherwise on Linux a stale unlink can race with an in-flight
+      // ffmpeg writing the same name and break its final rename.
+      mediaService.cleanupStaleTmpFiles()
+        .catch((err) => logger.warn('Stale tmp cleanup raised', { error: err.message }))
+        .finally(() => {
+          videoQueue.resumeUnfinished((mediaId) => async (result) => {
+            if (result.error) {
+              await mediaRepository.update(mediaId, { status: 'error', statusMessage: result.error });
+            } else {
+              await mediaRepository.update(mediaId, {
+                status: 'ready',
+                compressedSize: result.compressedSize,
+                ...(result.durationSeconds != null && { durationSeconds: result.durationSeconds }),
+              });
+            }
+          }).catch((err) => logger.error('Queue resume failed', { error: err.message }));
+        });
     });
   })
   .catch((err) => {
