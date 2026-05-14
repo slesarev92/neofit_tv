@@ -56,7 +56,9 @@ class VideoPlayerManager(
     private var currentUrl: String? = null
     private var preloadingUrl: String? = null
     private var activeCacheWriter: CacheWriter? = null
-    private var released = false
+    // Read from preloadExecutor (background) and from main thread; volatile
+    // ensures the background thread sees the release() write promptly.
+    @Volatile private var released = false
 
     init {
         // Disk cache — LRU eviction, survives app restarts

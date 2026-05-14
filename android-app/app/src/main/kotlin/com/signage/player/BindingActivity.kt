@@ -132,7 +132,9 @@ class BindingActivity : AppCompatActivity() {
         isDestroyed = true
         pollRunnable?.let { handler.removeCallbacks(it) }
         countdownRunnable?.let { handler.removeCallbacks(it) }
-        executor.shutdown()
+        // shutdownNow interrupts in-flight HTTP threads — shutdown() lets them
+        // keep polling /api/pair/:code against a dead activity.
+        executor.shutdownNow()
     }
 
     private fun fetchCode() {
@@ -147,9 +149,9 @@ class BindingActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.bindingGetCode)?.isEnabled = false
         executor.execute {
+            var conn: HttpURLConnection? = null
             try {
-                val url = URL("$baseUrl/api/pair/init")
-                val conn = url.openConnection() as HttpURLConnection
+                conn = URL("$baseUrl/api/pair/init").openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 10_000
@@ -157,7 +159,6 @@ class BindingActivity : AppCompatActivity() {
                 val code = conn.responseCode
                 val body = conn.inputStream?.bufferedReader()?.readText()
                     ?: conn.errorStream?.bufferedReader()?.readText() ?: ""
-                conn.disconnect()
                 handler.post {
                     if (isFinishing) return@post
                     if (code in 200..299) {
@@ -176,6 +177,8 @@ class BindingActivity : AppCompatActivity() {
                         findViewById<Button>(R.id.bindingGetCode)?.isEnabled = true
                     }
                 }
+            } finally {
+                conn?.disconnect()
             }
         }
     }
@@ -260,15 +263,14 @@ class BindingActivity : AppCompatActivity() {
         pollRunnable = object : Runnable {
             override fun run() {
                 executor.execute {
+                    var conn: HttpURLConnection? = null
                     try {
-                        val url = URL("$baseUrl/api/pair/$code")
-                        val conn = url.openConnection() as HttpURLConnection
+                        conn = URL("$baseUrl/api/pair/$code").openConnection() as HttpURLConnection
                         conn.requestMethod = "GET"
                         conn.connectTimeout = 8_000
                         conn.readTimeout = 8_000
                         conn.connect()
                         val body = conn.inputStream?.bufferedReader()?.readText() ?: ""
-                        conn.disconnect()
                         val obj = org.json.JSONObject(body)
                         val status = obj.optString("status")
                         if (status == "paired") {
@@ -280,7 +282,9 @@ class BindingActivity : AppCompatActivity() {
                                 return@execute
                             }
                         }
-                    } catch (_: Exception) { }
+                    } catch (_: Exception) { } finally {
+                        conn?.disconnect()
+                    }
                     if (!isDestroyed) {
                         handler.postDelayed(pollRunnable!!, POLL_INTERVAL_MS)
                     }

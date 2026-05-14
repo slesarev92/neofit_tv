@@ -47,6 +47,21 @@ _Пусто._ Все пункты разобраны в сессии 2026-05-14:
 ### `src/modules/backup/backup.service.js:132-145` — `spawnSync('tar', …)`
 На prod-Linux работает штатно. В Windows dev `tar` есть с Win10 1803+ (bsdtar в System32), но в окружениях без него (старая Win, без Git-Bash/WSL) восстановление из архива упадёт. Не блокирует регулярную работу — только функцию restore.
 
+### `android-app/.../BindingActivity.kt::qrBitmap` (строки 220-236) — `setPixel` в цикле
+Для 400×400 QR-кода = 160K вызовов `Bitmap.setPixel()`. Должно быть int[] array + один `setPixels()`. Видно глазом как «лаг при создании QR-кода» на слабом железе. Perf-only, не баг.
+
+### `AndroidManifest.xml:49-66` — `BootReceiver` и `UsbReceiver` `exported="true"` без `android:permission`
+Технически любое приложение может бродкастить `BOOT_COMPLETED` / `MEDIA_MOUNTED` им. На практике для отправки этих action'ов нужны системные права (`android.permission.RECEIVE_BOOT_COMPLETED` и т.п.) — обычное приложение не сможет. Низкий реальный риск. Best practice — добавить `android:permission` или дополнительный action validation, но не срочно.
+
+### `VideoPlayerManager.kt:194-198` — `callJs()` без error logging
+`webView.evaluateJavascript(script, null)` молча игнорирует исключения в JS-коде. Если `window.onExoVideoEnded` или `onExoVideoError` упадут с ошибкой, ничего не залогируется. Можно передать callback и логировать. Не баг, но затрудняет диагностику.
+
+### `VideoPlayerManager.kt:66` — `SimpleCache` инстанс на activity, не singleton
+Если каким-то образом запустится второй `VideoPlayerManager` (например, две Activity или recreate без onDestroy первой), второй вызов `SimpleCache(cacheDir, …)` бросит `IllegalStateException` — кэш-инстансы эксклюзивны на директорию. Сейчас `MainActivity` `launchMode="singleInstance"` + `configChanges="orientation|screenSize|keyboardHidden"` (recreate отключен) — практически не воспроизводится. Но если когда-нибудь добавится сценарий recreate, надо будет вынести cache в singleton `App`-уровня.
+
+### `MainActivity.kt:39, 161-167` — `handleFirstRunOrUpdate()` пустой
+`KEY_LAST_VERSION` пишется при апдейте, но логики migration/first-run внутри нет. Либо это заглушка под будущее (тогда комментарий бы помог), либо dead code. Не баг.
+
 ---
 
 ## False alarms (для истории — повторно не искать)

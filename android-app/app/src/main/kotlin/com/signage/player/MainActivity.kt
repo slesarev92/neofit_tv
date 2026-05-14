@@ -66,7 +66,10 @@ class MainActivity : AppCompatActivity() {
 
         try {
             setContentView(R.layout.activity_main)
-            WebView.setWebContentsDebuggingEnabled(true)
+            // Remote DevTools inspection only in debug builds — release builds
+            // should not expose page state over adb (anyone with USB access could
+            // grab tokens, screenId, or change settings via JS).
+            WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
             val wv = findViewById<WebView>(R.id.webView)
             webView = wv
             setupWebView(wv)
@@ -194,18 +197,22 @@ class MainActivity : AppCompatActivity() {
             databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
             cacheMode = WebSettings.LOAD_DEFAULT
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // Compatibility mode: still allows passive sub-resources (images,
+            // CSS) from http when the page is https, but blocks active mixed
+            // content (scripts, iframes, XHR). ALWAYS_ALLOW was too permissive.
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             useWideViewPort = true
             loadWithOverviewMode = true
             builtInZoomControls = false
             displayZoomControls = false
         }
         wv.setLayerType(View.LAYER_TYPE_NONE, null)
-        // Прозрачный 1×1 poster вместо стандартной иконки Play на видео
+        // Прозрачный 1×1 poster вместо стандартной иконки Play на видео.
+        // Один общий bitmap — WebView вызывает геттер часто, новый bitmap
+        // на каждый вызов оставлял несколько KB пиксельных буферов на каждый.
+        val transparentPoster = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         wv.webChromeClient = object : WebChromeClient() {
-            override fun getDefaultVideoPoster(): Bitmap? {
-                return Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
-            }
+            override fun getDefaultVideoPoster(): Bitmap = transparentPoster
         }
     }
 

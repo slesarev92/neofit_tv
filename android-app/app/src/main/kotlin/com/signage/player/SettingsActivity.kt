@@ -63,17 +63,18 @@ class SettingsActivity : AppCompatActivity() {
         }
         val urlToCheck = "$serverUrl/player/index.html"
         executor.execute {
+            val start = System.currentTimeMillis()
+            var conn: HttpURLConnection? = null
             try {
-                val start = System.currentTimeMillis()
-                val conn = URL(urlToCheck).openConnection() as HttpURLConnection
+                conn = URL(urlToCheck).openConnection() as HttpURLConnection
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 10_000
                 conn.requestMethod = "GET"
                 conn.connect()
                 val code = conn.responseCode
-                conn.disconnect()
                 val timeMs = System.currentTimeMillis() - start
                 handler.post {
+                    if (isFinishing || isDestroyed) return@post
                     Toast.makeText(
                         this@SettingsActivity,
                         getString(R.string.connection_ok, code, timeMs),
@@ -82,12 +83,15 @@ class SettingsActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 handler.post {
+                    if (isFinishing || isDestroyed) return@post
                     Toast.makeText(
                         this@SettingsActivity,
                         getString(R.string.connection_error, e.message ?: getString(R.string.connection_error_unknown)),
                         Toast.LENGTH_LONG
                     ).show()
                 }
+            } finally {
+                conn?.disconnect()
             }
         }
     }
@@ -175,6 +179,9 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        executor.shutdown()
+        // shutdownNow interrupts in-flight checkConnection threads — the
+        // alternative shutdown() lets them keep running and post Toast on a
+        // dead activity (despite the isFinishing guards, race is possible).
+        executor.shutdownNow()
     }
 }
