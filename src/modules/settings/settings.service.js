@@ -80,10 +80,6 @@ function validate(data) {
     const v = Number(data.monitorCheckIntervalSec);
     if (!Number.isInteger(v) || v < 5 || v > 120) errors.push('monitorCheckIntervalSec: 5–120');
   }
-  if (data.onlineThresholdMultiplier !== undefined && data.onlineThresholdMultiplier !== null && data.onlineThresholdMultiplier !== '') {
-    const v = Number(data.onlineThresholdMultiplier);
-    if (!Number.isFinite(v) || v < 1 || v > 5) errors.push('onlineThresholdMultiplier: 1–5');
-  }
   if (data.maxFileSizeMb !== undefined) {
     const v = Number(data.maxFileSizeMb);
     if (!Number.isInteger(v) || v < 10 || v > 2000) errors.push('maxFileSizeMb: 10–2000');
@@ -159,14 +155,6 @@ async function update(data) {
     }
   }
   if (data.monitorCheckIntervalSec !== undefined) setNum('monitorCheckIntervalSec', data.monitorCheckIntervalSec, 5, 120);
-  if (data.onlineThresholdMultiplier !== undefined) {
-    if (data.onlineThresholdMultiplier === null || data.onlineThresholdMultiplier === '') {
-      sanitized.onlineThresholdMultiplier = null;
-    } else {
-      const v = Number(data.onlineThresholdMultiplier);
-      if (Number.isFinite(v) && v >= 1 && v <= 5) sanitized.onlineThresholdMultiplier = v;
-    }
-  }
   if (data.maxFileSizeMb !== undefined) setNum('maxFileSizeMb', data.maxFileSizeMb, 10, 2000);
   if (data.backupKeepCount !== undefined) sanitized.backupKeepCount = Math.min(90, Math.max(10, Math.round(Number(data.backupKeepCount)) || 30));
   if (data.backupScheduleEnabled !== undefined) sanitized.backupScheduleEnabled = Boolean(data.backupScheduleEnabled);

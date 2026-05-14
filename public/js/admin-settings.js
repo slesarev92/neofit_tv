@@ -49,50 +49,18 @@
     if (!hintEl) return;
     var pollInterval = parseInt(getValue('pollInterval'), 10);
     if (!Number.isInteger(pollInterval) || pollInterval < 10) pollInterval = 10;
-    var multiplierRaw = (getValue('onlineThresholdMultiplier') || '').trim();
-    var multiplier = multiplierRaw === '' ? NaN : parseFloat(multiplierRaw);
-
-    var requested;
-    if (Number.isFinite(multiplier) && multiplier > 0) {
-      requested = pollInterval * multiplier;
-    } else {
-      var thr = parseInt(getValue('onlineThreshold'), 10);
-      requested = Number.isInteger(thr) && thr > 0 ? thr : (pollInterval + 5);
-    }
+    var thr = parseInt(getValue('onlineThreshold'), 10);
+    var requested = Number.isInteger(thr) && thr > 0 ? thr : (pollInterval + 5);
     var minThreshold = pollInterval * 2;
     var effective = Math.max(requested, minThreshold);
-    var clamped = effective > requested + 0.001;
+    var clamped = effective > requested;
 
     if (clamped) {
-      hintEl.textContent = 'Эффективный порог: ' + Math.round(effective) + ' сек (увеличен до 2× интервала опроса = ' + minThreshold + ')';
+      hintEl.textContent = 'Эффективный порог: ' + effective + ' сек (увеличен до 2× интервала опроса = ' + minThreshold + ')';
       hintEl.style.color = 'var(--warning, #d97706)';
     } else {
-      hintEl.textContent = 'Эффективный порог: ' + Math.round(effective) + ' сек';
+      hintEl.textContent = 'Эффективный порог: ' + effective + ' сек';
       hintEl.style.color = 'var(--gray-500)';
-    }
-  }
-
-  function updateThresholdModeHint(mode) {
-    var thresholdEl = getEl('onlineThreshold');
-    var multiplierEl = getEl('onlineThresholdMultiplier');
-    var isMultiplier = mode === 'multiplier';
-    if (thresholdEl) thresholdEl.style.opacity = isMultiplier ? '0.5' : '';
-    if (multiplierEl) multiplierEl.style.opacity = isMultiplier ? '' : '0.5';
-    var hintId = '_thresholdModeHint';
-    var existing = document.getElementById(hintId);
-    if (!existing) {
-      var multiplierGroup = multiplierEl && multiplierEl.closest('.form-group');
-      if (multiplierGroup) {
-        existing = document.createElement('small');
-        existing.id = hintId;
-        existing.style.cssText = 'display:block;margin-top:0.25rem;color:var(--gray-500);font-size:.75rem;';
-        multiplierGroup.appendChild(existing);
-      }
-    }
-    if (existing) {
-      existing.textContent = isMultiplier
-        ? 'Активен: множитель (приоритет над фиксированным порогом)'
-        : 'Активен: фиксированный порог';
     }
   }
 
@@ -111,8 +79,6 @@
     setOffHoursImagePreview(s.workScheduleOffImageUrl || null);
     setValue('onlineThreshold', s.onlineThreshold ?? 30);
     setValue('monitorCheckIntervalSec', s.monitorCheckIntervalSec ?? 10);
-    setValue('onlineThresholdMultiplier', s.onlineThresholdMultiplier == null ? '' : s.onlineThresholdMultiplier);
-    updateThresholdModeHint(s.activeThresholdMode || ((s.onlineThresholdMultiplier != null && Number(s.onlineThresholdMultiplier) > 0) ? 'multiplier' : 'fixed'));
     updateEffectiveThreshold();
     setValue('maxFileSizeMb', s.maxFileSizeMb ?? 500);
     setValue('videoCrf', s.videoCrf ?? 23);
@@ -236,12 +202,10 @@
     };
   }
   function collectMonitor() {
-    var mul = getValue('onlineThresholdMultiplier').trim();
     return {
       // Fallback matches DEFAULTS.onlineThreshold in settings.repository.js
       onlineThreshold: parseInt(getValue('onlineThreshold'), 10) || 30,
       monitorCheckIntervalSec: parseInt(getValue('monitorCheckIntervalSec'), 10) || 10,
-      onlineThresholdMultiplier: mul === '' ? null : parseFloat(mul),
     };
   }
   function collectMedia() {
@@ -461,14 +425,7 @@
       }
     });
 
-    var mulInput = document.getElementById('onlineThresholdMultiplier');
-    if (mulInput) {
-      mulInput.addEventListener('input', function () {
-        var v = this.value.trim();
-        updateThresholdModeHint((v !== '' && Number(v) > 0) ? 'multiplier' : 'fixed');
-      });
-    }
-    ['pollInterval', 'onlineThreshold', 'onlineThresholdMultiplier'].forEach(function (id) {
+    ['pollInterval', 'onlineThreshold'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', updateEffectiveThreshold);
     });

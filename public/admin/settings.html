@@ -217,10 +217,6 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
                 <label for="monitorCheckIntervalSec" class="label-with-hint">Интервал проверки (сек) <button type="button" class="hint-icon" data-hint="Как часто сервер проверяет статус экранов и отправляет уведомления в Telegram." aria-label="Подсказка">?</button></label>
                 <input type="number" id="monitorCheckIntervalSec" min="5" max="120">
               </div>
-              <div class="form-group">
-                <label for="onlineThresholdMultiplier" class="label-with-hint">Множитель порога (1–5 или пусто) <button type="button" class="hint-icon" data-hint="Если задан: порог = интервал опроса × множитель. Иначе используется значение «Порог онлайн»." aria-label="Подсказка">?</button></label>
-                <input type="text" id="onlineThresholdMultiplier" placeholder="пусто">
-              </div>
             </div>
             <div class="section-actions">
               <button type="submit" class="btn btn-primary">Сохранить</button>

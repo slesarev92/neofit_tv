@@ -62,9 +62,6 @@ _Пусто._ Все пункты разобраны в сессии 2026-05-14:
 ### `MainActivity.kt:39, 161-167` — `handleFirstRunOrUpdate()` пустой
 `KEY_LAST_VERSION` пишется при апдейте, но логики migration/first-run внутри нет. Либо это заглушка под будущее (тогда комментарий бы помог), либо dead code. Не баг.
 
-### `settings.html` + `settings.service.js` — `onlineThresholdMultiplier` mode confusion
-Два поля «Порог онлайн» и «Множитель порога» видны одновременно. Если multiplier задан и > 0, он полностью **переопределяет** absolute threshold. UI меняет opacity и пишет «Активен: множитель» (`updateThresholdModeHint`), что помогает, но если новый админ откроет страницу впервые — увидит оба поля и не поймёт, что фиксированный порог проигнорирован. Альтернатива: радио-переключатель «фиксированный / множитель» и показ только нужного поля. Не баг — confusing UX.
-
 ### `settings.service.js::validate` — `telegramEnabled=true` с пустыми `botToken/chatId`
 Включить телеграм-уведомления через UI можно, не заполнив креды. Сохранится `{telegramEnabled:true, telegramBotToken:'', telegramChatId:''}`. Монитор молча ничего не шлёт (есть guard `if (telegramEnabled && token && chatId)`). Кнопка «Тест» вернёт «Укажите токен и Chat ID» — но первая попытка отправки реального уведомления не предупредит. Валидация при сохранении должна требовать оба поля, если enabled.
 

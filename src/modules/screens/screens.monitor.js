@@ -59,14 +59,9 @@ async function checkScreens() {
   try {
     const settings = await settingsRepository.get();
     const screens = await screensRepository.findAll();
-    let thresholdSec;
-    if (settings.onlineThresholdMultiplier != null && Number(settings.onlineThresholdMultiplier) > 0) {
-      thresholdSec = (settings.pollInterval || 10) * Number(settings.onlineThresholdMultiplier);
-    } else {
-      thresholdSec = settings.onlineThreshold || (settings.pollInterval || 10) + 5;
-    }
-    const minThreshold = (settings.pollInterval || 10) * 2;
-    thresholdSec = Math.max(thresholdSec, minThreshold);
+    const pollInterval = settings.pollInterval || 10;
+    const requestedThreshold = settings.onlineThreshold || pollInterval + 5;
+    const thresholdSec = Math.max(requestedThreshold, pollInterval * 2);
 
     const offlineScreens = [];
     const onlineScreens = [];

@@ -27,7 +27,6 @@ const DEFAULTS = {
   videoCrf: 23,
   videoMaxWidth: 1920,
   monitorCheckIntervalSec: 10,
-  onlineThresholdMultiplier: null,
   maxFileSizeMb: config.maxFileSizeMb || 500,
   backupKeepCount: 30,
   backupScheduleEnabled: false,
@@ -49,6 +48,20 @@ async function get() {
   try {
     const raw = await fs.readFile(SETTINGS_FILE(), 'utf-8');
     cache = JSON.parse(raw);
+    // One-shot migration: onlineThresholdMultiplier was removed. If the data
+    // file still has a non-null multiplier, convert it into an absolute
+    // onlineThreshold so the user's intent survives the change. Persist
+    // asynchronously; if the write fails the same migration runs next start.
+    if (cache && cache.onlineThresholdMultiplier != null && Number(cache.onlineThresholdMultiplier) > 0) {
+      const pollInterval = Number(cache.pollInterval) || 10;
+      const converted = Math.round(pollInterval * Number(cache.onlineThresholdMultiplier));
+      cache.onlineThreshold = Math.max(5, Math.min(300, converted));
+      delete cache.onlineThresholdMultiplier;
+      writeJsonAtomic(SETTINGS_FILE(), cache).catch(() => {});
+    } else if (cache && cache.onlineThresholdMultiplier !== undefined) {
+      // Stale null/0 multiplier — just drop the key on next write
+      delete cache.onlineThresholdMultiplier;
+    }
     const merged = { ...DEFAULTS, ...cache };
     if (merged.maxFileSizeMb == null) merged.maxFileSizeMb = config.maxFileSizeMb || 500;
     return merged;
