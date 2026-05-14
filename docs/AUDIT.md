@@ -50,8 +50,8 @@ _Пусто._ Все пункты разобраны в сессии 2026-05-14:
 ### `android-app/.../BindingActivity.kt::qrBitmap` (строки 220-236) — `setPixel` в цикле
 Для 400×400 QR-кода = 160K вызовов `Bitmap.setPixel()`. Должно быть int[] array + один `setPixels()`. Видно глазом как «лаг при создании QR-кода» на слабом железе. Perf-only, не баг.
 
-### `AndroidManifest.xml:49-66` — `BootReceiver` и `UsbReceiver` `exported="true"` без `android:permission`
-Технически любое приложение может бродкастить `BOOT_COMPLETED` / `MEDIA_MOUNTED` им. На практике для отправки этих action'ов нужны системные права (`android.permission.RECEIVE_BOOT_COMPLETED` и т.п.) — обычное приложение не сможет. Низкий реальный риск. Best practice — добавить `android:permission` или дополнительный action validation, но не срочно.
+### `AndroidManifest.xml` — `BootReceiver` `exported="true"` без `android:permission`
+Технически любое приложение может бродкастить `BOOT_COMPLETED`. На практике для отправки этого action'а нужны системные права (`android.permission.RECEIVE_BOOT_COMPLETED`) — обычное приложение не сможет. Низкий реальный риск. Best practice — добавить `android:permission` или дополнительный action validation, но не срочно.
 
 ### `VideoPlayerManager.kt:194-198` — `callJs()` без error logging
 `webView.evaluateJavascript(script, null)` молча игнорирует исключения в JS-коде. Если `window.onExoVideoEnded` или `onExoVideoError` упадут с ошибкой, ничего не залогируется. Можно передать callback и логировать. Не баг, но затрудняет диагностику.

@@ -21,6 +21,16 @@
 
 ### Added
 - В модалке «Отправить плейлист на экраны» экраны, на которых **уже** стоит выбираемый плейлист, теперь предварительно отмечены галочкой. Submit бидирекциональный: галочка проставленная заново — назначить; снятая с предчекнутой — отвязать. Toast разделяет «назначено: N, снято: K» для прозрачности. Если пользователь нажал «Отправить» без изменений — модалка просто закрывается с info-тостом «Изменений нет». В data-атрибутах хранится исходный `playlistId` каждого экрана, поэтому submit шлёт минимальный diff на сервер вместо тупого N запросов. (2026-05-14)
+
+### Removed
+- Удалена фича «Конфигурация плеера через USB-флешку» (читать `signage.txt` с подключённой флешки и применять URL/screenId). Чистка затронула:
+  - `android-app/.../UsbReceiver.kt` — удалён файл целиком.
+  - `AndroidManifest.xml` — удалён receiver `.UsbReceiver`, удалено разрешение `READ_EXTERNAL_STORAGE`.
+  - `app/proguard-rules.pro` — удалено keep-правило для `UsbReceiver`.
+  - `res/values/strings.xml` — удалены три строки `msg_usb_*`.
+  - `public/js/docs-content.js` — удалён раздел «Конфигурация с флешки (USB)» и упоминание в описании APK.
+  
+  Привязка устройств остаётся через коды/QR (`BindingActivity`) и ручную настройку (`SettingsActivity`). Существующий `downloadPlayerFile` в админке (генерация HTML-шортката для не-Android устройств) **не затронут** — это другая фича. (2026-05-14)
 - **Android security/hygiene фиксы:**
   - `MainActivity.kt:68` — `setWebContentsDebuggingEnabled(BuildConfig.DEBUG)` вместо `true`. В release-сборке WebView больше не доступен для удалённой инспекции через Chrome DevTools (никто с физическим/ADB-доступом не сможет вытащить screenId/PIN или менять JS на лету).
   - `MainActivity.kt:176` — `mixedContentMode = MIXED_CONTENT_COMPATIBILITY_MODE` вместо `ALWAYS_ALLOW`. Пассивные ресурсы (картинки/CSS) через HTTP всё ещё пропускаются, но активный mixed content (скрипты, XHR, iframes) блокируется — устранён вектор MITM.

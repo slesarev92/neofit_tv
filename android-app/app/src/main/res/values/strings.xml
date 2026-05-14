@@ -19,7 +19,7 @@
     <string name="connection_error">Ошибка: %1$s</string>
     <string name="connection_error_unknown">Неизвестная ошибка</string>
     <string name="notification_channel_name">Запуск плеера</string>
-    <string name="hint_server_url">https://s9a.ru</string>
+    <string name="hint_server_url">https://tv.n-fit.ru/</string>
     <string name="hint_screen_id">ID экрана</string>
     <string name="hint_current_pin">Текущий PIN</string>
     <string name="msg_pin_changed">PIN изменён</string>
@@ -27,9 +27,6 @@
     <string name="msg_screen_id_required">Укажите ID экрана</string>
     <string name="msg_invalid_url">Неверный формат URL (должен начинаться с http:// или https://)</string>
     <string name="label_settings_hint">ID экрана можно найти в разделе «Экраны» в админ-панели</string>
-    <string name="msg_usb_config_applied">✅ Конфигурация применена. Запуск плеера…</string>
-    <string name="msg_usb_file_not_found">❌ Файл signage.txt не найден на флешке</string>
-    <string name="msg_usb_invalid_format">❌ Неверный формат файла конфигурации</string>
     <string name="msg_loading">Загрузка…</string>
     <string name="msg_no_connection">Нет соединения с сервером</string>
     <string name="msg_retry">Повторить</string>

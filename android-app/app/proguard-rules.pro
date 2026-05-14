@@ -19,7 +19,6 @@
 
 # Keep BroadcastReceivers
 -keep class com.signage.player.BootReceiver { *; }
--keep class com.signage.player.UsbReceiver { *; }
 
 # Keep Service
 -keep class com.signage.player.LaunchService { *; }
