@@ -277,9 +277,17 @@
           .map(function (s) {
             var name = escapeHtml(s.name || s.id || 'Экран');
             var online = s.isOnline ? '<span class="stat-label" style="color:var(--success);margin-left:0.25rem;">● онлайн</span>' : '';
+            // Pre-check screens that already have this playlist; remember
+            // each screen's CURRENT playlistId so submit can compute the
+            // minimal diff (assign newly checked, unassign newly unchecked).
+            var isCurrent = s.playlistId === playlistId;
+            var checkedAttr = isCurrent ? ' checked' : '';
             return (
               '<label class="send-to-screens-item" style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;cursor:pointer;">' +
-              '<input type="checkbox" class="send-to-screens-checkbox" data-screen-id="' + escapeAttr(s.id) + '">' +
+              '<input type="checkbox" class="send-to-screens-checkbox"' +
+              ' data-screen-id="' + escapeAttr(s.id) + '"' +
+              ' data-current-playlist-id="' + escapeAttr(s.playlistId || '') + '"' +
+              checkedAttr + '>' +
               '<span>' + name + online + '</span></label>'
             );
           })
@@ -301,37 +309,65 @@
     var playlistId = sendToScreensPlaylistId;
     if (!playlistId) return;
     var listEl = document.getElementById('sendToScreensList');
-    var checked = listEl.querySelectorAll('.send-to-screens-checkbox:checked');
-    if (!checked.length) {
-      showToast('Выберите хотя бы один экран', 'error');
+    var allCheckboxes = listEl.querySelectorAll('.send-to-screens-checkbox');
+
+    // Diff: compare each row's current state (from data-attr captured at open
+    // time) to its checked state now. Only send requests for actual changes.
+    var toAssign = [];
+    var toUnassign = [];
+    Array.prototype.forEach.call(allCheckboxes, function (cb) {
+      var id = cb.dataset.screenId;
+      var current = cb.dataset.currentPlaylistId || '';
+      if (cb.checked && current !== playlistId) {
+        toAssign.push(id);
+      } else if (!cb.checked && current === playlistId) {
+        toUnassign.push(id);
+      }
+    });
+
+    var totalOps = toAssign.length + toUnassign.length;
+    if (totalOps === 0) {
+      showToast('Изменений нет', 'info');
+      closeSendToScreensModal();
       return;
     }
-    var screenIds = Array.prototype.map.call(checked, function (cb) { return cb.dataset.screenId; }).filter(Boolean);
+
     var submitBtn = document.getElementById('sendToScreensModalSubmit');
     submitBtn.disabled = true;
     var origText = submitBtn.textContent;
-    submitBtn.innerHTML = '<span class="btn-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:.4rem;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;"></span>Отправка…';
-    var promises = screenIds.map(function (id) { return API.updateScreen(id, { playlistId: playlistId }); });
-    // allSettled (not all): one transient failure shouldn't shadow N-1 successful
-    // assignments. Backend writes are now race-free (see atomicWrite tmpSeq fix),
-    // but network blips and per-screen 404s are still possible — show a clear
-    // partial-success message instead of a generic "ошибка сервера".
+    submitBtn.innerHTML = '<span class="btn-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:.4rem;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;"></span>Применение…';
+
+    var assignPromises = toAssign.map(function (id) { return API.updateScreen(id, { playlistId: playlistId }); });
+    var unassignPromises = toUnassign.map(function (id) { return API.updateScreen(id, { playlistId: null }); });
+    var promises = assignPromises.concat(unassignPromises);
+
+    // allSettled: one transient failure shouldn't hide the rest. Backend
+    // writes are race-free (see atomicWrite tmpSeq fix), but network blips
+    // and per-screen 404s are still possible.
     Promise.allSettled(promises)
       .then(function (results) {
-        var succeeded = results.filter(function (r) { return r.status === 'fulfilled'; }).length;
+        var assignResults = results.slice(0, toAssign.length);
+        var unassignResults = results.slice(toAssign.length);
+        var assignedOk = assignResults.filter(function (r) { return r.status === 'fulfilled'; }).length;
+        var unassignedOk = unassignResults.filter(function (r) { return r.status === 'fulfilled'; }).length;
+        var succeeded = assignedOk + unassignedOk;
         var failed = results.length - succeeded;
+
         if (failed === 0) {
-          showToast('Плейлист назначен на ' + succeeded + ' экран(ов)', 'success');
+          var parts = [];
+          if (assignedOk > 0) parts.push('назначено: ' + assignedOk);
+          if (unassignedOk > 0) parts.push('снято: ' + unassignedOk);
+          showToast('Готово (' + parts.join(', ') + ')', 'success');
           closeSendToScreensModal();
           loadPlaylists();
         } else if (succeeded === 0) {
           var firstErr = results.find(function (r) { return r.status === 'rejected'; });
-          var msg = (firstErr && firstErr.reason && firstErr.reason.message) || 'Ошибка назначения плейлиста';
+          var msg = (firstErr && firstErr.reason && firstErr.reason.message) || 'Ошибка применения изменений';
           showToast(msg, 'error');
           submitBtn.textContent = origText;
           submitBtn.disabled = false;
         } else {
-          showToast('Назначено на ' + succeeded + ' из ' + results.length + ' экранов, ' + failed + ' не удалось', 'error');
+          showToast('Применено: ' + succeeded + ' из ' + results.length + ', не удалось: ' + failed, 'error');
           closeSendToScreensModal();
           loadPlaylists();
         }
