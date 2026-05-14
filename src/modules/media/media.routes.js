@@ -68,9 +68,7 @@ router.post('/', uploadSingle, async (req, res, next) => {
 
 router.delete('/queue', async (req, res, next) => {
   try {
-    console.log('[media] cancelQueue called');
     const result = await mediaService.cancelQueue();
-    console.log('[media] cancelQueue result:', result);
     res.json(result);
   } catch (err) {
     next(err);

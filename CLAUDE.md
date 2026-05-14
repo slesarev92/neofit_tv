@@ -1,143 +1,207 @@
-# NeoFit TV — Digital Signage
+# CLAUDE.md — NeoFit TV / Digital Signage
 
-## Архитектура
+Главный entry-point для AI-сессий. Всё критичное должно быть здесь либо за прямой ссылкой.
 
-**Стек:** Node.js (Express) порт 3000, Nginx (443/HTTPS), данные `data/*.json`, медиа `uploads/`
+> **Внимание:** это **НЕ** Kutt-форк из глобального `~/.claude/CLAUDE.md`. Это совершенно другой проект — система управления контентом на ТВ-экранах. Игнорировать упоминания Kutt, ОРД, ЮKassa, Knex, Handlebars, PostgreSQL и Telegram-бота на grammy, которые есть в глобальном файле.
 
-**Слои:** `Routes` → валидация (express-validator) → `Services` → `Repositories` (JSON + in-memory cache)
+---
 
-**Модули** (`src/modules/`):
-- `auth` — единый пароль (bcrypt) + 2FA (TOTP/speakeasy), сессии в памяти или файлах
-- `media` — загрузка, magic bytes валидация, sharp (изображения), ffmpeg (видео H.264 High Level 4.0). Smart processing: ffprobe → совместимое видео remux (`-c:v copy`), несовместимое → полный transcode. Прогресс обработки через polling. Отмена: per-item (`/:id/cancel`) и всей очереди (`/queue`)
-- `video.queue` — очередь перекодирования (concurrency: 1), восстанавливается после рестарта. `cancelCurrent()` / `removePending()` / `clearQueue()` для отмены
-- `playlists` — CRUD, порядок элементов; при удалении медиа — авто-удаление из плейлистов
-- `screens` — CRUD, назначение плейлиста, heartbeat, онлайн-статус
-- `screens.monitor` — периодические проверки + Telegram-уведомления
-- `player` — публичный GET `/api/player/:screenId` → плейлист + настройки + heartbeat; POST `/api/player/:screenId/metrics` → телеметрия воспроизведения (droppedFrames, canplayTimeMs и др.)
-- `pair` — 6-символьные коды привязки устройств, TTL 10 мин
-- `settings` — глобальные настройки, триггер перепланировки backup
-- `backup` — tar.gz архив `data/`, cron-планировщик (node-cron), async spawn
-- `system` — CPU, RAM, диск для дашборда
+## Что это
 
-**Playlist update flow:**
-1. Админ меняет плейлист → сохраняется `data/playlists.json` + `data/screens.json`
-2. Плеер опрашивает `GET /api/player/:screenId` → получает актуальный плейлист
-3. `player.js` сравнивает через `getPlaylistSignature()` (id+type+duration, без URL) — если структура изменилась, сохраняет текущую позицию по id элемента
+Централизованная система управления контентом на удалённых ТВ-экранах в фитнес-клубе.
 
-## Структура файлов
+**Сценарий:** админ загружает видео/картинки → собирает плейлисты → назначает на экраны → Android-приставки воспроизводят контент по кругу.
 
-```
-server.js              # Entry point
-src/
-  config/index.js      # Env vars, paths
-  middleware/           # auth.js, rateLimit.js, validate.js, errorHandler.js
-  modules/             # auth, media, playlists, screens, player, pair, settings, system, backup
-  utils/               # logger.js (winston), telegram.js, atomicWrite.js
-data/                  # JSON storage (не в git)
-uploads/               # Media files
-public/
-  admin/               # Admin UI pages
-  player/              # Player HTML/JS + Service Worker
-  pair/                # Pairing page
-  js/                  # Клиентский JS (api.js, nav.js, player.js, admin-*.js, docs-content.js)
-scripts/               # backup.js, reset-password.js, backfill-video-durations.js
-android-app/           # Kotlin Android приложение (WebView + ExoPlayer)
-  MainActivity.kt      # WebView + VideoPlayerManager подключение
-  VideoPlayerManager.kt # ExoPlayer + SimpleCache + @JavascriptInterface
-  SettingsActivity.kt  # Настройки: URL, screenId, PIN
-  BindingActivity.kt   # Привязка устройств (QR)
-```
+**Масштаб:** 4 здания, 38 экранов (до 40 в обозримом будущем). Контент — видео 1–6 минут + картинки. Каналы в зданиях 100–200 Мбит/с.
 
-## Правила разработки
+**Текущая версия:** v3.2 (см. `CHANGELOG.md`). ⚠️ `package.json` показывает `2.0.0-NEO` — это устаревшее значение, требует синхронизации (зафиксировано в `docs/AUDIT.md`).
 
-- **Atomic write** для ВСЕХ JSON файлов — использовать `src/utils/atomicWrite.js`
-- **Не трогать** `node_modules/`, `data/`, `uploads/` без явного запроса
-- **pollInterval** минимум 10 сек — rate limiter 3 req/10sec per screenId
-- **Видео** — smart processing: `probeVideo()` проверяет совместимость (h264, profile ≤ High, level ≤ 4.0, width ≤ 1920, fps ≤ 30, bitrate ≤ 8Mbps). Совместимое → remux (`-c:v copy -an -movflags +faststart`, секунды). Несовместимое → полный transcode (`-crf 23 -preset medium -r 30 -maxrate 8M -bufsize 16M -an -movflags +faststart -profile:v high -level 4.0`)
-- **videoMaxWidth** по умолчанию 1920px — защита от 4K видео
-- **Отмена обработки**: `DELETE /api/media/:id/cancel` (per-item) и `DELETE /api/media/queue` (вся очередь). ffmpeg убивается через SIGTERM. `cancelled` / `currentCancelled` флаги в video.queue предотвращают race condition с onComplete
-- **requireAuth** применяется на уровне router mount в `server.js`, а не в route-файлах
-- **НЕ добавлять** разделы changelog/изменения в `docs-content.js` — документация описывает текущее состояние системы, не историю изменений
+---
 
-### При правках player.js учитывать:
-- `hasNativePlayer` — `typeof window.NativePlayer !== 'undefined'`. Определяет режим воспроизведения видео: ExoPlayer (приставка) или WebView `<video>` (ПК/браузер)
-- `playVideoNative(item)` — ExoPlayer путь. URL должен быть абсолютным: `new URL(path, window.location.origin).href`
-- `playVideoWebView(item)` — WebView `<video>` fallback для ПК-отладки. Вся старая логика сохранена без изменений
-- `window.onExoVideoEnded` / `window.onExoVideoError` — callbacks из VideoPlayerManager через evaluateJavascript
-- `isTransitioning` — флаг защиты от race condition (poll/watchdog/onended). Сбрасывать в canplay/onload/error
-- `itemErrorCount` — Map ошибок per-item. Элемент пропускается после 3 ошибок, сбрасывается при onended и смене плейлиста
-- `getPlaylistSignature()` — сравнение без URL (cache-buster `?v=`). При изменении структуры сохраняет позицию по id
-- `NativePlayer.stopVideo()` — вызывать при переходе от видео к изображению и в showPlaceholder(). НЕ вызывать при переходе видео → видео (ExoPlayer сам заменяет медиа)
-- `sendMetrics()` — работает только в WebView fallback (`playVideoWebView`). Нативный путь пока без метрик
+## Стек
 
-### При правках VideoPlayerManager.kt учитывать:
-- `hidePlayer()` — вызывать **только** в `stopVideo()` и `onPlayerError()`. **НЕ** в `onPlaybackStateChanged(STATE_ENDED)` — последний кадр должен оставаться видимым до первого кадра нового видео
-- Все `evaluateJavascript` — через `mainHandler.post {}` (UI thread)
-- URL для ExoPlayer — всегда абсолютный (передаётся из player.js)
-- `preloadVideo()` — отключён на стороне player.js (I/O конкуренция на H616). SimpleCache накапливает видео автоматически при воспроизведении
-- `released` guard — все callbacks и JS-вызовы проверяют флаг
-- `CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR` — при ошибке кэша fallback на сеть
+| Компонент | Технология |
+|-----------|-----------|
+| Backend | Node.js 20+, Express 4 |
+| HTTP-защита | helmet |
+| Хранилище данных | JSON-файлы (`data/*.json`), in-memory cache + atomic write |
+| Хранилище медиа | Локальная ФС (`uploads/`) |
+| Картинки | sharp |
+| Видео | ffmpeg + fluent-ffmpeg (smart processing: probe → remux/transcode) |
+| Сессии | express-session (memory в dev, file-store в prod) |
+| Auth | bcrypt + speakeasy (TOTP 2FA), кука `neofit.sid` |
+| Логи | winston |
+| Cron | node-cron |
+| Процесс-менеджер | PM2 (prod) |
+| Прокси | Nginx + Let's Encrypt |
+| Фронтенд | Vanilla JS, HTML, CSS (без фреймворков) |
+| Плеер (Android) | Kotlin, ExoPlayer + SurfaceView + WebView |
 
-### При правках media.processor.js учитывать:
-- `probeVideo()` → `checkCompatibility()` → remux или fullTranscode. Не менять параметры ffmpeg в fullTranscode
-- `activeCommand` — текущий ffmpeg-процесс. `cancelCurrentJob()` → SIGTERM (не SIGKILL)
-- `currentProgress` — 0-100, обновляется через `.on('progress')`. `getCurrentProgress()` для polling
+Подробности — `docs/ARCHITECTURE.md`.
 
-### При правках admin JS:
-- `showUndoToast` — каскадное удаление через `setTimeout(fn, 0)`, не синхронно
-- `escapeAttr()` — полная версия с `&`, `"`, `'`, `<` (в admin-screens.js была неполная, исправлено)
-- `maxFileSizeMb` — валидация размера на клиенте перед загрузкой
-- `uploadFiles()` — блокирует навигацию (beforeunload + sidebar disabled) на время загрузки
-- Processing cards: progress bar + `×` cancel button. Polling обновляет progress через `GET /:id/status`
+---
 
-## Известные особенности (не баги)
-
-- **Видео на приставке (ExoPlayer)**: VideoPlayerManager.kt — ExoPlayer + SurfaceView (zero-copy через hardware overlay). SimpleCache хранит видео в `cacheDir/video-cache`, LRU-eviction 2GB. После 1-2 циклов плейлиста все видео на диске → офлайн работает автоматически. `preloadVideo()` отключён намеренно — на H616 CacheWriter конкурирует за I/O с воспроизведением
-- **Видео на ПК (WebView fallback)**: `playVideoWebView()` — стандартный `<video>` элемент. `toBlobUrl()` для офлайна, `video.src = url` для онлайна (Nginx Range). Используется когда `hasNativePlayer = false`
-- **SW Cache API**: **только изображения** кэшируются в SW Cache API (видео фильтруется в `notifySwPrecache()` при `hasNativePlayer`). `enforceLimit()` использует `sizeMap` (Content-Length при `cache.put()`). Лимит кэша (`cacheMaxSizeMb`, по умолчанию 2048 МБ) задаётся в настройках админки
-- **Nginx /uploads/**: раздаётся напрямую через sendfile, минуя Node.js
-- **Backup**: async spawn (не блокирует event loop), isRunning guard, lock-файл `data/.backup.lock`
-- **Telegram**: exponential backoff с jitter, валидация token/chatId, парсинг JSON ответа
-- **Android**: `largeHeap=true`, `setRendererPriorityPolicy(IMPORTANT)` для API 26+, `LAYER_TYPE_NONE` (не HARDWARE — лишняя GPU-копия), `onTrimMemory` очищает WebView кэш, `onBackPressed` заблокирован
-
-## Сервер (production)
+## Production-сервер
 
 - **Домен:** https://tv.n-fit.ru
 - **IP:** 5.35.91.125
 - **Путь:** `/opt/signage/`
 - **Стек:** Node 20, PM2, Nginx, Let's Encrypt
-- **Nginx** проксирует на `127.0.0.1:3000` (не `localhost` — IPv6 проблема)
-- **Nginx** раздаёт `/uploads/` напрямую через `sendfile`, минуя Node.js
-- **Сервер:** 2 CPU, 2GB RAM, 40GB NVMe, 1Gbit
+- **Сервер:** 2 CPU, 2GB RAM, 40GB NVMe, 1 Гбит/с
 
-## Целевые устройства
+Процедура деплоя и отката — `docs/DEPLOYMENT.md`.
 
-- **Android приставка H96Max**, Allwinner H616, 2GB RAM, Android 10+
-- Гибридный плеер: ExoPlayer + SurfaceView для видео, WebView для изображений и UI
-- Аппаратное декодирование H.264 High Level 4.0 через MediaCodec (VPU)
-- **Слабый чип** — не конкурировать за I/O (preloadVideo отключён), один HW decoder instance
+---
 
-## Деплой
+## Структура
 
 ```
-Локально: git commit → git push → ssh → git pull + pm2 restart signage
+server.js                   # Entry point
+src/
+  config/index.js           # env vars, paths
+  middleware/               # auth, rateLimit, validate, errorHandler
+  modules/                  # auth, media, playlists, screens, player,
+                            # pair, settings, system, backup
+  utils/                    # logger (winston), telegram, atomicWrite, fileUtils
+data/                       # JSON storage (не в git)
+uploads/                    # медиа-файлы (не в git)
+backups/                    # tar.gz архивы (не в git)
+public/
+  admin/                    # админка
+  player/                   # плеер + Service Worker
+  pair/                     # страница привязки
+  js/                       # api.js, nav.js, player.js, admin-*.js, docs-content.js
+scripts/                    # backup.js, reset-password.js, backfill-video-durations.js
+android-app/                # Kotlin APK (WebView + ExoPlayer гибрид)
+nginx.conf                  # копируется на сервер вручную
+ecosystem.config.js         # PM2 config
+docs/                       # ARCHITECTURE, DEPLOYMENT, AUDIT, archive/
 ```
-- После изменений в `nginx.conf`: `sudo cp nginx.conf /etc/nginx/sites-available/signage && nginx -t && nginx -s reload`
-- APK пересобирать только если менялись файлы в `android-app/`
-- После деплоя `player.js` — перезапустить приложение на приставке (или дождаться авто-перезагрузки в 04:00)
 
-## Сессии и Windows (локальная разработка)
+---
 
-- На Windows задать `SESSION_USE_MEMORY=1` в `.env` — сессии в памяти
-- **Перед запуском убить ВСЕ процессы Node** (`taskkill /IM node.exe /F`). Zombie-процессы держат порт 3000 и старый rate limit в памяти — новый сервер не может перехватить порт, запросы идут к старому процессу
-- Проверка: `netstat -ano | grep :3000 | grep LISTEN` — должен быть ровно один PID
-- На сервере НЕ задавать `SESSION_USE_MEMORY=1` — сессии в файлах, переживают pm2 restart
+## Модули (`src/modules/`)
+
+- **`auth`** — единый пароль (bcrypt) + 2FA (TOTP). Сессии в куке `neofit.sid`. Rate limit `loginLimiter` общий для `/login` и `/verify-totp` (10 req/15 min per IP).
+- **`media`** — загрузка, magic-bytes валидация, sharp (картинки), ffmpeg (видео). Smart processing: ffprobe → совместимое = remux (`-c:v copy`), несовместимое = полный transcode. Polling прогресса. Отмена: per-item `DELETE /:id/cancel` и всей очереди `DELETE /queue`.
+- **`video.queue`** — очередь перекодирования (concurrency 1), восстанавливается после рестарта. `cancelCurrent()` / `removePending()` / `clearQueue()`.
+- **`playlists`** — CRUD, порядок элементов. При удалении медиа → авто-удаление из плейлистов.
+- **`screens`** — CRUD, назначение плейлиста, heartbeat, онлайн-статус.
+- **`screens.monitor`** — периодические проверки + Telegram-уведомления.
+- **`player`** — публичный `GET /api/player/:screenId` (плейлист + настройки + heartbeat) и `POST /:screenId/metrics` (телеметрия).
+- **`pair`** — 6-символьные коды привязки устройств, TTL 10 мин.
+- **`settings`** — глобальные настройки, триггер перепланировки backup.
+- **`backup`** — tar.gz архив `data/`, cron-планировщик, async spawn.
+- **`system`** — CPU, RAM, диск для дашборда.
+
+---
+
+## Правила разработки
+
+1. **Atomic write** для **всех** JSON в `data/` — только через `src/utils/atomicWrite.js`. Прямой `fs.writeFile` запрещён.
+2. **Не трогать** `node_modules/`, `data/`, `uploads/`, `backups/` без явного запроса.
+3. **pollInterval** ≥ 10 сек — rate limiter 3 req / 10 sec per `screenId`.
+4. **Видео smart processing:** не менять параметры ffmpeg без обоснования. Текущие — High profile, Level 4.0/4.1, `-r 30 -crf 23 -preset medium -maxrate 8M -bufsize 16M -an`. Все аргументы зафиксированы в `media.processor.js` после долгого расследования лагов (см. `docs/archive/lagi.md`).
+5. **Отмена обработки видео:** ffmpeg убивается через **SIGTERM**, не SIGKILL. `cancelled` / `currentCancelled` флаги предотвращают race с onComplete.
+6. **requireAuth** — на уровне router mount в `server.js`, **не** в route-файлах.
+7. **Документация в `public/js/docs-content.js`** — это страница помощи в админке. Туда **не** добавлять changelog. История изменений — только в `CHANGELOG.md`.
+8. **Debug-логи на фронте** — за флагом `if (DEBUG) console.log(...)`. Безусловные `console.log` в продовом коде запрещены.
+
+### При правках `public/js/player.js`
+
+- `hasNativePlayer = typeof window.NativePlayer !== 'undefined'`. Определяет ExoPlayer vs WebView fallback.
+- `playVideoNative(item)` — ExoPlayer путь, URL должен быть **абсолютным** через `new URL(path, window.location.origin).href`.
+- `playVideoWebView(item)` — `<video>` fallback для ПК-отладки.
+- `window.onExoVideoEnded` / `window.onExoVideoError` — callbacks из VideoPlayerManager.
+- `isTransitioning` — защита от гонки (poll/watchdog/onended). Сбрасывать в canplay/onload/error.
+- `itemErrorCount` — Map ошибок per-item. Skip после 3 ошибок, reset при onended и смене плейлиста.
+- `getPlaylistSignature()` — сравнение без URL (cache-buster `?v=`). При изменении структуры сохраняет позицию по `id`.
+- `NativePlayer.stopVideo()` — **только** при переходе видео→картинка и в `showPlaceholder()`. **НЕ** при видео→видео (ExoPlayer сам заменяет).
+- `sendMetrics()` — работает только в WebView fallback. Нативный путь без метрик.
+
+### При правках `android-app/.../VideoPlayerManager.kt`
+
+- `hidePlayer()` вызывается **только** в `stopVideo()` и `onPlayerError()`. **НЕ** в `STATE_ENDED` — последний кадр должен оставаться видимым до первого кадра нового видео.
+- Все `evaluateJavascript` — через `mainHandler.post {}` (UI thread).
+- URL для ExoPlayer — всегда абсолютный (передаётся из player.js).
+- `preloadVideo()` отключён — на H616 I/O конкуренция с воспроизведением. SimpleCache накапливает видео автоматически.
+- `released` guard — все callbacks проверяют флаг.
+- `CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR` — fallback на сеть при ошибке кэша.
+
+### При правках `src/modules/media/media.processor.js`
+
+- `probeVideo()` → `checkCompatibility()` → remux или fullTranscode. Параметры ffmpeg в fullTranscode **не менять**.
+- `activeCommand` — текущий ffmpeg-процесс. `cancelCurrentJob()` → **SIGTERM** (не SIGKILL).
+- `currentProgress` 0–100, обновляется через `.on('progress')`. `getCurrentProgress()` для polling.
+
+### При правках admin JS (`public/js/admin-*.js`)
+
+- `showUndoToast` — каскадное удаление через `setTimeout(fn, 0)`, не синхронно.
+- `escapeAttr()` — полная версия с `&`, `"`, `'`, `<` (в `admin-screens.js` была неполная — исправлено).
+- `maxFileSizeMb` — валидация размера на клиенте перед загрузкой.
+- `uploadFiles()` — блокирует навигацию (`beforeunload` + sidebar disabled) на время загрузки.
+- Processing cards — progress bar + `×` cancel. Polling через `GET /:id/status`.
+
+---
+
+## Локальная разработка на Windows
+
+- В `.env` задать `SESSION_USE_MEMORY=1` — сессии в памяти (file-store на Windows ловит EPERM/ENOENT).
+- **Перед запуском убить все процессы Node:** `taskkill /IM node.exe /F`. Zombie-процессы держат порт 3000 и **старый** rate limit в памяти — новый сервер не сможет перехватить порт, запросы будут идти к старому. Проверка: `netstat -ano | findstr :3000 | findstr LISTENING` — должен быть ровно один PID.
+- Запуск: `npm run dev` (nodemon) или `npm start`.
+- На сервере `SESSION_USE_MEMORY` **не задавать** — сессии в файлах, переживают `pm2 restart`.
 
 ### Rate limiter и TOTP login
 
-- `loginLimiter` (10 req / 15 min per IP) общий для `/login` И `/verify-totp`
-- Каждая попытка входа с 2FA = 2 запроса (login + verify-totp), итого 5 полных попыток до блокировки
-- При блокировке: перезапустить сервер (rate limit в памяти) или ждать 15 минут
-- **Если после перезапуска rate limit не сбросился** — значит старый процесс node жив (см. выше)
+- При 2FA каждый вход = 2 запроса (login + verify-totp) → 5 полных попыток до блокировки (10/15min).
+- При блокировке: перезапуск сервера (rate limit в памяти) или ждать 15 минут.
+- **Если после рестарта rate limit не сбросился** — старый процесс node жив. См. выше.
 
-- **After completing any task** — update CLAUDE.md if architecture, modules, or rules changed
+---
+
+## Workflow багов и изменений
+
+Эта секция — главное, ради чего создана инфраструктура `.md`-файлов. Соблюдать строго.
+
+1. **Нашли баг / подозрительное место.** Записать в `docs/AUDIT.md` под подходящий раздел (`Confirmed bugs` / `Needs verification` / `Notes`). Каждая запись: путь:строка + короткое описание симптома.
+2. **Чините баг.** После того как фикс прошёл проверку:
+   - Удалить запись из `docs/AUDIT.md`.
+   - Добавить **одну строку** в `CHANGELOG.md` под `## [Unreleased]` → `### Fixed` (или `### Added` / `### Changed` / `### Removed` если применимо).
+3. **Релиз.** Когда `[Unreleased]` накопил содержательный набор изменений и принято решение релизить:
+   - Заменить `## [Unreleased]` на `## [X.Y.Z] — YYYY-MM-DD`.
+   - Создать новый пустой `## [Unreleased]` сверху.
+   - Bump версии в `package.json`.
+   - Создать git tag `vX.Y.Z`.
+
+**Старт новой сессии:** прочитать `CLAUDE.md` → `docs/AUDIT.md` (что висит) → `CHANGELOG.md` секцию `[Unreleased]` (что недавно делали). Этого достаточно, чтобы продолжить работу без потери контекста.
+
+---
+
+## Документация
+
+- `CHANGELOG.md` — единый источник истины «что менялось и что чинили». Keep a Changelog format.
+- `docs/AUDIT.md` — открытые баги и наблюдения. Удалять записи по мере фиксов.
+- `docs/ARCHITECTURE.md` — глубокий разбор: data flow, плеер, видео-пайплайн, pair.
+- `docs/DEPLOYMENT.md` — процедура деплоя и отката.
+- `docs/archive/` — исторические доки (lagi.md — расследование лагов видео, v2.md — план перехода на v2/v3).
+- `public/js/docs-content.js` — справка в админке для конечного пользователя. **Не путать** с этой документацией.
+
+---
+
+## Что НЕ делать без явного запроса
+
+- Не трогать `node_modules/`, `data/`, `uploads/`, `backups/`.
+- Не менять параметры ffmpeg в `media.processor.js` (см. `docs/archive/lagi.md` — почему именно так).
+- Не добавлять changelog в `public/js/docs-content.js`.
+- Не делать `git commit` без отдельного запроса. В коммитах **всегда** добавлять trailer `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+- Не push'ить APK в репо без обновления `neofit_tv.apk` в корне (он раздаётся через `/neofit_tv.apk` под auth).
+
+---
+
+## Полезные ссылки
+
+- Сервер: https://tv.n-fit.ru
+- Админка: https://tv.n-fit.ru/admin
+- Плеер: `https://tv.n-fit.ru/player/index.html?id=<screenId>`
+- PM2: `pm2 status`, `pm2 logs signage`, `pm2 restart signage`
+- Сброс пароля: `npm run reset-password <НовыйПароль>` (≥8 символов)
