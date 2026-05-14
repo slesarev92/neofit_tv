@@ -150,7 +150,7 @@
     a.download = (name || 'NeoFit_TV_Player').replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, '_') + '.html';
     a.click();
     URL.revokeObjectURL(a.href);
-    showToast('Файл скачан — откройте его с флешки на ТВ', 'success');
+    showToast('Файл скачан', 'success');
   }
 
   function getStatusLabel(screen) {
