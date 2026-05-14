@@ -40,6 +40,38 @@
     return padTimePart(h) + ':' + padTimePart(min);
   }
 
+  // Mirrors screens.service.getThresholdSec() — keeps the admin UI honest
+  // about the *effective* online threshold, which can be silently clamped up
+  // to (pollInterval × 2) by the backend. Without this hint, an admin who
+  // sets a long pollInterval is surprised by how slowly screens flip offline.
+  function updateEffectiveThreshold() {
+    var hintEl = getEl('onlineThresholdEffective');
+    if (!hintEl) return;
+    var pollInterval = parseInt(getValue('pollInterval'), 10);
+    if (!Number.isInteger(pollInterval) || pollInterval < 10) pollInterval = 10;
+    var multiplierRaw = (getValue('onlineThresholdMultiplier') || '').trim();
+    var multiplier = multiplierRaw === '' ? NaN : parseFloat(multiplierRaw);
+
+    var requested;
+    if (Number.isFinite(multiplier) && multiplier > 0) {
+      requested = pollInterval * multiplier;
+    } else {
+      var thr = parseInt(getValue('onlineThreshold'), 10);
+      requested = Number.isInteger(thr) && thr > 0 ? thr : (pollInterval + 5);
+    }
+    var minThreshold = pollInterval * 2;
+    var effective = Math.max(requested, minThreshold);
+    var clamped = effective > requested + 0.001;
+
+    if (clamped) {
+      hintEl.textContent = 'Эффективный порог: ' + Math.round(effective) + ' сек (увеличен до 2× интервала опроса = ' + minThreshold + ')';
+      hintEl.style.color = 'var(--warning, #d97706)';
+    } else {
+      hintEl.textContent = 'Эффективный порог: ' + Math.round(effective) + ' сек';
+      hintEl.style.color = 'var(--gray-500)';
+    }
+  }
+
   function updateThresholdModeHint(mode) {
     var thresholdEl = getEl('onlineThreshold');
     var multiplierEl = getEl('onlineThresholdMultiplier');
@@ -70,7 +102,6 @@
     setValue('requestTimeout', s.requestTimeout ?? 10);
     setValue('maxRetries', s.maxRetries ?? 3);
     setValue('prefetchEnabled', s.prefetchEnabled !== false, true);
-    setValue('cacheEnabled', s.cacheEnabled !== false, true);
     setValue('showLastOnError', s.showLastOnError !== false, true);
     setValue('autoReloadAt', s.autoReloadAt || '');
     setValue('workScheduleEnabled', !!s.workScheduleEnabled, true);
@@ -82,6 +113,7 @@
     setValue('monitorCheckIntervalSec', s.monitorCheckIntervalSec ?? 10);
     setValue('onlineThresholdMultiplier', s.onlineThresholdMultiplier == null ? '' : s.onlineThresholdMultiplier);
     updateThresholdModeHint(s.activeThresholdMode || ((s.onlineThresholdMultiplier != null && Number(s.onlineThresholdMultiplier) > 0) ? 'multiplier' : 'fixed'));
+    updateEffectiveThreshold();
     setValue('maxFileSizeMb', s.maxFileSizeMb ?? 500);
     setValue('videoCrf', s.videoCrf ?? 23);
     setValue('videoMaxWidth', s.videoMaxWidth == null ? '' : s.videoMaxWidth);
@@ -186,7 +218,6 @@
       requestTimeout: parseInt(getValue('requestTimeout'), 10) || 10,
       maxRetries: parseInt(getValue('maxRetries'), 10) || 3,
       prefetchEnabled: getValue('prefetchEnabled', true),
-      cacheEnabled: getValue('cacheEnabled', true),
       showLastOnError: getValue('showLastOnError', true),
     };
   }
@@ -207,7 +238,8 @@
   function collectMonitor() {
     var mul = getValue('onlineThresholdMultiplier').trim();
     return {
-      onlineThreshold: parseInt(getValue('onlineThreshold'), 10) || 15,
+      // Fallback matches DEFAULTS.onlineThreshold in settings.repository.js
+      onlineThreshold: parseInt(getValue('onlineThreshold'), 10) || 30,
       monitorCheckIntervalSec: parseInt(getValue('monitorCheckIntervalSec'), 10) || 10,
       onlineThresholdMultiplier: mul === '' ? null : parseFloat(mul),
     };
@@ -436,6 +468,10 @@
         updateThresholdModeHint((v !== '' && Number(v) > 0) ? 'multiplier' : 'fixed');
       });
     }
+    ['pollInterval', 'onlineThreshold', 'onlineThresholdMultiplier'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateEffectiveThreshold);
+    });
 
     document.getElementById('formMonitor').addEventListener('submit', async function (e) {
       e.preventDefault();

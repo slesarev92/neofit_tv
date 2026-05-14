@@ -17,7 +17,6 @@ async function getPlayerData(screenId) {
     requestTimeout: rawSettings.requestTimeout,
     maxRetries: rawSettings.maxRetries,
     prefetchEnabled: rawSettings.prefetchEnabled,
-    cacheEnabled: rawSettings.cacheEnabled,
     showLastOnError: rawSettings.showLastOnError,
     autoReloadAt: rawSettings.autoReloadAt,
     workScheduleEnabled: rawSettings.workScheduleEnabled,

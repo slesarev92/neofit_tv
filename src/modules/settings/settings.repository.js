@@ -12,7 +12,6 @@ const DEFAULTS = {
   requestTimeout: 10,
   maxRetries: 3,
   prefetchEnabled: true,
-  cacheEnabled: true,
   showLastOnError: true,
   telegramBotToken: '',
   telegramChatId: '',

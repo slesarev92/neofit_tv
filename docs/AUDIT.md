@@ -62,6 +62,27 @@ _Пусто._ Все пункты разобраны в сессии 2026-05-14:
 ### `MainActivity.kt:39, 161-167` — `handleFirstRunOrUpdate()` пустой
 `KEY_LAST_VERSION` пишется при апдейте, но логики migration/first-run внутри нет. Либо это заглушка под будущее (тогда комментарий бы помог), либо dead code. Не баг.
 
+### `settings.html` + `settings.service.js` — `onlineThresholdMultiplier` mode confusion
+Два поля «Порог онлайн» и «Множитель порога» видны одновременно. Если multiplier задан и > 0, он полностью **переопределяет** absolute threshold. UI меняет opacity и пишет «Активен: множитель» (`updateThresholdModeHint`), что помогает, но если новый админ откроет страницу впервые — увидит оба поля и не поймёт, что фиксированный порог проигнорирован. Альтернатива: радио-переключатель «фиксированный / множитель» и показ только нужного поля. Не баг — confusing UX.
+
+### `settings.service.js::validate` — `telegramEnabled=true` с пустыми `botToken/chatId`
+Включить телеграм-уведомления через UI можно, не заполнив креды. Сохранится `{telegramEnabled:true, telegramBotToken:'', telegramChatId:''}`. Монитор молча ничего не шлёт (есть guard `if (telegramEnabled && token && chatId)`). Кнопка «Тест» вернёт «Укажите токен и Chat ID» — но первая попытка отправки реального уведомления не предупредит. Валидация при сохранении должна требовать оба поля, если enabled.
+
+### `settings.service.js::validate` — `monitorCheckIntervalSec` без проверки vs `onlineThreshold`
+Если `monitorCheckIntervalSec > onlineThreshold`, монитор пропускает мгновенные оффлайны. Дефолты (10 и 30) ок, но крайних настройках возможна тишина. Можно добавить soft-warning или жёсткую валидацию `monitorCheckIntervalSec <= onlineThreshold`.
+
+### `settings.html` — `workScheduleFrom/To` не очищаются при `workScheduleEnabled=false`
+Юзер выключил расписание, оставшиеся от/до значения сохранятся. Включит обратно — внезапно применятся старые. Стоит на change checkbox или сбрасывать `workScheduleEnabled=false → from/to=null`, или disable поля визуально.
+
+### `settings.service.js::validate` — `backupScheduleMonthDays` молча фильтрует невалидное
+Юзер ввёл `0,1,32,50` — валидация пропустит (есть хоть один valid `1`), sanitization вернёт только `1`. Без уведомления о выброшенных значениях. Также: `30` и `31` будут пропущены в феврале/коротких месяцах без предупреждения.
+
+### `settings.html` — экспертные параметры `videoCrf` / `videoMaxWidth` без warning
+В CLAUDE.md прямо написано «не менять параметры ffmpeg без обоснования» — это итог расследования лагов на H616. UI спокойно даёт менять. Минимум — добавить hint «Менять только если понимаете, что делаете; параметры подобраны под слабые декодеры».
+
+### `videoMaxWidth` — три разных значения для одного смысла
+`null`, `''`, `0` все ведут к «не ограничивать», но представлены тремя разными значениями. UI placeholder `"без изменений"` ассоциирует пустоту с no-limit. Backend в sanitize нормализует все три в `null`. Поведенчески ок, но если когда-то добавится сценарий «использовать 0 как минимум» — будет конфликт. Note для бдительности.
+
 ---
 
 ## False alarms (для истории — повторно не искать)

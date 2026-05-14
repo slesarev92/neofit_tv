@@ -12,7 +12,7 @@
     return;
   }
 
-  let settings = { pollInterval: 15, requestTimeout: 25, maxRetries: 3, prefetchEnabled: true, cacheEnabled: true, showLastOnError: true, imageDuration: 10 };
+  let settings = { pollInterval: 15, requestTimeout: 25, maxRetries: 3, prefetchEnabled: true, showLastOnError: true, imageDuration: 10 };
   let currentPlaylist = null;
   let currentIndex = -1;
   let pollTimer = null;

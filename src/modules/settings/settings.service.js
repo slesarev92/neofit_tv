@@ -137,7 +137,6 @@ async function update(data) {
   if (data.requestTimeout !== undefined) setNum('requestTimeout', data.requestTimeout, 1, 120);
   if (data.maxRetries !== undefined) setNum('maxRetries', data.maxRetries, 0, 10);
   if (data.prefetchEnabled !== undefined) sanitized.prefetchEnabled = Boolean(data.prefetchEnabled);
-  if (data.cacheEnabled !== undefined) sanitized.cacheEnabled = Boolean(data.cacheEnabled);
   if (data.showLastOnError !== undefined) sanitized.showLastOnError = Boolean(data.showLastOnError);
   if (data.telegramEnabled !== undefined) sanitized.telegramEnabled = Boolean(data.telegramEnabled);
   if (data.telegramBotToken !== undefined) sanitized.telegramBotToken = String(data.telegramBotToken || '');

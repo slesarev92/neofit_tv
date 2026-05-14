@@ -121,7 +121,6 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
             </div>
             <div style="display: flex; flex-direction: column; gap: .75rem; margin-top: .75rem;">
               <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="prefetchEnabled"> Предзагрузка следующего слайда <button type="button" class="hint-icon" data-hint="Следующий слайд загружается заранее, чтобы при переключении не было задержки." aria-label="Подсказка">?</button></label>
-              <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="cacheEnabled"> Кэширование контента в браузере <button type="button" class="hint-icon" data-hint="Файлы сохраняются в кэше браузера и не скачиваются повторно при следующем показе." aria-label="Подсказка">?</button></label>
               <label class="checkbox-with-hint" style="cursor: pointer;"><input type="checkbox" id="showLastOnError"> При потере связи показывать последний плейлист <button type="button" class="hint-icon" data-hint="Если связь с сервером потеряна, плеер продолжит показывать последний полученный плейлист вместо пустого экрана." aria-label="Подсказка">?</button></label>
             </div>
             <div class="section-actions">
@@ -212,6 +211,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
               <div class="form-group">
                 <label for="onlineThreshold" class="label-with-hint">Порог «онлайн» (сек) <button type="button" class="hint-icon" data-hint="Если экран не обращался к серверу дольше этого времени — считается офлайн. Рекомендуется ставить чуть больше интервала опроса." aria-label="Подсказка">?</button></label>
                 <input type="number" id="onlineThreshold" min="5" max="300">
+                <small id="onlineThresholdEffective" style="display:block;margin-top:0.25rem;color:var(--gray-500);font-size:.75rem;"></small>
               </div>
               <div class="form-group">
                 <label for="monitorCheckIntervalSec" class="label-with-hint">Интервал проверки (сек) <button type="button" class="hint-icon" data-hint="Как часто сервер проверяет статус экранов и отправляет уведомления в Telegram." aria-label="Подсказка">?</button></label>
