@@ -312,16 +312,29 @@
     var origText = submitBtn.textContent;
     submitBtn.innerHTML = '<span class="btn-spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:.4rem;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;"></span>Отправка…';
     var promises = screenIds.map(function (id) { return API.updateScreen(id, { playlistId: playlistId }); });
-    Promise.all(promises)
-      .then(function () {
-        showToast('Плейлист назначен на ' + screenIds.length + ' экран(ов)', 'success');
-        closeSendToScreensModal();
-        loadPlaylists();
-      })
-      .catch(function (err) {
-        showToast(err.message || 'Ошибка назначения плейлиста', 'error');
-        submitBtn.textContent = origText;
-        submitBtn.disabled = false;
+    // allSettled (not all): one transient failure shouldn't shadow N-1 successful
+    // assignments. Backend writes are now race-free (see atomicWrite tmpSeq fix),
+    // but network blips and per-screen 404s are still possible — show a clear
+    // partial-success message instead of a generic "ошибка сервера".
+    Promise.allSettled(promises)
+      .then(function (results) {
+        var succeeded = results.filter(function (r) { return r.status === 'fulfilled'; }).length;
+        var failed = results.length - succeeded;
+        if (failed === 0) {
+          showToast('Плейлист назначен на ' + succeeded + ' экран(ов)', 'success');
+          closeSendToScreensModal();
+          loadPlaylists();
+        } else if (succeeded === 0) {
+          var firstErr = results.find(function (r) { return r.status === 'rejected'; });
+          var msg = (firstErr && firstErr.reason && firstErr.reason.message) || 'Ошибка назначения плейлиста';
+          showToast(msg, 'error');
+          submitBtn.textContent = origText;
+          submitBtn.disabled = false;
+        } else {
+          showToast('Назначено на ' + succeeded + ' из ' + results.length + ' экранов, ' + failed + ' не удалось', 'error');
+          closeSendToScreensModal();
+          loadPlaylists();
+        }
       });
   }
 
