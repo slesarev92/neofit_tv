@@ -62,9 +62,6 @@ _Пусто._ Все пункты разобраны в сессии 2026-05-14:
 ### `MainActivity.kt:39, 161-167` — `handleFirstRunOrUpdate()` пустой
 `KEY_LAST_VERSION` пишется при апдейте, но логики migration/first-run внутри нет. Либо это заглушка под будущее (тогда комментарий бы помог), либо dead code. Не баг.
 
-### `settings.service.js::validate` — `telegramEnabled=true` с пустыми `botToken/chatId`
-Включить телеграм-уведомления через UI можно, не заполнив креды. Сохранится `{telegramEnabled:true, telegramBotToken:'', telegramChatId:''}`. Монитор молча ничего не шлёт (есть guard `if (telegramEnabled && token && chatId)`). Кнопка «Тест» вернёт «Укажите токен и Chat ID» — но первая попытка отправки реального уведомления не предупредит. Валидация при сохранении должна требовать оба поля, если enabled.
-
 ### `settings.service.js::validate` — `monitorCheckIntervalSec` без проверки vs `onlineThreshold`
 Если `monitorCheckIntervalSec > onlineThreshold`, монитор пропускает мгновенные оффлайны. Дефолты (10 и 30) ок, но крайних настройках возможна тишина. Можно добавить soft-warning или жёсткую валидацию `monitorCheckIntervalSec <= onlineThreshold`.
 

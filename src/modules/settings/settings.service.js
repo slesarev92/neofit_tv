@@ -167,6 +167,20 @@ async function update(data) {
   }
   if (data.cacheMaxSizeMb !== undefined) setNum('cacheMaxSizeMb', data.cacheMaxSizeMb, 100, 10000);
 
+  // Cross-field validation against the *effective* state (merge with current).
+  // If Telegram is enabled after the merge, both creds must be non-empty —
+  // otherwise the monitor silently skips notifications and the admin is left
+  // wondering why nothing arrives. Cheap: settings.get() hits the in-memory cache.
+  const current = await settingsRepository.get();
+  const merged = { ...current, ...sanitized };
+  if (merged.telegramEnabled) {
+    const token = String(merged.telegramBotToken || '').trim();
+    const chatId = String(merged.telegramChatId || '').trim();
+    if (!token || !chatId) {
+      return { ok: false, status: 400, error: 'Для включения Telegram-уведомлений заполните токен бота и Chat ID' };
+    }
+  }
+
   const settings = await settingsRepository.save(sanitized);
   return { ok: true, settings };
 }
