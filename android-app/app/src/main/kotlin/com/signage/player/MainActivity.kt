@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private var webView: WebView? = null
     private var reloadPending = false
+    private var cacheFallbackAttempted = false
     private var longPressRunnable: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
     private var videoPlayerManager: VideoPlayerManager? = null
@@ -86,6 +87,8 @@ class MainActivity : AppCompatActivity() {
                 loadingOverlay.visibility = View.VISIBLE
                 loadingOverlay.alpha = 1f
                 reloadPending = false
+                webView?.settings?.cacheMode = WebSettings.LOAD_DEFAULT
+                cacheFallbackAttempted = false
                 webView?.reload()
             }
             findViewById<Button>(R.id.btnErrorSettings).setOnClickListener {
@@ -95,6 +98,10 @@ class MainActivity : AppCompatActivity() {
             wv.webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String?) {
                     cancelErrorCountdown()
+                    // Restore default cache mode so subsequent navigations prefer
+                    // fresh content; cache fallback only kicks in on error again.
+                    view.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                    cacheFallbackAttempted = false
                     loadingOverlay.animate().alpha(0f).withEndAction {
                         loadingOverlay.visibility = View.GONE
                     }.start()
@@ -108,6 +115,18 @@ class MainActivity : AppCompatActivity() {
                     error: WebResourceError
                 ) {
                     if (!request.isForMainFrame || reloadPending) return
+                    // First main-frame failure: try once from the HTTP cache.
+                    // On boot with the server unreachable, this lets WebView
+                    // load the cached player shell so player.js + SW + ExoPlayer
+                    // SimpleCache can render content offline. If no cache exists,
+                    // this reload also fails and we fall through to the error
+                    // overlay on the next pass.
+                    if (!cacheFallbackAttempted) {
+                        cacheFallbackAttempted = true
+                        view.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        view.reload()
+                        return
+                    }
                     reloadPending = true
                     loadingText.setText(R.string.msg_no_connection)
                     loadingOverlay.visibility = View.GONE
@@ -135,6 +154,8 @@ class MainActivity : AppCompatActivity() {
                         loadingOverlay.alpha = 1f
                         loadingText.setText(R.string.msg_loading)
                         reloadPending = false
+                        view.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                        cacheFallbackAttempted = false
                         view.reload()
                     }
                     handler.postDelayed(reloadAfterErrorRunnable!!, 10_000)

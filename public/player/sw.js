@@ -42,7 +42,12 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (url.pathname.startsWith('/api/player/')) {
-    e.respondWith(networkOnly(e.request));
+    // /metrics is POST and irrelevant offline — pass through without caching
+    if (e.request.method !== 'GET') {
+      e.respondWith(networkOnly(e.request));
+      return;
+    }
+    e.respondWith(playerApiNetworkFirst(e.request));
     return;
   }
 });
@@ -120,6 +125,42 @@ async function networkOnly(request) {
       status: 503,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+}
+
+// =========================================================
+//  Network-first for /api/player/:screenId — falls back to the last
+//  successful response when the server is unreachable, so the player can
+//  keep rendering the most recently known playlist from local cache.
+//
+//  player.js appends a cache-buster (?t=...) to every poll, so cache keys
+//  are normalized to origin + pathname to avoid an ever-growing cache.
+// =========================================================
+async function playerApiNetworkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cacheKey = canonicalPlayerKey(request.url);
+  try {
+    const resp = await fetch(request);
+    if (resp.ok && resp.status === 200) {
+      try { await cache.put(cacheKey, resp.clone()); } catch {}
+    }
+    return resp;
+  } catch {
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+    return new Response(JSON.stringify({ error: 'Offline' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+function canonicalPlayerKey(url) {
+  try {
+    const u = new URL(url);
+    return u.origin + u.pathname;
+  } catch {
+    return url;
   }
 }
 

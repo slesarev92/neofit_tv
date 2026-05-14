@@ -154,7 +154,17 @@ app.use('/uploads', express.static(path.resolve(config.uploadsDir), {
 }));
 app.use(express.static(path.resolve('public'), {
   setHeaders(res, filePath) {
-    if (filePath && (filePath.endsWith('.html') || path.basename(filePath) === 'index.html')) {
+    if (!filePath) return;
+    const isHtml = filePath.endsWith('.html') || path.basename(filePath) === 'index.html';
+    if (!isHtml) return;
+    // Player shell must be cacheable so the Android WebView can fall back to
+    // cached HTML when the server is unreachable on reboot (offline survival).
+    // Admin/login HTML stays uncacheable for security and immediate updates.
+    const normalized = filePath.replace(/\\/g, '/');
+    const isPlayerShell = normalized.includes('/player/');
+    if (isPlayerShell) {
+      res.set('Cache-Control', 'public, max-age=3600');
+    } else {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
   },
