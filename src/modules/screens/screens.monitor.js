@@ -8,6 +8,12 @@ const { escapeForTelegramHtml, sendTelegram } = require('../../utils/telegram');
 const previousStates = new Map();
 let initialized = false;
 let isRunning = false;
+let runningSince = 0;
+let runningToken = 0;
+// sendTelegram has 8s timeout × 3 attempts + backoff, ~32s worst case per call,
+// and checkScreens may call it twice (offline + online), so up to ~64s.
+// 90s gives headroom while still allowing recovery if a check truly hangs.
+const MAX_CHECK_DURATION_MS = 90 * 1000;
 
 function getIsOnline(screen, thresholdSec) {
   if (!screen.lastSeenAt) return false;
@@ -37,8 +43,19 @@ function adminLinkLine() {
 }
 
 async function checkScreens() {
-  if (isRunning) return;
+  if (isRunning) {
+    if (runningSince && Date.now() - runningSince > MAX_CHECK_DURATION_MS) {
+      logger.warn('Previous screen monitor check appears stuck, forcing release', {
+        stuckForMs: Date.now() - runningSince,
+      });
+      // fall through to start a fresh check; orphan check is abandoned
+    } else {
+      return;
+    }
+  }
   isRunning = true;
+  runningSince = Date.now();
+  const myToken = ++runningToken;
   try {
     const settings = await settingsRepository.get();
     const screens = await screensRepository.findAll();
@@ -134,7 +151,13 @@ async function checkScreens() {
   } catch (err) {
     logger.error('Screen monitor error', { error: err.message });
   } finally {
-    isRunning = false;
+    // Only the current check releases the lock — if a stuck previous check
+    // resolves after timeout-forced release, its token no longer matches and
+    // it must not clobber a newer check that took over.
+    if (myToken === runningToken) {
+      isRunning = false;
+      runningSince = 0;
+    }
   }
 }
 

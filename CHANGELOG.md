@@ -14,6 +14,7 @@
 - `src/modules/media/video.queue.js::resumeUnfinished` теперь валидирует `processing-queue.json` (массив, элементы с `mediaId`). При повреждённом файле очередь не падает молча, а пишет warning. (2026-05-14)
 - `src/modules/media/media.service.js::cleanupStaleTmpFiles()` + вызов из `server.js` подметают orphan-`.tmp.mp4` в `uploads/` после краша Node. Раньше при `SIGTERM` ffmpeg-tmp файлы оставались на диске и копились. Sweep делается **до** `videoQueue.resumeUnfinished`, чтобы не было гонки с воркером (Linux unlink на открытом файле ломал бы финальный rename). (2026-05-14)
 - `scripts/reset-password.js` переведён на `writeFileAtomic` — сбой между байтами больше не зальёт `auth.json` мусором и не потеряет TOTP-секрет. Минимальная длина пароля поднята с 6 до 8 символов (согласовано с API `auth.routes.js:89`). (2026-05-14)
+- `src/modules/screens/screens.monitor.js` — добавлен таймаут `MAX_CHECK_DURATION_MS = 90s` с принудительным сбросом `isRunning`. Если одна проверка зависнет (например, на медленном Telegram-вызове, который сам имеет worst case ~64s), следующий interval больше не пропускается молча, а форсирует новую. Гонку с orphan-resolve защищает token-механизм: только текущая проверка имеет право снимать lock. (2026-05-14)
 
 ### Changed
 - `package.json` версия `2.0.0-NEO` → `3.2.0`. Соответствует реальному релизу из CHANGELOG; `/api/system/health` и UI теперь показывают актуальное значение. (2026-05-14)
