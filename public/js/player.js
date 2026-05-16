@@ -36,17 +36,41 @@
     placeholder.querySelector('p').textContent = '...';
   } catch (_) {}
 
-  // localStorage backup of the last successful playlist API response.
-  // Independent of the Service Worker — works even when SW is broken or the
-  // WebView strips its cache between reboots. The SW cache stays as the
-  // primary path (handles /uploads/* too); this is a guaranteed fallback for
-  // the playlist itself so the screen never shows the original «Плейлист не
-  // назначен» template when the user has previously been online.
+  // Persistent offline cache for the last successful /api/player response.
+  // Two layers in fall-through order:
+  //   1) Native (preferred): VideoPlayerManager.saveLastPlaylist/getLastPlaylist
+  //      writes to Android SharedPreferences. Survives WebView destroy and
+  //      app restart — the only path that proved reliable on Allwinner H616
+  //      boxes where the WebView profile loses SW cache + localStorage
+  //      between sessions.
+  //   2) localStorage: kept as a fallback for non-APK contexts (browser
+  //      debug, ChromeOS, etc.) where window.NativePlayer doesn't exist.
+  //
+  // If both layers are empty the user has never been online with this
+  // screenId, and the placeholder is genuine — no cached state to recover.
   const LS_KEY = 'lastPlaylist_' + screenId;
+  function hasNativePlaylistCache() {
+    return typeof window.NativePlayer !== 'undefined'
+      && typeof window.NativePlayer.saveLastPlaylist === 'function'
+      && typeof window.NativePlayer.getLastPlaylist === 'function';
+  }
   function saveLastPlaylist(data) {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (_) {}
+    const json = (function () {
+      try { return JSON.stringify(data); } catch (_) { return null; }
+    })();
+    if (!json) return;
+    if (hasNativePlaylistCache()) {
+      try { window.NativePlayer.saveLastPlaylist(screenId, json); } catch (_) {}
+    }
+    try { localStorage.setItem(LS_KEY, json); } catch (_) {}
   }
   function loadLastPlaylist() {
+    if (hasNativePlaylistCache()) {
+      try {
+        const native = window.NativePlayer.getLastPlaylist(screenId);
+        if (native) return JSON.parse(native);
+      } catch (_) {}
+    }
     try {
       const s = localStorage.getItem(LS_KEY);
       return s ? JSON.parse(s) : null;

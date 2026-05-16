@@ -1,5 +1,7 @@
 package com.signage.player
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -40,6 +42,10 @@ class VideoPlayerManager(
         private const val TAG = "VideoPlayerManager"
         private const val CACHE_DIR_NAME = "video-cache"
         private const val DEFAULT_CACHE_BYTES = 2L * 1024 * 1024 * 1024 // 2 GB
+        // Native playlist cache — survives WebView destroy and app restart.
+        // Kept separate from the video SimpleCache so clearing one doesn't
+        // wipe the other.
+        private const val PLAYLIST_PREFS_NAME = "playlist-cache"
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -48,6 +54,8 @@ class VideoPlayerManager(
     private val cache: SimpleCache
     private val player: ExoPlayer
     private val cacheDataSourceFactory: CacheDataSource.Factory
+    private val playlistPrefs: SharedPreferences =
+        activity.getSharedPreferences(PLAYLIST_PREFS_NAME, Context.MODE_PRIVATE)
 
     private val httpDataSourceFactory = DefaultHttpDataSource.Factory()
         .setConnectTimeoutMs(15_000)
@@ -137,6 +145,32 @@ class VideoPlayerManager(
             hidePlayer()
             currentUrl = null
         }
+    }
+
+    // =========================================================
+    //  Native playlist cache — survives WebView destroy / app restart
+    //
+    //  WebView's SW cache and localStorage proved unreliable on Allwinner
+    //  H616 boxes: after the app was force-stopped, the WebView profile lost
+    //  both, and offline boot showed the empty placeholder. SharedPreferences
+    //  lives in private app storage and is invariant across WebView resets,
+    //  so player.js falls back to this when the network (and the SW) can't
+    //  return the playlist.
+    // =========================================================
+
+    @JavascriptInterface
+    fun saveLastPlaylist(screenId: String, json: String) {
+        if (screenId.isBlank() || json.isBlank()) return
+        // apply() returns immediately; the disk write happens on a background
+        // thread. Acceptable here — the player keeps running with the in-
+        // memory playlist even if the write is briefly delayed.
+        playlistPrefs.edit().putString("playlist_$screenId", json).apply()
+    }
+
+    @JavascriptInterface
+    fun getLastPlaylist(screenId: String): String? {
+        if (screenId.isBlank()) return null
+        return playlistPrefs.getString("playlist_$screenId", null)
     }
 
     /**

@@ -9,6 +9,12 @@
 ## [Unreleased]
 
 ### Added
+- **Нативный playlist-кэш в Android (SharedPreferences через @JavascriptInterface).** Параллельно с WebView-кэшем плеер теперь сохраняет последний успешный ответ `/api/player/...` в private SharedPreferences приставки (`playlist-cache`/`playlist_<screenId>`). Это решает оффлайн-boot регрессию на Allwinner H616, где WebView-storage (SW Cache + localStorage) после `WebView.destroy()` пропадал между запусками приложения. Native-путь устойчив к рестарту, force-stop, очистке WebView. Затронуты: `VideoPlayerManager.kt` (новые `saveLastPlaylist(screenId, json)` / `getLastPlaylist(screenId)` через `@JavascriptInterface`), `public/js/player.js` (использует native bridge как первичный источник, localStorage как fallback для не-APK контекстов вроде браузерной отладки). (2026-05-16)
+
+### Changed
+- **Android-APK: убран выбор клуба и ручной ввод URL.** Каждый клуб собирается из своего Gradle flavor с зашитым `BuildConfig.DEFAULT_SERVER_URL`, поэтому Spinner-picker, поле ручного URL и QR-сканер на привязке больше не нужны — на binding-экране остаётся только кнопка «Получить код» (URL берётся из flavor), а в SettingsActivity — только ID экрана, проверка соединения, смена PIN и «Сохранить и запустить». Удалены: `Clubs.kt`, `res/values/clubs.xml`. Урезаны: `activity_binding.xml`, `activity_settings.xml`, `strings.xml` (8 неиспользуемых строк), `AndroidManifest.xml` (permission `CAMERA`), `build.gradle` (dependency `com.journeyapps:zxing-android-embedded` — нужна была только для QR-scan, для генерации QR-кода используется чистый `com.google.zxing:core`). `BindingActivity.kt` / `SettingsActivity.kt` переписаны: сразу читают `BuildConfig.DEFAULT_SERVER_URL`, никаких `findViewById<EditText>(R.id.editServerUrl)`. Кнопка «Ручная настройка» на binding-экране сохранена как escape-hatch в Settings (PIN, check-connection). Backward compat: уже спаренные приставки продолжат играть с сохранённого `KEY_PLAYER_URL` — новый APK не обнуляет prefs. (2026-05-16)
+
+### Added
 - **Telegram: дневной отчёт «X онлайн / Y оффлайн» в 9:00 утра.** Новый cron-таск в `src/modules/screens/screens.monitor.js::rescheduleDailyReport` в timezone `settings.timezone` (`Europe/Moscow` по умолчанию). Перерасчёт расписания вызывается из `settings.routes.js::PUT /` после сохранения настроек — той же дорогой, что `backupScheduler.reschedule`. Активируется только если `telegramEnabled` + `telegramBotToken` + `telegramChatId` заданы. Текст минимальный — только счёт, без списка экранов. (2026-05-16)
 
 ### Changed
