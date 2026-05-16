@@ -3,13 +3,8 @@ package com.signage.player
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.Spinner
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -17,6 +12,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 
+/**
+ * On-device settings: PIN change, connection check, screen-ID re-entry. The
+ * server URL is fixed per APK flavor (BuildConfig.DEFAULT_SERVER_URL) and is
+ * never editable here — each club gets its own APK build.
+ */
 class SettingsActivity : AppCompatActivity() {
 
     companion object {
@@ -32,6 +32,9 @@ class SettingsActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
 
+    private val serverUrl: String
+        get() = BuildConfig.DEFAULT_SERVER_URL.trimEnd('/')
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
@@ -40,10 +43,8 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val screenEdit = findViewById<EditText>(R.id.editScreenId)
         if (clearFields) {
-            setupClubPicker(null)
             screenEdit.setText("")
         } else {
-            setupClubPicker(prefs.getString(KEY_SERVER_URL, null))
             val savedUrl = prefs.getString(KEY_PLAYER_URL, null)
             if (!savedUrl.isNullOrBlank()) {
                 val id = savedUrl.substringAfter("id=").substringBefore("&").ifEmpty { null }
@@ -59,69 +60,7 @@ class SettingsActivity : AppCompatActivity() {
             getString(R.string.app_name) + " " + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"
     }
 
-    /**
-     * Mirrors BindingActivity.setupClubPicker — see comments there for the
-     * rationale. The hidden EditText (editServerUrl) remains the single source
-     * the rest of the activity reads from, so checkConnection() and
-     * saveAndLaunch() don't need to know about the picker.
-     */
-    private fun setupClubPicker(savedUrl: String?) {
-        val spinner = findViewById<Spinner>(R.id.settingsClubSpinner) ?: return
-        val manualLabel = findViewById<TextView>(R.id.settingsManualUrlLabel)
-        val manualEdit = findViewById<EditText>(R.id.editServerUrl)
-
-        val clubs = Clubs.list(this)
-        val items = clubs.map { it.name } + getString(R.string.club_manual)
-
-        spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, items).apply {
-            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-
-        val matched = Clubs.findByUrl(this, savedUrl)
-        // See BindingActivity.setupClubPicker for the same default-index logic.
-        val defaultClub = Clubs.findByUrl(this, BuildConfig.DEFAULT_SERVER_URL)
-        val startIndex = when {
-            matched != null -> clubs.indexOf(matched)
-            savedUrl.isNullOrBlank() && defaultClub != null -> clubs.indexOf(defaultClub)
-            savedUrl.isNullOrBlank() -> 0
-            else -> items.size - 1
-        }
-        spinner.setSelection(startIndex, false)
-
-        val startIsManual = startIndex == items.size - 1
-        manualLabel?.visibility = if (startIsManual) View.VISIBLE else View.GONE
-        manualEdit?.visibility = if (startIsManual) View.VISIBLE else View.GONE
-        when {
-            startIsManual && !savedUrl.isNullOrBlank() -> manualEdit?.setText(savedUrl)
-            matched != null -> manualEdit?.setText(matched.url)
-            startIndex < clubs.size -> manualEdit?.setText(clubs[startIndex].url)
-        }
-
-        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (position < clubs.size) {
-                    manualLabel?.visibility = View.GONE
-                    manualEdit?.visibility = View.GONE
-                    manualEdit?.setText(clubs[position].url)
-                } else {
-                    manualLabel?.visibility = View.VISIBLE
-                    manualEdit?.visibility = View.VISIBLE
-                    if (manualEdit?.text?.isBlank() == true) {
-                        manualEdit.hint = getString(R.string.hint_server_url)
-                    }
-                }
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) { /* no-op */ }
-        }
-    }
-
     private fun checkConnection() {
-        val serverUrl = findViewById<EditText>(R.id.editServerUrl).text.toString().trim().trimEnd('/')
-        if (serverUrl.isBlank()) {
-            Toast.makeText(this, getString(R.string.msg_server_url_required), Toast.LENGTH_SHORT).show()
-            return
-        }
         val urlToCheck = "$serverUrl/player/index.html"
         executor.execute {
             val start = System.currentTimeMillis()
@@ -203,39 +142,22 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun saveAndLaunch() {
-        val serverUrl = findViewById<EditText>(R.id.editServerUrl).text.toString().trim().trimEnd('/')
+        val baseUrl = serverUrl
         val screenId = findViewById<EditText>(R.id.editScreenId).text.toString().trim()
-        if (serverUrl.isEmpty()) {
-            Toast.makeText(this, getString(R.string.msg_server_url_required), Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (!isValidUrl(serverUrl)) {
-            Toast.makeText(this, getString(R.string.msg_invalid_url), Toast.LENGTH_SHORT).show()
-            return
-        }
         if (screenId.isBlank()) {
             Toast.makeText(this, getString(R.string.msg_screen_id_required), Toast.LENGTH_SHORT).show()
             return
         }
-        val playerUrl = "$serverUrl/player/index.html?id=$screenId"
+        val playerUrl = "$baseUrl/player/index.html?id=$screenId"
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         prefs.edit()
             .putString(KEY_PLAYER_URL, playerUrl)
-            .putString(KEY_SERVER_URL, serverUrl)
+            .putString(KEY_SERVER_URL, baseUrl)
             .apply()
         startActivity(android.content.Intent(this, MainActivity::class.java).apply {
             flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
         })
         finish()
-    }
-
-    private fun isValidUrl(url: String): Boolean {
-        return try {
-            val parsed = URL(url)
-            parsed.protocol == "http" || parsed.protocol == "https"
-        } catch (e: Exception) {
-            false
-        }
     }
 
     override fun onDestroy() {

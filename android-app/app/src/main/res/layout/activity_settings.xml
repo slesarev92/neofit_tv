@@ -14,38 +14,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/select_club"
+            android:text="@string/settings_title"
             android:textColor="@color/settings_text"
             android:textSize="@dimen/settings_label_text_size"
-            android:textStyle="bold" />
-        <Spinner
-            android:id="@+id/settingsClubSpinner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="@dimen/settings_button_min_height"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="12dp" />
-        <TextView
-            android:id="@+id/settingsManualUrlLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/manual_url_label"
-            android:textColor="@color/settings_text"
-            android:textSize="@dimen/settings_hint_text_size"
-            android:visibility="gone"
-            android:layout_marginBottom="4dp" />
-        <EditText
-            android:id="@+id/editServerUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="@dimen/settings_button_min_height"
-            android:hint="@string/hint_server_url"
-            android:textColor="@color/settings_text"
-            android:textColorHint="@color/settings_text_hint"
-            android:textSize="@dimen/settings_input_text_size"
-            android:inputType="textUri"
-            android:background="?android:attr/editTextBackground"
-            android:visibility="gone"
+            android:textStyle="bold"
             android:layout_marginBottom="16dp" />
 
         <TextView

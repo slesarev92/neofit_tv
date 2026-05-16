@@ -20,67 +20,16 @@
             android:textStyle="bold"
             android:layout_marginBottom="16dp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/select_club"
-            android:textColor="@color/settings_text"
-            android:textSize="@dimen/settings_hint_text_size"
-            android:layout_marginBottom="4dp" />
-        <Spinner
-            android:id="@+id/bindingClubSpinner"
+        <Button
+            android:id="@+id/bindingGetCode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="@dimen/settings_button_min_height"
+            android:text="@string/binding_get_code"
+            android:textSize="@dimen/settings_button_text_size"
+            android:backgroundTint="@color/settings_accent"
+            android:textColor="@android:color/white"
             android:layout_marginBottom="12dp" />
-        <TextView
-            android:id="@+id/bindingManualUrlLabel"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/manual_url_label"
-            android:textColor="@color/settings_text"
-            android:textSize="@dimen/settings_hint_text_size"
-            android:visibility="gone"
-            android:layout_marginBottom="4dp" />
-        <EditText
-            android:id="@+id/bindingServerUrl"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="@dimen/settings_button_min_height"
-            android:hint="@string/hint_server_url"
-            android:textColor="@color/settings_text"
-            android:textColorHint="@color/settings_text_hint"
-            android:textSize="@dimen/settings_input_text_size"
-            android:inputType="textUri"
-            android:background="?android:attr/editTextBackground"
-            android:visibility="gone"
-            android:layout_marginBottom="12dp" />
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
-            <Button
-                android:id="@+id/bindingGetCode"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:minHeight="@dimen/settings_button_min_height"
-                android:layout_weight="1"
-                android:text="@string/binding_get_code"
-                android:textSize="@dimen/settings_button_text_size"
-                android:backgroundTint="@color/settings_accent"
-                android:textColor="@android:color/white"
-                android:layout_marginEnd="8dp" />
-            <Button
-                android:id="@+id/bindingScanQr"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:minHeight="@dimen/settings_button_min_height"
-                android:layout_weight="1"
-                android:text="@string/scan_qr"
-                android:textSize="@dimen/settings_button_text_size"
-                android:textColor="@color/settings_text" />
-        </LinearLayout>
         <ImageView
             android:id="@+id/bindingQr"
             android:layout_width="200dp"

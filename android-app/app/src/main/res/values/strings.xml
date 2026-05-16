@@ -12,10 +12,6 @@
     <string name="pin_too_short">PIN не менее 4 цифр</string>
 
     <string name="settings_title">Настройки плеера</string>
-    <string name="server_url">URL сервера</string>
-    <string name="select_club">Выберите клуб</string>
-    <string name="club_manual">Другое (ручной ввод)</string>
-    <string name="manual_url_label">URL сервера (вручную)</string>
     <string name="screen_id">ID экрана</string>
     <string name="check_connection">Проверить соединение</string>
     <string name="save_and_launch">Сохранить и запустить</string>
@@ -24,13 +20,10 @@
     <string name="connection_error">Ошибка: %1$s</string>
     <string name="connection_error_unknown">Неизвестная ошибка</string>
     <string name="notification_channel_name">Запуск плеера</string>
-    <string name="hint_server_url">https://tv.n-fit.ru/</string>
     <string name="hint_screen_id">ID экрана</string>
     <string name="hint_current_pin">Текущий PIN</string>
     <string name="msg_pin_changed">PIN изменён</string>
-    <string name="msg_server_url_required">Укажите адрес сервера</string>
     <string name="msg_screen_id_required">Укажите ID экрана</string>
-    <string name="msg_invalid_url">Неверный формат URL (должен начинаться с http:// или https://)</string>
     <string name="label_settings_hint">ID экрана можно найти в разделе «Экраны» в админ-панели</string>
     <string name="msg_loading">Загрузка…</string>
     <string name="msg_no_connection">Нет соединения с сервером</string>
@@ -43,13 +36,11 @@
     <string name="binding_code_valid">Код действителен ещё %1$d мин</string>
     <string name="binding_code_expired">Код истёк</string>
     <string name="binding_instruction">Откройте ссылку по QR или введите код в админ-панели в разделе «Привязка»</string>
-    <string name="binding_error">Не удалось получить код. Проверьте URL сервера.</string>
-    <string name="binding_error_network">Сервер недоступен. Проверьте адрес и интернет (эмулятор: 10.0.2.2 для localhost).</string>
+    <string name="binding_error">Не удалось получить код. Проверьте, что сервер доступен.</string>
+    <string name="binding_error_network">Сервер недоступен. Проверьте интернет на приставке.</string>
     <string name="binding_error_server">Ошибка сервера: %1$d</string>
     <string name="binding_error_parse">Неверный ответ сервера. Проверьте версию сервера.</string>
-    <string name="scan_qr">Сканировать QR</string>
-    <string name="qr_scan_camera_permission">Для сканирования QR нужен доступ к камере</string>
     <string name="msg_startup_error">Ошибка запуска на этом устройстве (часто — проблема с WebView на приставке). Лог сохранён. Откройте настройки и попробуйте обновить прошивку или установить «Android System WebView» из магазина приложений.</string>
-    <string name="msg_binding_startup_error">Ошибка при открытии экрана привязки. Используйте кнопку ниже для ручного ввода URL сервера и ID экрана.</string>
+    <string name="msg_binding_startup_error">Ошибка при открытии экрана привязки. Используйте кнопку ниже для входа в настройки.</string>
     <string name="btn_open_settings_fallback">Открыть настройки</string>
 </resources>
