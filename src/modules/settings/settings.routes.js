@@ -5,6 +5,7 @@ const os = require('os');
 const settingsService = require('./settings.service');
 const settingsRepository = require('./settings.repository');
 const backupScheduler = require('../backup/backup.scheduler');
+const screenMonitor = require('../screens/screens.monitor');
 const { sendTelegram } = require('../../utils/telegram');
 
 const router = Router();
@@ -45,6 +46,7 @@ router.put('/', async (req, res, next) => {
       return res.status(result.status).json({ error: result.error });
     }
     try { backupScheduler.reschedule(result.settings); } catch (_) {}
+    try { screenMonitor.rescheduleDailyReport(result.settings); } catch (_) {}
     res.json({ settings: result.settings });
   } catch (err) {
     next(err);

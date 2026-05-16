@@ -1,3 +1,4 @@
+const cron = require('node-cron');
 const screensRepository = require('./screens.repository');
 const settingsRepository = require('../settings/settings.repository');
 const playlistsRepository = require('../playlists/playlists.repository');
@@ -10,6 +11,7 @@ let initialized = false;
 let isRunning = false;
 let runningSince = 0;
 let runningToken = 0;
+let dailyReportTask = null;
 // sendTelegram has 8s timeout × 3 attempts + backoff, ~32s worst case per call,
 // and checkScreens may call it twice (offline + online), so up to ~64s.
 // 90s gives headroom while still allowing recovery if a check truly hangs.
@@ -64,7 +66,6 @@ async function checkScreens() {
     const thresholdSec = Math.max(requestedThreshold, pollInterval * 2);
 
     const offlineScreens = [];
-    const onlineScreens = [];
 
     for (const screen of screens) {
       const wasOnline = previousStates.get(screen.id);
@@ -82,58 +83,33 @@ async function checkScreens() {
           to: isOnline ? 'online' : 'offline',
         });
         if (wasOnline && !isOnline) offlineScreens.push(screen);
-        if (!wasOnline && isOnline) onlineScreens.push(screen);
       }
 
       previousStates.set(screen.id, isOnline);
     }
 
-    if (settings.telegramEnabled && settings.telegramBotToken && settings.telegramChatId) {
+    if (offlineScreens.length > 0 && settings.telegramEnabled && settings.telegramBotToken && settings.telegramChatId) {
       const linkLine = adminLinkLine();
-
-      if (offlineScreens.length > 0) {
-        const lines = [];
-        for (const screen of offlineScreens) {
-          const name = escapeForTelegramHtml(screen.name);
-          const idShort = shortId(screen.id);
-          const playlist = await getPlaylistName(screen.playlistId);
-          const playlistStr = playlist ? escapeForTelegramHtml(playlist) : '—';
-          const lastSeen = screen.lastSeenAt
-            ? new Date(screen.lastSeenAt).toLocaleString('ru-RU')
-            : 'никогда';
-          lines.push(`📺 ${name}\n   ID: <code>${idShort}</code>   Плейлист: ${playlistStr}\n   🕐 Последняя активность: ${lastSeen}`);
-        }
-        const title = offlineScreens.length === 1
-          ? '⚠️ <b>Экран оффлайн</b>'
-          : `⚠️ <b>Экраны оффлайн (${offlineScreens.length})</b>`;
-        const msg = title + '\n\n' + lines.join('\n\n') + linkLine;
-        try {
-          await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg, { retries: 2 });
-          logger.info('Telegram: screen offline alert sent', { count: offlineScreens.length, screens: offlineScreens.map((s) => s.name) });
-        } catch (err) {
-          logger.error('Telegram send failed', { error: err.message });
-        }
+      const lines = [];
+      for (const screen of offlineScreens) {
+        const name = escapeForTelegramHtml(screen.name);
+        const idShort = shortId(screen.id);
+        const playlist = await getPlaylistName(screen.playlistId);
+        const playlistStr = playlist ? escapeForTelegramHtml(playlist) : '—';
+        const lastSeen = screen.lastSeenAt
+          ? new Date(screen.lastSeenAt).toLocaleString('ru-RU')
+          : 'никогда';
+        lines.push(`📺 ${name}\n   ID: <code>${idShort}</code>   Плейлист: ${playlistStr}\n   🕐 Последняя активность: ${lastSeen}`);
       }
-
-      if (onlineScreens.length > 0) {
-        const lines = [];
-        for (const screen of onlineScreens) {
-          const name = escapeForTelegramHtml(screen.name);
-          const idShort = shortId(screen.id);
-          const playlist = await getPlaylistName(screen.playlistId);
-          const playlistStr = playlist ? escapeForTelegramHtml(playlist) : '—';
-          lines.push(`📺 ${name}   ID: <code>${idShort}</code>   Плейлист: ${playlistStr}`);
-        }
-        const title = onlineScreens.length === 1
-          ? '✅ <b>Экран онлайн</b>'
-          : `✅ <b>Экраны онлайн (${onlineScreens.length})</b>`;
-        const msg = title + '\n\n' + lines.join('\n') + linkLine;
-        try {
-          await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg, { retries: 2 });
-          logger.info('Telegram: screen online alert sent', { count: onlineScreens.length, screens: onlineScreens.map((s) => s.name) });
-        } catch (err) {
-          logger.error('Telegram send failed', { error: err.message });
-        }
+      const title = offlineScreens.length === 1
+        ? '⚠️ <b>Экран оффлайн</b>'
+        : `⚠️ <b>Экраны оффлайн (${offlineScreens.length})</b>`;
+      const msg = title + '\n\n' + lines.join('\n\n') + linkLine;
+      try {
+        await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg, { retries: 2 });
+        logger.info('Telegram: screen offline alert sent', { count: offlineScreens.length, screens: offlineScreens.map((s) => s.name) });
+      } catch (err) {
+        logger.error('Telegram send failed', { error: err.message });
       }
     }
 
@@ -156,6 +132,42 @@ async function checkScreens() {
   }
 }
 
+async function sendDailyReport() {
+  try {
+    const settings = await settingsRepository.get();
+    if (!settings.telegramEnabled || !settings.telegramBotToken || !settings.telegramChatId) return;
+
+    const screens = await screensRepository.findAll();
+    const pollInterval = settings.pollInterval || 10;
+    const requestedThreshold = settings.onlineThreshold || pollInterval + 5;
+    const thresholdSec = Math.max(requestedThreshold, pollInterval * 2);
+
+    let online = 0;
+    let offline = 0;
+    for (const screen of screens) {
+      if (getIsOnline(screen, thresholdSec)) online += 1;
+      else offline += 1;
+    }
+
+    const msg = `📊 <b>Утренний отчёт</b>\n\nОнлайн: ${online}\nОфлайн: ${offline}`;
+    await sendTelegram(settings.telegramBotToken, settings.telegramChatId, msg, { retries: 2 });
+    logger.info('Telegram: daily report sent', { online, offline });
+  } catch (err) {
+    logger.error('Daily report failed', { error: err.message });
+  }
+}
+
+function rescheduleDailyReport(settings) {
+  if (dailyReportTask) {
+    dailyReportTask.stop();
+    dailyReportTask = null;
+  }
+  if (!settings || !settings.telegramEnabled || !settings.telegramBotToken || !settings.telegramChatId) return;
+  const timezone = settings.timezone || 'Europe/Moscow';
+  dailyReportTask = cron.schedule('0 9 * * *', () => sendDailyReport(), { timezone });
+  logger.info('Daily report scheduled', { time: '09:00', timezone });
+}
+
 function start() {
   checkScreens();
   settingsRepository.get().then((settings) => {
@@ -163,7 +175,8 @@ function start() {
     const intervalMs = Math.max(5, Math.min(120, sec)) * 1000;
     setInterval(checkScreens, intervalMs);
     logger.info('Screen monitor started (checks every ' + intervalMs / 1000 + 's)');
+    rescheduleDailyReport(settings);
   });
 }
 
-module.exports = { start };
+module.exports = { start, rescheduleDailyReport };

@@ -8,6 +8,18 @@
 
 ## [Unreleased]
 
+### Added
+- **Telegram: дневной отчёт «X онлайн / Y оффлайн» в 9:00 утра.** Новый cron-таск в `src/modules/screens/screens.monitor.js::rescheduleDailyReport` в timezone `settings.timezone` (`Europe/Moscow` по умолчанию). Перерасчёт расписания вызывается из `settings.routes.js::PUT /` после сохранения настроек — той же дорогой, что `backupScheduler.reschedule`. Активируется только если `telegramEnabled` + `telegramBotToken` + `telegramChatId` заданы. Текст минимальный — только счёт, без списка экранов. (2026-05-16)
+
+### Changed
+- **Telegram: убрано уведомление «✅ Экран онлайн» при возврате экрана из оффлайна.** По решению держать минимум уведомлений: остаются только `⚠️ Экран оффлайн` при переходе и дневной отчёт в 9:00. Затронут `src/modules/screens/screens.monitor.js::checkScreens`. (2026-05-16)
+
+### Removed
+- Убраны два предупреждения в `/admin/settings` («Качество видео CRF» — про слабые декодеры Allwinner H616, и «Макс. ширина видео» — про экспертный параметр). Подсказки `data-hint` под кнопками `?` остаются — там и так всё объяснено. Затронут `public/admin/settings.html`. (2026-05-16)
+
+### Fixed
+- **Оффлайн-boot плеера показывал «Плейлист не назначен», даже если только что был онлайн.** Service Worker был зарегистрирован как `/player/sw.js` — по умолчанию scope = `/player/`. Это значит, что fetch-handler в SW для `/api/player/*` и `/uploads/*` (которые **не** под scope `/player/`) **никогда не вызывался**. Весь `playerApiNetworkFirst`/`cacheFirst` для media был мёртвым кодом, API-ответ нигде не кэшировался. При оффлайн-boot WebView подтягивал из HTTP-кэша только main-frame (через `cacheFallbackAttempted` в `MainActivity`), но XHR на `/api/player/...` летел напрямую → fail → пустой `data.playlist` → исходный HTML-placeholder. Перенёс `public/player/sw.js` → `public/sw.js`, регистрация теперь `register('/sw.js', { scope: '/' })`. Также: (a) автоматический cleanup старой регистрации `/player/sw.js` при первом запуске нового кода — чтобы два SW не конкурировали; (b) `CLAIM` postMessage handler в SW + явный запрос клайма при register, если страница уже без controller (для reload-сценариев, когда SW активен с прошлой сессии, но `activate` не fires снова); (c) `waitForSwController()` ждёт `controllerchange` (с 1.5s timeout) перед первым `poll()`, чтобы первый `/api/player` fetch гарантированно прошёл через SW. После деплоя: при следующей online-сессии SW закэширует API-ответ; следующий оффлайн-boot отдаст плейлист из кэша. (2026-05-16)
+
 ---
 
 ## [3.5.0] — 2026-05-16
