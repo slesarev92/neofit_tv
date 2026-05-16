@@ -31,6 +31,39 @@ android {
         viewBinding true
         buildConfig true
     }
+
+    // Per-club APKs. Each flavor injects its own app_name (visible in the
+    // Android launcher) and DEFAULT_SERVER_URL (used to preselect the right
+    // entry in the Spinner on fresh installs).
+    //
+    // NeoFit keeps the original applicationId so existing installs upgrade
+    // seamlessly. Labgym/Soham get suffixed packages — they install as new
+    // apps on devices that previously had the single-package build, and the
+    // old app must be uninstalled manually after verifying the new one works.
+    //
+    // Build all three at once: ./gradlew assembleDebug
+    // Or one at a time:        ./gradlew assembleNeofitDebug
+    flavorDimensions += "brand"
+    productFlavors {
+        neofit {
+            dimension "brand"
+            applicationId "com.signage.player"
+            resValue "string", "app_name", "NeoFit TV"
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"https://tv.n-fit.ru\""
+        }
+        labgym {
+            dimension "brand"
+            applicationId "com.signage.player.labgym"
+            resValue "string", "app_name", "Labgym TV"
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"https://tv.labgym.ru\""
+        }
+        soham {
+            dimension "brand"
+            applicationId "com.signage.player.soham"
+            resValue "string", "app_name", "Soham TV"
+            buildConfigField "String", "DEFAULT_SERVER_URL", "\"https://tv.soham-fit.ru\""
+        }
+    }
 }
 
 dependencies {

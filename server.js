@@ -106,16 +106,48 @@ app.get('/login.html', (req, res) => {
   res.sendFile(path.join(path.resolve('public'), 'login.html'));
 });
 
-// Скачивание APK — один файл app-debug.apk в корне проекта (папка с server.js).
-// Имя выровнено с дефолтным выводом `gradle assembleDebug`, поэтому свежесобранный
-// APK можно копировать в корень без переименования.
-app.get('/app-debug.apk', requireAuth, (req, res) => {
-  const apkPath = path.join(__dirname, 'app-debug.apk');
-  if (!fs.existsSync(apkPath)) {
-    return res.status(404).send('Файл не найден. Положите app-debug.apk в корень проекта (папку с server.js).');
+// Скачивание APK — brand-aware. Gradle product flavors производят файл вида
+// `app-{flavor}-debug.apk` для каждого клуба, и каждый деплой раздаёт свой
+// APK в зависимости от своего systemName. Если brand-specific файл не найден,
+// fallback на legacy `app-debug.apk` для плавной миграции с одноапочной схемы.
+const BRAND_TO_APK = {
+  'NeoFit TV': 'app-neofit-debug.apk',
+  'Labgym TV': 'app-labgym-debug.apk',
+  'Soham TV': 'app-soham-debug.apk',
+};
+
+app.get('/app-debug.apk', requireAuth, async (req, res) => {
+  let brandApk = null;
+  try {
+    const settings = await settingsRepository.get();
+    const brand = String(settings.systemName || '').trim();
+    brandApk = BRAND_TO_APK[brand] || null;
+  } catch (err) {
+    logger.warn('APK download: settings lookup failed, using legacy', { error: err.message });
   }
+
+  const candidates = [];
+  if (brandApk) candidates.push(brandApk);
+  candidates.push('app-debug.apk');
+
+  let apkPath = null;
+  let chosenName = null;
+  for (const name of candidates) {
+    const candidate = path.join(__dirname, name);
+    if (fs.existsSync(candidate)) {
+      apkPath = candidate;
+      chosenName = name;
+      break;
+    }
+  }
+
+  if (!apkPath) {
+    const expected = brandApk || 'app-debug.apk';
+    return res.status(404).send('Файл не найден. Положите ' + expected + ' в корень проекта (папку с server.js).');
+  }
+
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', 'attachment; filename="app-debug.apk"');
+  res.setHeader('Content-Disposition', 'attachment; filename="' + chosenName + '"');
   res.setHeader('Cache-Control', 'no-store, no-cache');
   res.sendFile(path.resolve(apkPath));
 });

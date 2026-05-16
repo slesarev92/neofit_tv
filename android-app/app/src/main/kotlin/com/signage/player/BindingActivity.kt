@@ -135,10 +135,13 @@ class BindingActivity : AppCompatActivity() {
         val matched = Clubs.findByUrl(this, savedUrl)
         // Default index priority:
         //  1) saved URL matches a known club → that club
-        //  2) no saved URL (fresh install) → first club (NeoFit TV)
+        //  2) no saved URL (fresh install) → flavor-specific default
+        //     (Labgym APK preselects Labgym, Soham preselects Soham, etc.)
         //  3) saved URL non-blank but unknown (dev/staging/custom) → "Other"
+        val defaultClub = Clubs.findByUrl(this, BuildConfig.DEFAULT_SERVER_URL)
         val startIndex = when {
             matched != null -> clubs.indexOf(matched)
+            savedUrl.isNullOrBlank() && defaultClub != null -> clubs.indexOf(defaultClub)
             savedUrl.isNullOrBlank() -> 0
             else -> items.size - 1
         }

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- app_name is intentionally NOT defined here — it comes from each Gradle
+     flavor's resValue in app/build.gradle so Labgym/Soham builds get their
+     own launcher labels. Re-adding it here would cause a duplicate-resource
+     build error. -->
 <resources>
-    <string name="app_name">NeoFit TV</string>
-
     <string name="enter_pin">Введите PIN</string>
     <string name="pin_hint">PIN</string>
     <string name="new_pin_hint">Новый PIN (мин. 4 цифры)</string>

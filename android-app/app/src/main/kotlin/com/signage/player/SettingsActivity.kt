@@ -79,8 +79,10 @@ class SettingsActivity : AppCompatActivity() {
 
         val matched = Clubs.findByUrl(this, savedUrl)
         // See BindingActivity.setupClubPicker for the same default-index logic.
+        val defaultClub = Clubs.findByUrl(this, BuildConfig.DEFAULT_SERVER_URL)
         val startIndex = when {
             matched != null -> clubs.indexOf(matched)
+            savedUrl.isNullOrBlank() && defaultClub != null -> clubs.indexOf(defaultClub)
             savedUrl.isNullOrBlank() -> 0
             else -> items.size - 1
         }

@@ -100,11 +100,25 @@ sudo nginx -t && sudo nginx -s reload
 
 ### Если менялся APK
 
-APK лежит в корне репо как `app-debug.apk` и раздаётся через `GET /app-debug.apk` (под `requireAuth`). Имя совпадает с дефолтным выводом Gradle (`assembleDebug`), поэтому свежесобранный файл копируется в корень без переименования.
+С введением Gradle product flavors у каждого клуба свой APK:
 
-1. Собрать APK в Android Studio (`Build → Build APK(s)`) или `./gradlew assembleDebug` в `android-app/`.
-2. Скопировать собранный `app/build/outputs/apk/debug/app-debug.apk` в корень репо.
-3. `git add app-debug.apk && git commit -m "chore: APK X.Y" && git push`.
+| Клуб | applicationId | Файл в репо |
+|------|---------------|-------------|
+| NeoFit TV | `com.signage.player` (без суффикса — для seamless upgrade) | `app-neofit-debug.apk` |
+| Labgym TV | `com.signage.player.labgym` | `app-labgym-debug.apk` |
+| Soham TV | `com.signage.player.soham` | `app-soham-debug.apk` |
+
+Все три раздаются через единый endpoint `GET /app-debug.apk` (под `requireAuth`). Сервер сам подбирает файл по `settings.systemName`. Legacy `app-debug.apk` остаётся как fallback на время миграции.
+
+1. Собрать все три APK сразу: `./gradlew assembleDebug` в `android-app/`.
+   - Или один: `./gradlew assembleNeofitDebug` / `assembleLabgymDebug` / `assembleSohamDebug`.
+2. Скопировать собранные APK в корень репо:
+   ```
+   cp app/build/outputs/apk/neofit/debug/app-neofit-debug.apk ../app-neofit-debug.apk
+   cp app/build/outputs/apk/labgym/debug/app-labgym-debug.apk ../app-labgym-debug.apk
+   cp app/build/outputs/apk/soham/debug/app-soham-debug.apk ../app-soham-debug.apk
+   ```
+3. `git add app-*-debug.apk && git commit -m "chore: APKs X.Y" && git push`.
 4. На сервере — обычное обновление (`git pull && pm2 restart`).
 
 После деплоя `player.js` — перезапустить приложение на приставке (или дождаться auto-reload в 04:00).
