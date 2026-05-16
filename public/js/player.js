@@ -27,6 +27,32 @@
   let scheduleCheckTimer = null;
   let lastScheduleInside = null;
 
+  // Immediate visual marker that player.js started — if the user still sees
+  // the original «Плейлист не назначен» after a reboot, player.js never ran
+  // (cache miss for /js/player.js). If they see «Загрузка плейлиста…», the
+  // script is alive but the first poll hasn't returned yet.
+  try {
+    placeholder.querySelector('h2').textContent = 'Загрузка плейлиста';
+    placeholder.querySelector('p').textContent = '...';
+  } catch (_) {}
+
+  // localStorage backup of the last successful playlist API response.
+  // Independent of the Service Worker — works even when SW is broken or the
+  // WebView strips its cache between reboots. The SW cache stays as the
+  // primary path (handles /uploads/* too); this is a guaranteed fallback for
+  // the playlist itself so the screen never shows the original «Плейлист не
+  // назначен» template when the user has previously been online.
+  const LS_KEY = 'lastPlaylist_' + screenId;
+  function saveLastPlaylist(data) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch (_) {}
+  }
+  function loadLastPlaylist() {
+    try {
+      const s = localStorage.getItem(LS_KEY);
+      return s ? JSON.parse(s) : null;
+    } catch (_) { return null; }
+  }
+
   let preloadedNextEl = null;
   let preloadedNextIndex = -1;
   let preloadedReady = false;
@@ -259,7 +285,21 @@
     if (pollInProgress) return;
     pollInProgress = true;
     try {
-      const data = await fetchWithRetry(`/api/player/${screenId}?t=${Date.now()}`, settings.maxRetries);
+      let data;
+      let fromCache = false;
+      try {
+        data = await fetchWithRetry(`/api/player/${screenId}?t=${Date.now()}`, settings.maxRetries);
+        saveLastPlaylist(data);
+      } catch (netErr) {
+        // Network/SW path failed → fall back to the last response we kept in
+        // localStorage. If that's also empty, propagate the error so the
+        // outer catch shows the «Ошибка загрузки» placeholder.
+        const cached = loadLastPlaylist();
+        if (!cached) throw netErr;
+        data = cached;
+        fromCache = true;
+        if (DEBUG) console.log('[Player] offline — using localStorage playlist');
+      }
       settings = { ...settings, ...data.settings };
       checkSchedule();
       if (!autoReloadScheduled && (settings.autoReloadAt || '04:00')) {
@@ -800,7 +840,10 @@
       var done = false;
       function finish() { if (!done) { done = true; resolve(); } }
       navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true });
-      setTimeout(finish, 1500);
+      // Keep this short — first poll has a localStorage fallback now, so
+      // there's no reason to delay it waiting for the SW to take over. SW is
+      // still useful for media (/uploads/*) and subsequent polls.
+      setTimeout(finish, 300);
     });
   }
 
