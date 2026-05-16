@@ -100,11 +100,11 @@ sudo nginx -t && sudo nginx -s reload
 
 ### Если менялся APK
 
-APK лежит в корне репо как `neofit_tv.apk` и раздаётся через `GET /neofit_tv.apk` (под `requireAuth`).
+APK лежит в корне репо как `app-debug.apk` и раздаётся через `GET /app-debug.apk` (под `requireAuth`). Имя совпадает с дефолтным выводом Gradle (`assembleDebug`), поэтому свежесобранный файл копируется в корень без переименования.
 
-1. Собрать APK в Android Studio (`Build → Build APK(s)`).
-2. Скопировать собранный файл в корень репо как `neofit_tv.apk`.
-3. `git add neofit_tv.apk && git commit -m "chore: APK X.Y" && git push`.
+1. Собрать APK в Android Studio (`Build → Build APK(s)`) или `./gradlew assembleDebug` в `android-app/`.
+2. Скопировать собранный `app/build/outputs/apk/debug/app-debug.apk` в корень репо.
+3. `git add app-debug.apk && git commit -m "chore: APK X.Y" && git push`.
 4. На сервере — обычное обновление (`git pull && pm2 restart`).
 
 После деплоя `player.js` — перезапустить приложение на приставке (или дождаться auto-reload в 04:00).

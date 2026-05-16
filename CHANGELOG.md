@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **APK переименован: `neofit_tv.apk` → `app-debug.apk`.** Имя совпадает с дефолтным выводом Gradle (`assembleDebug`), специальное переименование при копировании в корень репо больше не требуется. Затронуты: `server.js` (URL + lookup), `scripts/upload-apk.ps1`, `public/js/nav.js` (download link), `public/js/docs-content.js` (упоминания в справке), `CLAUDE.md`, `docs/DEPLOYMENT.md`. **Действие на проде после деплоя:** `mv /opt/digital-signage/neofit_tv.apk /opt/digital-signage/app-debug.apk` либо перелить через `scripts/upload-apk.ps1`. (2026-05-16)
+
 ### Added
 - **Phase A мульти-брендинга — web-страницы.** Каждый деплой (NeoFit TV / Labgym TV / Soham TV / …) теперь правильно показывает свой бренд во всех клиентских точках входа. (2026-05-16)
   - **Новый публичный endpoint `GET /api/branding`** (без `requireAuth`) возвращает `{ systemName, logoUrl }`. Используется страницами `login.html`, `pair/index.html`, `player/index.html`, которые работают без авторизации. Никаких секретов не отдаёт.

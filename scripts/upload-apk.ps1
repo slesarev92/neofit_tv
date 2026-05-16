@@ -1,9 +1,9 @@
-# Загрузка neofit_tv.apk на сервер в /opt/digital-signage/
+# Загрузка app-debug.apk на сервер в /opt/digital-signage/
 # Требуется: OpenSSH (scp) — обычно есть в Windows 10/11.
 #
 # Использование:
 #   .\scripts\upload-apk.ps1
-#   .\scripts\upload-apk.ps1 -LocalPath "C:\path\to\neofit_tv.apk"
+#   .\scripts\upload-apk.ps1 -LocalPath "C:\path\to\app-debug.apk"
 #   .\scripts\upload-apk.ps1 -ServerUser deploy -ServerHost s9a.ru
 
 param(
@@ -14,16 +14,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$ApkName = "neofit_tv.apk"
+$ApkName = "app-debug.apk"
 
-# Локальный файл: переданный путь или neofit_tv.apk в корне проекта (рядом со скриптом — на 2 уровня выше)
+# Локальный файл: переданный путь или app-debug.apk в корне проекта (рядом со скриптом — на 2 уровня выше)
 if ($LocalPath -eq "") {
     $ScriptDir = Split-Path -Parent $PSScriptRoot
     $LocalPath = Join-Path $ScriptDir $ApkName
 }
 
 if (-not (Test-Path -LiteralPath $LocalPath)) {
-    Write-Error "Файл не найден: $LocalPath. Укажите -LocalPath или положите neofit_tv.apk в корень проекта."
+    Write-Error "Файл не найден: $LocalPath. Укажите -LocalPath или положите app-debug.apk в корень проекта."
 }
 
 $RemotePath = "$RemoteDir/$ApkName"

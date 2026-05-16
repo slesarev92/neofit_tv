@@ -106,14 +106,16 @@ app.get('/login.html', (req, res) => {
   res.sendFile(path.join(path.resolve('public'), 'login.html'));
 });
 
-// Скачивание APK — один файл neofit_tv.apk в корне проекта (папка с server.js)
-app.get('/neofit_tv.apk', requireAuth, (req, res) => {
-  const apkPath = path.join(__dirname, 'neofit_tv.apk');
+// Скачивание APK — один файл app-debug.apk в корне проекта (папка с server.js).
+// Имя выровнено с дефолтным выводом `gradle assembleDebug`, поэтому свежесобранный
+// APK можно копировать в корень без переименования.
+app.get('/app-debug.apk', requireAuth, (req, res) => {
+  const apkPath = path.join(__dirname, 'app-debug.apk');
   if (!fs.existsSync(apkPath)) {
-    return res.status(404).send('Файл не найден. Положите neofit_tv.apk в корень проекта (папку с server.js).');
+    return res.status(404).send('Файл не найден. Положите app-debug.apk в корень проекта (папку с server.js).');
   }
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', 'attachment; filename="neofit_tv.apk"');
+  res.setHeader('Content-Disposition', 'attachment; filename="app-debug.apk"');
   res.setHeader('Cache-Control', 'no-store, no-cache');
   res.sendFile(path.resolve(apkPath));
 });

@@ -194,7 +194,7 @@ docs/                       # ARCHITECTURE, DEPLOYMENT, AUDIT, archive/
 - Не менять параметры ffmpeg в `media.processor.js` (см. `docs/archive/lagi.md` — почему именно так).
 - Не добавлять changelog в `public/js/docs-content.js`.
 - Не делать `git commit` без отдельного запроса. В коммитах **всегда** добавлять trailer `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
-- Не push'ить APK в репо без обновления `neofit_tv.apk` в корне (он раздаётся через `/neofit_tv.apk` под auth).
+- Не push'ить APK в репо без обновления `app-debug.apk` в корне (он раздаётся через `/app-debug.apk` под auth — имя совпадает с дефолтным выводом Gradle, специальное переименование не требуется).
 
 ---
 
