@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [3.3.0] — 2026-05-16
+
 ### Fixed
 - Удалены безусловные `console.log('[media] cancelQueue …')` в `src/modules/media/media.routes.js` — спамили серверные логи. (2026-05-14)
 - Дебажные `console.log('[NP] playVideo / onExoVideoEnded / onExoVideoError')` в `public/js/player.js` обёрнуты в `if (DEBUG)` для соответствия стилю файла — больше не спамят logcat на Android-плеере. (2026-05-14)
