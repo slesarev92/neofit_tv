@@ -99,8 +99,19 @@ function validate(data) {
   }
   if (data.backupScheduleMonthDays !== undefined && data.backupScheduleMonthDays !== null && data.backupScheduleMonthDays !== '') {
     const str = String(data.backupScheduleMonthDays).trim();
-    const parts = str.split(',').map((p) => parseInt(p.trim(), 10)).filter((n) => Number.isInteger(n) && n >= 1 && n <= 31);
-    if (parts.length === 0) errors.push('backupScheduleMonthDays: числа 1–31 через запятую');
+    const tokens = str.split(',').map((p) => p.trim()).filter((p) => p !== '');
+    if (tokens.length === 0) {
+      errors.push('backupScheduleMonthDays: укажите хотя бы одно число 1–31');
+    } else {
+      const invalid = tokens.filter((t) => {
+        if (!/^\d+$/.test(t)) return true;
+        const n = parseInt(t, 10);
+        return !Number.isInteger(n) || n < 1 || n > 31;
+      });
+      if (invalid.length > 0) {
+        errors.push('backupScheduleMonthDays: недопустимые значения «' + invalid.join(', ') + '» — допустимы только числа 1–31');
+      }
+    }
   }
   if (data.cacheMaxSizeMb !== undefined) {
     const v = Number(data.cacheMaxSizeMb);
@@ -179,6 +190,37 @@ async function update(data) {
     if (!token || !chatId) {
       return { ok: false, status: 400, error: 'Для включения Telegram-уведомлений заполните токен бота и Chat ID' };
     }
+  }
+
+  // Monitor cadence vs effective online threshold. If checks happen rarer than
+  // the offline detection window, brief offline blips between checks are missed
+  // silently. Compare against the *effective* threshold — same formula as
+  // screens.service.getThresholdSec(): max(onlineThreshold, pollInterval × 2).
+  // Only enforce when the request actually touches monitor-related fields,
+  // otherwise admins saving unrelated tabs would be blocked by legacy state.
+  const touchingMonitor = data.monitorCheckIntervalSec !== undefined
+    || data.onlineThreshold !== undefined
+    || data.pollInterval !== undefined;
+  if (touchingMonitor) {
+    const pollInterval = Number(merged.pollInterval) || 10;
+    const requestedThreshold = Number(merged.onlineThreshold) || pollInterval + 5;
+    const effectiveThreshold = Math.max(requestedThreshold, pollInterval * 2);
+    const checkInterval = Number(merged.monitorCheckIntervalSec) || 10;
+    if (checkInterval > effectiveThreshold) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Интервал проверки (' + checkInterval + ' сек) не должен превышать эффективный порог онлайн (' + effectiveThreshold + ' сек) — иначе короткие оффлайны пропускаются между проверками',
+      };
+    }
+  }
+
+  // Discard stale work-schedule times when the feature is disabled. Without
+  // this, re-enabling weeks later would silently reapply the old window —
+  // surprising behavior that's bitten admins before.
+  if (merged.workScheduleEnabled === false) {
+    sanitized.workScheduleFrom = null;
+    sanitized.workScheduleTo = null;
   }
 
   const settings = await settingsRepository.save(sanitized);

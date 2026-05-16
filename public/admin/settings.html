@@ -236,10 +236,12 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
               <div class="form-group">
                 <label for="videoCrf" class="label-with-hint">Качество видео (CRF 18–28) <button type="button" class="hint-icon" data-hint="18 — лучше качество, больше размер файла. 28 — меньше размер, хуже качество. 23 — по умолчанию." aria-label="Подсказка">?</button></label>
                 <input type="number" id="videoCrf" min="18" max="28">
+                <div class="hint" style="color:var(--warning,#d97706);"><strong>Внимание:</strong> подобрано под слабые декодеры приставок (Allwinner H616). Менять только если знаете, что делаете — после долгого расследования лагов.</div>
               </div>
               <div class="form-group">
                 <label for="videoMaxWidth" class="label-with-hint">Макс. ширина видео (пикс.) <button type="button" class="hint-icon" data-hint="Оставьте пустым, чтобы не менять разрешение. Уменьшение снижает размер файла при оптимизации." aria-label="Подсказка">?</button></label>
                 <input type="number" id="videoMaxWidth" min="320" max="4096" placeholder="без изменений">
+                <div class="hint" style="color:var(--warning,#d97706);"><strong>Внимание:</strong> экспертный параметр. По умолчанию ширина не ограничивается — 1080p лучше всего проигрывается на текущих приставках.</div>
               </div>
               <div class="form-group">
                 <label for="cacheMaxSizeMb" class="label-with-hint">Лимит кэша на устройстве (МБ) <button type="button" class="hint-icon" data-hint="Максимальный объём кэша медиа на приставке. Видео и изображения кэшируются для офлайн-воспроизведения. При превышении лимита старые файлы удаляются автоматически." aria-label="Подсказка">?</button></label>

@@ -64,6 +64,14 @@
     }
   }
 
+  function updateWorkScheduleFieldsDisabled() {
+    var enabled = getValue('workScheduleEnabled', true) === true;
+    var from = getEl('workScheduleFrom');
+    var to = getEl('workScheduleTo');
+    if (from) from.disabled = !enabled;
+    if (to) to.disabled = !enabled;
+  }
+
   function applyToForm(s) {
     setValue('imageDuration', s.imageDuration ?? 10);
     setValue('pollInterval', s.pollInterval ?? 10);
@@ -75,6 +83,7 @@
     setValue('workScheduleEnabled', !!s.workScheduleEnabled, true);
     setValue('workScheduleFrom', normalizeTimeHHMM(s.workScheduleFrom));
     setValue('workScheduleTo', normalizeTimeHHMM(s.workScheduleTo));
+    updateWorkScheduleFieldsDisabled();
     setTimezoneSelect(s.timezone || 'Europe/Moscow');
     setOffHoursImagePreview(s.workScheduleOffImageUrl || null);
     setValue('onlineThreshold', s.onlineThreshold ?? 30);
@@ -429,6 +438,11 @@
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', updateEffectiveThreshold);
     });
+
+    var workScheduleEnabledEl = document.getElementById('workScheduleEnabled');
+    if (workScheduleEnabledEl) {
+      workScheduleEnabledEl.addEventListener('change', updateWorkScheduleFieldsDisabled);
+    }
 
     document.getElementById('formMonitor').addEventListener('submit', async function (e) {
       e.preventDefault();
