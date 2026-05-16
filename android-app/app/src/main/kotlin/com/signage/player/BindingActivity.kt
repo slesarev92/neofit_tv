@@ -9,9 +9,12 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -63,8 +66,7 @@ class BindingActivity : AppCompatActivity() {
             }
 
             val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            val serverUrlEdit = findViewById<EditText>(R.id.bindingServerUrl)
-            serverUrlEdit?.setText(prefs.getString(KEY_SERVER_URL, getString(R.string.hint_server_url)))
+            setupClubPicker(prefs.getString(KEY_SERVER_URL, null))
 
             findViewById<Button>(R.id.bindingGetCode)?.setOnClickListener { fetchCode() }
             findViewById<Button>(R.id.bindingScanQr)?.setOnClickListener {
@@ -106,6 +108,75 @@ class BindingActivity : AppCompatActivity() {
         return url.isNotEmpty() && (url.startsWith("http://") || url.startsWith("https://"))
     }
 
+    /**
+     * Wires the club Spinner: known clubs from clubs.xml + a trailing "Other
+     * (manual)" entry. Selecting a known club writes its URL into the hidden
+     * bindingServerUrl EditText so existing fetch/poll code keeps working
+     * unchanged. Selecting "Other" reveals the EditText for free-text entry.
+     *
+     * Restore logic: if [savedUrl] matches a known club, that club is
+     * preselected. Otherwise — "Other" is selected and the EditText is
+     * populated with the saved URL (covers dev/staging URLs and any pre-
+     * existing installs from before the picker existed).
+     */
+    private fun setupClubPicker(savedUrl: String?) {
+        val spinner = findViewById<Spinner>(R.id.bindingClubSpinner) ?: return
+        val manualLabel = findViewById<TextView>(R.id.bindingManualUrlLabel)
+        val manualEdit = findViewById<EditText>(R.id.bindingServerUrl)
+
+        val clubs = Clubs.list(this)
+        val manualLabelText = getString(R.string.club_manual)
+        val items = clubs.map { it.name } + manualLabelText
+
+        spinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, items).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
+        val matched = Clubs.findByUrl(this, savedUrl)
+        // Default index priority:
+        //  1) saved URL matches a known club → that club
+        //  2) no saved URL (fresh install) → first club (NeoFit TV)
+        //  3) saved URL non-blank but unknown (dev/staging/custom) → "Other"
+        val startIndex = when {
+            matched != null -> clubs.indexOf(matched)
+            savedUrl.isNullOrBlank() -> 0
+            else -> items.size - 1
+        }
+        spinner.setSelection(startIndex, false)
+
+        // Initial visibility for manual field, before the listener fires.
+        val startIsManual = startIndex == items.size - 1
+        manualLabel?.visibility = if (startIsManual) View.VISIBLE else View.GONE
+        manualEdit?.visibility = if (startIsManual) View.VISIBLE else View.GONE
+        when {
+            startIsManual && !savedUrl.isNullOrBlank() -> manualEdit?.setText(savedUrl)
+            matched != null -> manualEdit?.setText(matched.url)
+            startIndex < clubs.size -> manualEdit?.setText(clubs[startIndex].url)
+        }
+
+        spinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (position < clubs.size) {
+                    // Known club picked: hide manual field, store URL in the
+                    // (hidden) EditText so the rest of the activity reads it
+                    // from a single source.
+                    manualLabel?.visibility = View.GONE
+                    manualEdit?.visibility = View.GONE
+                    manualEdit?.setText(clubs[position].url)
+                } else {
+                    // "Other" selected.
+                    manualLabel?.visibility = View.VISIBLE
+                    manualEdit?.visibility = View.VISIBLE
+                    if (manualEdit?.text?.isBlank() == true) {
+                        manualEdit.hint = getString(R.string.hint_server_url)
+                    }
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) { /* no-op */ }
+        }
+    }
+
     private fun launchQrScanner() {
         scanQrLauncher.launch(
             ScanOptions().apply {
@@ -117,14 +188,35 @@ class BindingActivity : AppCompatActivity() {
     private fun applyScannedUrl(contents: String) {
         val s = contents.trim()
         if (!s.startsWith("http://") && !s.startsWith("https://")) return
-        val serverEdit = findViewById<EditText>(R.id.bindingServerUrl) ?: return
-        if (s.contains("/player/index.html?id=")) {
-            val base = s.substringBefore("/player/index.html").trimEnd('/')
-            serverEdit.setText(base)
+        val base = if (s.contains("/player/index.html?id=")) {
+            s.substringBefore("/player/index.html").trimEnd('/')
         } else {
-            serverEdit.setText(s.trimEnd('/'))
+            s.trimEnd('/')
         }
+        // Route through the picker so a scanned URL that matches a known club
+        // selects that club; otherwise it lands in the manual EditText.
+        selectByUrl(base)
         if (isUrlFieldValid()) fetchCode()
+    }
+
+    /**
+     * Picks the right Spinner row for [url]: known club → that row, unknown →
+     * "Other" row and write [url] into the manual EditText. Used by both the
+     * QR scanner callback and any future code paths that receive a URL from
+     * outside the picker.
+     */
+    private fun selectByUrl(url: String) {
+        val spinner = findViewById<Spinner>(R.id.bindingClubSpinner) ?: return
+        val edit = findViewById<EditText>(R.id.bindingServerUrl)
+        val clubs = Clubs.list(this)
+        val matched = Clubs.findByUrl(this, url)
+        if (matched != null) {
+            spinner.setSelection(clubs.indexOf(matched), true)
+        } else {
+            // "Other" is the last entry.
+            spinner.setSelection(clubs.size, true)
+            edit?.setText(url)
+        }
     }
 
     override fun onDestroy() {

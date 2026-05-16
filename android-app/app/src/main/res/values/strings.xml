@@ -11,6 +11,9 @@
 
     <string name="settings_title">Настройки плеера</string>
     <string name="server_url">URL сервера</string>
+    <string name="select_club">Выберите клуб</string>
+    <string name="club_manual">Другое (ручной ввод)</string>
+    <string name="manual_url_label">URL сервера (вручную)</string>
     <string name="screen_id">ID экрана</string>
     <string name="check_connection">Проверить соединение</string>
     <string name="save_and_launch">Сохранить и запустить</string>

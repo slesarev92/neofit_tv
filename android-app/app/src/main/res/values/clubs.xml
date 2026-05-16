@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Pre-baked list of known deployments. Each entry is "Display Name|URL".
+    Picked via Spinner in BindingActivity / SettingsActivity so admins don't
+    type the full URL on a TV remote. Adding a new club = add an entry here +
+    rebuild APK. For ad-hoc deployments (dev, staging, customer trials) the
+    UI also offers an "Other (manual)" option that opens a free-text URL field.
+-->
+<resources>
+    <string-array name="clubs" translatable="false">
+        <item>NeoFit TV|https://tv.n-fit.ru</item>
+        <item>Labgym TV|https://tv.labgym.ru</item>
+        <item>Soham TV|https://tv.soham-fit.ru</item>
+    </string-array>
+</resources>

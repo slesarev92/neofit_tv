@@ -8,6 +8,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Android-плеер: выбор клуба из списка вместо ручного ввода URL.** На экране привязки (`BindingActivity`) и в настройках (`SettingsActivity`) появился `Spinner` с тремя предзаданными деплоями (NeoFit TV / Labgym TV / Soham TV) и опцией «Другое (ручной ввод)» для нестандартных случаев. На пульте 3 нажатия вместо ввода ~30-символьного URL. Один APK ставится во все клубы. Добавление нового клуба = одна строка в `res/values/clubs.xml` + пересборка APK. Затронуты: `clubs.xml` (новый, source of truth), `Clubs.kt` (новый, парсер + reverse lookup), `strings.xml` (3 новые строки), оба layout'а, обе Activity. Backward compat: существующие установки с сохранённым custom URL автоматически попадут в «Другое» с подставленным значением. (2026-05-16)
+
 ### Changed
 - **APK переименован: `neofit_tv.apk` → `app-debug.apk`.** Имя совпадает с дефолтным выводом Gradle (`assembleDebug`), специальное переименование при копировании в корень репо больше не требуется. Затронуты: `server.js` (URL + lookup), `scripts/upload-apk.ps1`, `public/js/nav.js` (download link), `public/js/docs-content.js` (упоминания в справке), `CLAUDE.md`, `docs/DEPLOYMENT.md`. **Действие на проде после деплоя:** `mv /opt/digital-signage/neofit_tv.apk /opt/digital-signage/app-debug.apk` либо перелить через `scripts/upload-apk.ps1`. (2026-05-16)
 
