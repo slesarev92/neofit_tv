@@ -131,6 +131,24 @@ app.get('/api/system/health', (req, res) => {
   res.json({ ok: true, version, env: config.nodeEnv });
 });
 
+// Public branding — used by login/pair/player pages which run without auth.
+// Returns ONLY systemName and logoUrl, never secrets. Enables per-deployment
+// branding (NeoFit TV / Labgym TV / Soham TV) without exposing protected
+// settings to unauthenticated users.
+app.get('/api/branding', async (req, res) => {
+  try {
+    const settings = await settingsRepository.get();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json({
+      systemName: settings.systemName || 'NeoFit TV',
+      logoUrl: settings.logoUrl || null,
+    });
+  } catch (err) {
+    logger.warn('Branding fetch failed', { error: err.message });
+    res.json({ systemName: 'NeoFit TV', logoUrl: null });
+  }
+});
+
 // Public API routes (до static, иначе POST к /api/* отдаёт 404)
 app.use('/api/auth', authRoutes);
 app.use('/api/player', playerRoutes);

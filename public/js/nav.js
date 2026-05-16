@@ -21,6 +21,10 @@
     var logoUrlWithCacheBuster = (logoUrl && logoUrl.trim())
       ? logoUrl.replace(/\?.*$/, '') + '?t=' + Date.now()
       : null;
+    // Expose for other admin scripts that need synchronous access (e.g.
+    // downloadPlayerFile in admin-screens.js builds HTML strings on-click
+    // and can't await a fetch).
+    window.__brand = { systemName: systemName, logoUrl: logoUrl };
 
     var pageTitle = document.body.getAttribute('data-page-title');
     if (pageTitle) {

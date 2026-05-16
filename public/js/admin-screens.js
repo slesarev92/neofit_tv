@@ -135,7 +135,8 @@
     const url = getPlayerUrl(id);
     const safeUrl = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     const jsUrl = url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const titleText = escapeHtml(name || 'NeoFit_TV');
+    const brand = (window.__brand && window.__brand.systemName) || 'NeoFit TV';
+    const titleText = escapeHtml(name || brand);
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
 <title>${titleText}</title>
@@ -147,7 +148,7 @@
     const blob = new Blob([html], { type: 'text/html' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (name || 'NeoFit_TV_Player').replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, '_') + '.html';
+    a.download = (name || (brand + ' Player')).replace(/[^a-zA-Z0-9а-яА-ЯёЁ_-]/g, '_') + '.html';
     a.click();
     URL.revokeObjectURL(a.href);
     showToast('Файл скачан', 'success');

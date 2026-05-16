@@ -7,7 +7,20 @@
   (function(){var t=localStorage.getItem('admin-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
   </script>
   <link rel="icon" type="image/png" href="/favicon.png">
-  <title>Привязка устройства — NeoFit TV</title>
+  <title>Привязка устройства</title>
+  <script>
+    // Dynamic title for the current deployment brand (NeoFit / Labgym / Soham / ...).
+    (function () {
+      fetch('/api/branding', { credentials: 'include', cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (b) {
+          if (!b) return;
+          var name = (b.systemName && String(b.systemName).trim()) || 'NeoFit TV';
+          document.title = 'Привязка устройства — ' + name;
+        })
+        .catch(function () {});
+    })();
+  </script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/theme.js"></script>
   <style>

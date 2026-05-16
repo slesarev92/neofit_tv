@@ -113,7 +113,7 @@
       content: '<p>Привязка устройства к экрану по коду или QR без ручного ввода URL и ID экрана.</p>' +
         '<h4>Если привязываете приставку с установленным APK</h4>' +
         '<div class="docs-steps">' +
-        '<div class="docs-step"><div class="docs-step-content">На приставке откройте приложение NeoFit TV. На экране привязки введите URL сервера и нажмите <strong>«Получить код»</strong> — появятся шестизначный код и QR.</div></div>' +
+        '<div class="docs-step"><div class="docs-step-content">На приставке откройте приложение {{brand}}. На экране привязки введите URL сервера и нажмите <strong>«Получить код»</strong> — появятся шестизначный код и QR.</div></div>' +
         '<div class="docs-step"><div class="docs-step-content">В админ-панели откройте страницу <strong>Привязка</strong>. Введите код с приставки или отсканируйте QR телефоном (откроется страница привязки в браузере с подставленным кодом).</div></div>' +
         '<div class="docs-step"><div class="docs-step-content">При необходимости войдите в панель. Выберите существующий экран или создайте новый, нажмите <strong>«Привязать»</strong>.</div></div>' +
         '<div class="docs-step"><div class="docs-step-content">Приложение на приставке само получит связь с экраном и откроет плеер (опрос сервера идёт автоматически).</div></div>' +
@@ -179,7 +179,7 @@
         '<h4>Какие события отправляются</h4>' +
         '<ul><li>Экран перешёл в офлайн — уведомление с названием экрана и временем последней активности.</li>' +
         '<li>Экран снова онлайн — уведомление о восстановлении связи.</li></ul>' +
-        '<p>Формат сообщения: «🔴 NeoFit TV: Экран „Зал 1“ офлайн» / «🟢 Экран „Зал 1“ онлайн».</p>' +
+        '<p>Формат сообщений: «⚠️ <b>Экран оффлайн</b>: Зал 1» / «✅ <b>Экран онлайн</b>: Зал 1». Для группы экранов в заголовок добавляется число.</p>' +
         '<h4>Тестовое сообщение</h4>' +
         '<p>В настройках во вкладке «Telegram» после ввода токена и chat ID можно нажать кнопку отправки тестового сообщения, чтобы проверить настройку.</p>'
     },
@@ -417,17 +417,29 @@
       });
     });
 
+    // {{brand}} placeholders are substituted at render time with the current
+    // deployment's systemName (set by nav.js into window.__brand). Race-safe:
+    // if nav.js hasn't completed its /api/settings fetch yet, falls back to
+    // the default brand — re-render isn't needed because docs is static once
+    // displayed.
+    var brand = (window.__brand && window.__brand.systemName) || 'NeoFit TV';
+    var brandSafe = brand
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
     window.DOCS_SECTIONS.forEach(function (s) {
       var section = document.createElement('section');
       section.id = s.id;
       section.className = 'docs-section';
-      var textForSearch = (s.title + ' ' + s.content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toLowerCase();
+      var content = String(s.content).replace(/\{\{brand\}\}/g, brandSafe);
+      var textForSearch = (s.title + ' ' + content).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').toLowerCase();
       section.setAttribute('data-search', textForSearch);
       var titleHtml = '<h2 class="docs-section-title">' +
         (s.icon ? '<span class="docs-nav-icon">' + s.icon + '</span>' : '') +
         '<a href="#' + s.id + '" id="anchor-' + s.id + '">' + s.title + '</a>' +
         '<a href="#' + s.id + '" class="docs-anchor" aria-label="Ссылка на раздел">#</a></h2>';
-      section.innerHTML = titleHtml + s.content;
+      section.innerHTML = titleHtml + content;
       container.appendChild(section);
     });
   }
@@ -590,11 +602,26 @@
   }
 
   window.initDocsPage = function () {
-    renderDocs();
-    initCopyButtons();
-    initSearch();
-    initSidebarHighlight();
-    initAccordion();
-    initMobileSidebar();
+    // Ensure brand is loaded before render so {{brand}} placeholders resolve
+    // correctly. nav.js fetches /api/settings async and may not finish before
+    // DOMContentLoaded — we do our own fetch as a deterministic source.
+    fetch('/api/branding', { credentials: 'include', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (b) {
+        if (b && b.systemName) {
+          window.__brand = window.__brand || {};
+          window.__brand.systemName = b.systemName;
+          if (b.logoUrl) window.__brand.logoUrl = b.logoUrl;
+        }
+      })
+      .catch(function () { /* fallback brand used */ })
+      .then(function () {
+        renderDocs();
+        initCopyButtons();
+        initSearch();
+        initSidebarHighlight();
+        initAccordion();
+        initMobileSidebar();
+      });
   };
 })();

@@ -115,7 +115,14 @@ router.post('/telegram-test', async (req, res, next) => {
     if (!token || !chatId) {
       return res.status(400).json({ error: 'Укажите токен бота и Chat ID и сохраните настройки.' });
     }
-    const text = '✅ <b>NeoFit TV</b>: тест уведомлений.\n\nЕсли вы видите это сообщение, настройка работает.';
+    const brand = (String(settings.systemName || '').trim()) || 'NeoFit TV';
+    // HTML escape for the bold tag — systemName is user-controlled so an
+    // unescaped < or & would break Telegram's parser or inject tags.
+    const safeBrand = brand
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const text = '✅ <b>' + safeBrand + '</b>: тест уведомлений.\n\nЕсли вы видите это сообщение, настройка работает.';
     await sendTelegram(token, chatId, text, { retries: 1 });
     res.json({ ok: true });
   } catch (err) {

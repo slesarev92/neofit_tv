@@ -61,9 +61,9 @@
   </div>
   <div class="login-card">
     <div class="login-logo">
-      <img src="/logo.png" alt="NeoFit" style="height: 48px; width: auto;">
+      <img id="brandLogoImg" src="/logo.png" alt="" style="height: 48px; width: auto;">
     </div>
-    <h1>NeoFit TV</h1>
+    <h1 id="brandHeading">NeoFit TV</h1>
     <p class="login-subtitle">Панель управления</p>
     <form id="loginForm">
       <div id="passwordStep">
@@ -87,7 +87,29 @@
     </form>
   </div>
   <script src="/js/api.js"></script>
-  <!-- nav.js не подключаем на странице входа: он дергает /api/settings, получает 401 и может вызывать лишний редирект -->
+  <!-- nav.js не подключаем на странице входа: он дергает /api/settings, получает 401 и может вызывать лишний редирект.
+       Вместо этого вызываем публичный /api/branding для подмены title/h1/logo под конкретный деплой. -->
+  <script>
+    (function () {
+      fetch('/api/branding', { credentials: 'include', cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (b) {
+          if (!b) return;
+          var name = (b.systemName && String(b.systemName).trim()) || 'NeoFit TV';
+          document.title = 'Вход — ' + name;
+          var h1 = document.getElementById('brandHeading');
+          if (h1) h1.textContent = name;
+          var img = document.getElementById('brandLogoImg');
+          if (img) {
+            img.alt = name;
+            if (b.logoUrl && String(b.logoUrl).trim()) {
+              img.src = b.logoUrl;
+            }
+          }
+        })
+        .catch(function () { /* fallback: hardcoded values stay */ });
+    })();
+  </script>
   <script>
     (function () {
       var form = document.getElementById('loginForm');

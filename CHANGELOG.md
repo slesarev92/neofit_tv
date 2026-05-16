@@ -8,6 +8,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Phase A мульти-брендинга — web-страницы.** Каждый деплой (NeoFit TV / Labgym TV / Soham TV / …) теперь правильно показывает свой бренд во всех клиентских точках входа. (2026-05-16)
+  - **Новый публичный endpoint `GET /api/branding`** (без `requireAuth`) возвращает `{ systemName, logoUrl }`. Используется страницами `login.html`, `pair/index.html`, `player/index.html`, которые работают без авторизации. Никаких секретов не отдаёт.
+  - `public/login.html` — `<title>`, `<h1>`, `<img>` логотипа теперь динамические. Подтягиваются из `/api/branding` после загрузки страницы. Fallback — захардкоженные значения если endpoint недоступен.
+  - `public/pair/index.html`, `public/player/index.html` — `<title>` динамический.
+  - `public/js/nav.js` — после применения брендинга экспортирует `window.__brand = { systemName, logoUrl }` для синхронного доступа из других скриптов.
+  - `public/js/admin-screens.js::downloadPlayerFile` — title и имя скачиваемого HTML-файла плеера используют `window.__brand.systemName` вместо захардкоженного `'NeoFit_TV'`.
+  - `public/js/docs-content.js` — плейсхолдер `{{brand}}` в контенте справки подставляется на render. `initDocsPage` сам делает fetch на `/api/branding`, чтобы не было race с `nav.js`. Заодно исправлен неточный пример формата Telegram-сообщения — теперь соответствует реальному выводу `screens.monitor.js`.
+  - `src/modules/settings/settings.routes.js::telegram-test` — тестовое сообщение использует `systemName` (с HTML-escape для безопасности, т.к. пользовательский ввод идёт в `<b>` тег).
+
 ### Changed
 - `src/modules/auth/auth.service.js::setupTotp` — название и issuer для TOTP-записи берутся из `settings.systemName` вместо захардкоженного `'NeoFit TV'`. Каждый деплой (labgym / soham / neofit / …) теперь показывает свой бренд в аутентификатор-апе. Fallback на `'NeoFit TV'` если systemName пустой. Изменение влияет только на НОВЫЕ setup'ы — уже привязанные записи на телефонах не меняются (там фиксированный секрет). (2026-05-16)
 
