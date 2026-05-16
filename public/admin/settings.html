@@ -427,6 +427,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
             <h3 style="margin-bottom:.75rem;">Двухфакторная аутентификация (2FA)</h3>
             <p id="totpStatusText" class="hint" style="margin-bottom:.75rem;"></p>
             <div id="totpDisabledView">
+              <p class="hint" style="color:var(--warning,#d97706);margin-bottom:.75rem;"><strong>Перед настройкой:</strong> удалите старые записи «NeoFit TV» из приложения-аутентификатора. Они продолжат генерировать коды, которые сервер не примет — это причина «иногда заходит, иногда нет».</p>
               <button type="button" class="btn btn-secondary" id="totpSetupBtn">Подключить Google Authenticator</button>
             </div>
             <div id="totpSetupView" style="display:none;margin-top:1rem;">
