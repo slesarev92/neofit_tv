@@ -168,6 +168,13 @@ function canonicalPlayerKey(url) {
 //  Precache messaging from player.js
 // =========================================================
 self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'CLAIM') {
+    // After install/activate, clients.claim() is only called once. A page
+    // loaded later (e.g. WebView reload offline) starts uncontrolled, so the
+    // fetch handler never runs for its requests. player.js posts CLAIM on
+    // every load so the SW takes control before the first /api/player fetch.
+    e.waitUntil(self.clients.claim());
+  }
   if (e.data && e.data.type === 'PRECACHE') {
     if (e.data.cacheMaxSizeMb) {
       cacheMaxBytes = e.data.cacheMaxSizeMb * 1024 * 1024;

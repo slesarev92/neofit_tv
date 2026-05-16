@@ -750,8 +750,18 @@
   // =========================================================
   function registerServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('/player/sw.js').then((reg) => {
+    // SW must live at site root and register with scope '/' — without that,
+    // /api/player/* and /uploads/* (outside /player/) are not intercepted,
+    // and the offline cache fallback for the playlist API never engages.
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then((reg) => {
       if (DEBUG) console.log('[SW] Registered, scope:', reg.scope);
+      // Ask an already-active SW to claim this page when it loaded without a
+      // controller (every page load except the very first install/upgrade).
+      // Without this the playlist API fetch on offline boot races SW takeover
+      // and goes straight to network — fails — placeholder.
+      if (reg.active && !navigator.serviceWorker.controller) {
+        reg.active.postMessage({ type: 'CLAIM' });
+      }
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
           type: 'SET_CACHE_LIMIT',
@@ -761,11 +771,37 @@
     }).catch((err) => {
       if (DEBUG) console.error('[SW] Registration failed:', err);
     });
+    // Cleanup of stale registration from the previous SW location
+    // (/player/sw.js with scope /player/) — left alone it stays active and
+    // can race the new root-scope SW on /player/* paths.
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (r) {
+        if (r.scope && r.scope.endsWith('/player/')) {
+          r.unregister();
+          if (DEBUG) console.log('[SW] Unregistered stale /player/ scope');
+        }
+      });
+    }).catch(function () {});
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist().then((granted) => {
         if (DEBUG) console.log('[Storage] Persistent:', granted);
       });
     }
+  }
+
+  function waitForSwController() {
+    if (!('serviceWorker' in navigator)) return Promise.resolve();
+    if (navigator.serviceWorker.controller) return Promise.resolve();
+    // First load after registration: page is not yet under SW control even
+    // though install/activate completed. Wait briefly for clients.claim() to
+    // promote this page, then proceed — fetches issued before that point
+    // bypass the SW and lose the offline-cache fallback for the playlist API.
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish() { if (!done) { done = true; resolve(); } }
+      navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true });
+      setTimeout(finish, 1500);
+    });
   }
 
   function notifySwPrecache(items) {
@@ -839,5 +875,5 @@
   registerServiceWorker();
   scheduleScheduleCheck();
   requestWakeLock();
-  poll();
+  waitForSwController().then(poll);
 })();
