@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const authRepository = require('./auth.repository');
+const settingsRepository = require('../settings/settings.repository');
 
 async function verifyPassword(password) {
   const hash = await authRepository.getPasswordHash();
@@ -30,13 +31,13 @@ async function isTotpEnabled() {
 }
 
 async function setupTotp() {
-  // Issuer is what authenticator apps group entries by — setting it explicitly
-  // makes the entry appear as "NeoFit TV" with a clear namespace, instead of
-  // a bare label that collides with other "NeoFit"-named entries from past
-  // setups. Also future-proofs against authenticator apps that need explicit
-  // algorithm/digits/period — speakeasy will encode the URL with defaults
-  // (SHA1/6/30) once issuer is present.
-  const secret = speakeasy.generateSecret({ name: 'NeoFit TV', issuer: 'NeoFit TV', length: 20 });
+  // Issuer + name come from the admin-configured systemName so each deployment
+  // (labgym / soham / neofit / etc.) shows its own brand in the authenticator
+  // app, instead of every site sharing a collision-prone "NeoFit TV" entry.
+  // Falls back to "NeoFit TV" only when systemName is empty/whitespace.
+  const settings = await settingsRepository.get();
+  const brand = (String(settings.systemName || '').trim()) || 'NeoFit TV';
+  const secret = speakeasy.generateSecret({ name: brand, issuer: brand, length: 20 });
   const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
   return { secret: secret.base32, qrCodeUrl };
 }
