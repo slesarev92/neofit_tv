@@ -207,17 +207,33 @@ app.use('/uploads', express.static(path.resolve(config.uploadsDir), {
 app.use(express.static(path.resolve('public'), {
   setHeaders(res, filePath) {
     if (!filePath) return;
-    const isHtml = filePath.endsWith('.html') || path.basename(filePath) === 'index.html';
-    if (!isHtml) return;
-    // Player shell must be cacheable so the Android WebView can fall back to
-    // cached HTML when the server is unreachable on reboot (offline survival).
-    // Admin/login HTML stays uncacheable for security and immediate updates.
     const normalized = filePath.replace(/\\/g, '/');
-    const isPlayerShell = normalized.includes('/player/');
-    if (isPlayerShell) {
+    const basename = path.basename(normalized);
+    const isHtml = normalized.endsWith('.html');
+    const isPlayerShellHtml = isHtml && normalized.includes('/player/');
+    // sw.js stays uncacheable so a deploy reaches the device on the next
+    // page load — once activated, the SW itself precaches the player shell.
+    const isServiceWorker = basename === 'sw.js';
+    // Player shell sub-resources must be cacheable so the Android WebView can
+    // boot offline: HTML in cache without JS/CSS leaves a static placeholder.
+    const isCacheableStatic = !isHtml && !isServiceWorker && (
+      normalized.endsWith('.js') ||
+      normalized.endsWith('.css') ||
+      normalized.endsWith('.png') ||
+      normalized.endsWith('.svg') ||
+      normalized.endsWith('.ico') ||
+      normalized.endsWith('.woff') ||
+      normalized.endsWith('.woff2')
+    );
+
+    if (isServiceWorker) {
+      res.set('Cache-Control', 'no-cache');
+    } else if (isPlayerShellHtml) {
       res.set('Cache-Control', 'public, max-age=3600');
-    } else {
+    } else if (isHtml) {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    } else if (isCacheableStatic) {
+      res.set('Cache-Control', 'public, max-age=86400');
     }
   },
 }));

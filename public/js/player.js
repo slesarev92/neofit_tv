@@ -36,6 +36,36 @@
     placeholder.querySelector('p').textContent = '...';
   } catch (_) {}
 
+  // Boot-stage telemetry — record key boot transitions into native
+  // SharedPreferences. On first successful online poll, the buffer is
+  // drained and POSTed to /metrics so an operator can diagnose stuck
+  // screens (sw-timeout, poll-cache-empty, etc.) from server logs alone.
+  // Silent no-op outside the Android APK.
+  function markBootStage(stage) {
+    try {
+      if (typeof window.NativePlayer !== 'undefined' && typeof window.NativePlayer.markBootStage === 'function') {
+        window.NativePlayer.markBootStage(stage);
+      }
+    } catch (_) {}
+  }
+  let bootHistoryReported = false;
+  function maybeReportBootHistory() {
+    if (bootHistoryReported) return;
+    bootHistoryReported = true;
+    try {
+      if (typeof window.NativePlayer === 'undefined') return;
+      if (typeof window.NativePlayer.consumeBootHistory !== 'function') return;
+      const history = window.NativePlayer.consumeBootHistory();
+      if (!history) return;
+      fetch('/api/player/' + screenId + '/metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bootHistory: history }),
+      }).catch(function () {});
+    } catch (_) {}
+  }
+  markBootStage('script-started');
+
   // Persistent offline cache for the last successful /api/player response.
   // Two layers in fall-through order:
   //   1) Native (preferred): VideoPlayerManager.saveLastPlaylist/getLastPlaylist
@@ -314,14 +344,17 @@
       try {
         data = await fetchWithRetry(`/api/player/${screenId}?t=${Date.now()}`, settings.maxRetries);
         saveLastPlaylist(data);
+        markBootStage('poll-network-ok');
+        maybeReportBootHistory();
       } catch (netErr) {
         // Network/SW path failed → fall back to the last response we kept in
         // localStorage. If that's also empty, propagate the error so the
         // outer catch shows the «Ошибка загрузки» placeholder.
         const cached = loadLastPlaylist();
-        if (!cached) throw netErr;
+        if (!cached) { markBootStage('poll-cache-empty'); throw netErr; }
         data = cached;
         fromCache = true;
+        markBootStage('poll-cache-hit');
         if (DEBUG) console.log('[Player] offline — using localStorage playlist');
       }
       settings = { ...settings, ...data.settings };
@@ -854,20 +887,31 @@
   }
 
   function waitForSwController() {
-    if (!('serviceWorker' in navigator)) return Promise.resolve();
-    if (navigator.serviceWorker.controller) return Promise.resolve();
+    if (!('serviceWorker' in navigator)) {
+      markBootStage('sw-unavailable');
+      return Promise.resolve();
+    }
+    if (navigator.serviceWorker.controller) {
+      markBootStage('sw-ready');
+      return Promise.resolve();
+    }
     // First load after registration: page is not yet under SW control even
     // though install/activate completed. Wait briefly for clients.claim() to
     // promote this page, then proceed — fetches issued before that point
     // bypass the SW and lose the offline-cache fallback for the playlist API.
     return new Promise(function (resolve) {
       var done = false;
-      function finish() { if (!done) { done = true; resolve(); } }
-      navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true });
+      function finish(reason) {
+        if (done) return;
+        done = true;
+        markBootStage(reason);
+        resolve();
+      }
+      navigator.serviceWorker.addEventListener('controllerchange', function () { finish('sw-ready'); }, { once: true });
       // Keep this short — first poll has a localStorage fallback now, so
       // there's no reason to delay it waiting for the SW to take over. SW is
       // still useful for media (/uploads/*) and subsequent polls.
-      setTimeout(finish, 300);
+      setTimeout(function () { finish('sw-timeout'); }, 300);
     });
   }
 

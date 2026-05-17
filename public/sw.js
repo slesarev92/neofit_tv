@@ -1,4 +1,20 @@
 const CACHE_NAME = 'signage-media-v5';
+// Shell cache lives separate from media so size enforcement / precacheUrls
+// eviction never wipe the player boot resources. Bump the suffix when a
+// shell URL is added/removed so old clients drop the stale set on activate.
+const SHELL_CACHE = 'signage-shell-v1';
+const KEPT_CACHES = new Set([CACHE_NAME, SHELL_CACHE]);
+
+// Resources the WebView needs to boot the player. Without these in cache, an
+// offline reboot loads the HTML shell but the script never runs and the user
+// is stuck on the static «Нет контента» placeholder.
+const SHELL_URLS = [
+  '/player/index.html',
+  '/js/player.js',
+  '/favicon.png',
+];
+const SHELL_PATHS = new Set(SHELL_URLS);
+
 var cacheMaxBytes = 2048 * 1024 * 1024; // default 2 GB, updated from player settings
 var sizeMap = new Map(); // url → size in bytes, for lightweight enforceLimit
 
@@ -8,13 +24,21 @@ function isVideoUrl(url) {
   return VIDEO_EXT_RE.test(url);
 }
 
-self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL_URLS))
+      .catch(() => {}) // first install may be offline — shell will fill in on next online fetch
+      .then(() => self.skipWaiting())
+  );
+});
+
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
         names
-          .filter((n) => n !== CACHE_NAME)
+          .filter((n) => !KEPT_CACHES.has(n))
           .map((n) => caches.delete(n))
       )
     ).then(() => self.clients.claim())
@@ -48,6 +72,13 @@ self.addEventListener('fetch', (e) => {
       return;
     }
     e.respondWith(playerApiNetworkFirst(e.request));
+    return;
+  }
+
+  // Player shell — stale-while-revalidate so offline boots get the cached
+  // copy instantly and online sessions silently refresh it for the next reboot.
+  if (SHELL_PATHS.has(url.pathname) && e.request.method === 'GET') {
+    e.respondWith(shellStaleWhileRevalidate(e.request));
     return;
   }
 });
@@ -165,6 +196,27 @@ function canonicalPlayerKey(url) {
 }
 
 // =========================================================
+//  Stale-while-revalidate for the player shell. Returns the cached copy
+//  immediately so offline boots don't block on the network, and refreshes
+//  the cache in the background when online so the next reboot has the
+//  current code. A first install with no cache falls back to network.
+// =========================================================
+async function shellStaleWhileRevalidate(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cached = await cache.match(request, { ignoreSearch: true });
+  const networkPromise = fetch(request).then((resp) => {
+    if (resp && resp.ok && resp.status === 200) {
+      cache.put(request, resp.clone()).catch(() => {});
+    }
+    return resp;
+  }).catch(() => null);
+  if (cached) return cached;
+  const fresh = await networkPromise;
+  if (fresh) return fresh;
+  return new Response('Offline', { status: 503 });
+}
+
+// =========================================================
 //  Precache messaging from player.js
 // =========================================================
 self.addEventListener('message', (e) => {
@@ -214,10 +266,15 @@ async function precacheUrls(urls, currentUrls) {
     }
   }
 
-  // Remove cached items not in current playlist
+  // Remove cached items not in current playlist. Skip the cached playlist API
+  // response — it lives in the same cache as media and would otherwise be wiped
+  // on every successful poll, defeating the offline fallback. Shell lives in
+  // SHELL_CACHE and is not touched here, but the guard is kept defensively.
   const keys = await cache.keys();
   for (const req of keys) {
     const parsed = new URL(req.url);
+    if (parsed.pathname.startsWith('/api/player/')) continue;
+    if (SHELL_PATHS.has(parsed.pathname)) continue;
     const key = parsed.pathname + parsed.search;
     if (!currentFullSet.has(key)) {
       await cache.delete(req);

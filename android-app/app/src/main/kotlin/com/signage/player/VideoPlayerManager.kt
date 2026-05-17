@@ -173,6 +173,39 @@ class VideoPlayerManager(
         return playlistPrefs.getString("playlist_$screenId", null)
     }
 
+    // =========================================================
+    //  Boot-stage telemetry — append-only ring of stages reached during
+    //  the most recent boot. Drained by player.js on first successful online
+    //  poll and POSTed to /metrics, so an operator can see *why* a specific
+    //  screen got stuck offline (cache miss, SW not ready, no localStorage
+    //  fallback, etc.) without going to the device.
+    //
+    //  Storage format: "<unix_ms>:<stage>;<unix_ms>:<stage>;..." — capped at
+    //  20 entries. Plain delimited string keeps Kotlin parse trivial and is
+    //  small enough to never blow past the 1MB metrics body limit.
+    // =========================================================
+
+    @JavascriptInterface
+    fun markBootStage(stage: String) {
+        if (stage.isBlank()) return
+        val entry = "${System.currentTimeMillis()}:${stage.replace(";", "").replace(":", "")}"
+        val existing = playlistPrefs.getString("boot_history", "") ?: ""
+        val combined = if (existing.isEmpty()) entry else "$existing;$entry"
+        // Keep only the last 20 entries — older stages get dropped, which is
+        // fine: the diagnostic value is the most recent boot, not all of them.
+        val parts = combined.split(";").filter { it.isNotBlank() }
+        val trimmed = (if (parts.size > 20) parts.takeLast(20) else parts).joinToString(";")
+        playlistPrefs.edit().putString("boot_history", trimmed).apply()
+    }
+
+    @JavascriptInterface
+    fun consumeBootHistory(): String? {
+        val history = playlistPrefs.getString("boot_history", null)
+        if (history.isNullOrEmpty()) return null
+        playlistPrefs.edit().remove("boot_history").apply()
+        return history
+    }
+
     /**
      * Background preload: downloads video to SimpleCache on disk via CacheWriter.
      * Does NOT create a second MediaCodec instance — only disk I/O.
