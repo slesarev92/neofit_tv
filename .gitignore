@@ -6,3 +6,11 @@ data/*
 !data/.gitkeep
 *.log
 backups/
+
+# Одноразовые deploy-скрипты (setup нового сервера), не коммитятся в репо
+.deploy-tmp/
+
+# Android Gradle build output — APK копируется в корень репо вручную (см. docs/DEPLOYMENT.md)
+android-app/app/build/
+android-app/.gradle/
+android-app/local.properties

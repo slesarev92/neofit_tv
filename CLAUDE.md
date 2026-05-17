@@ -118,6 +118,7 @@ docs/                       # ARCHITECTURE, DEPLOYMENT, AUDIT, archive/
 - `getPlaylistSignature()` — сравнение без URL (cache-buster `?v=`). При изменении структуры сохраняет позицию по `id`.
 - `NativePlayer.stopVideo()` — **только** при переходе видео→картинка и в `showPlaceholder()`. **НЕ** при видео→видео (ExoPlayer сам заменяет).
 - `sendMetrics()` — работает только в WebView fallback. Нативный путь без метрик.
+- `markBootStage(stage)` — пишет стадии загрузки (`script-started`, `sw-ready`/`sw-timeout`, `poll-network-ok`/`poll-cache-hit`/`poll-cache-empty`) в SharedPreferences через NativePlayer. На первый онлайн-poll буфер дренируется и POSTится в `/metrics`. Используется для диагностики «висящих» приставок (см. ниже).
 
 ### При правках `android-app/.../VideoPlayerManager.kt`
 
@@ -127,12 +128,30 @@ docs/                       # ARCHITECTURE, DEPLOYMENT, AUDIT, archive/
 - `preloadVideo()` отключён — на H616 I/O конкуренция с воспроизведением. SimpleCache накапливает видео автоматически.
 - `released` guard — все callbacks проверяют флаг.
 - `CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR` — fallback на сеть при ошибке кэша.
+- `saveLastPlaylist` / `getLastPlaylist` — native fallback для playlist API (SharedPreferences `playlist-cache`). Переживает WebView destroy / force-stop.
+- `markBootStage` / `consumeBootHistory` — boot-stage telemetry. Формат хранения `<ms>:<stage>;...`, cap 20 entries. Drain на первый онлайн-poll.
 
 ### При правках `src/modules/media/media.processor.js`
 
 - `probeVideo()` → `checkCompatibility()` → remux или fullTranscode. Параметры ffmpeg в fullTranscode **не менять**.
 - `activeCommand` — текущий ffmpeg-процесс. `cancelCurrentJob()` → **SIGTERM** (не SIGKILL).
 - `currentProgress` 0–100, обновляется через `.on('progress')`. `getCurrentProgress()` для polling.
+
+### Оффлайн-загрузка плеера — каскад кешей
+
+Стабильность воспроизведения без сети — критическое требование. Цепочка от reboot приставки до картинки на экране опирается на **четыре независимых слоя кеша**, каждый — fallback для следующего. Если правишь любой из них, не нарушь fall-through.
+
+| Слой | Файлы / код | Что хранит | Что делает на оффлайн-старте |
+|------|-------------|------------|-------------------------------|
+| **1. WebView HTTP cache** | управляется Android'ом, заголовки в `server.js::express.static` | `/player/index.html` (`max-age=3600`), `/js/player.js / *.css / *.png` (`max-age=86400`), `/sw.js` (`no-cache`) | Без него `onReceivedError` в `MainActivity.kt` ставит `LOAD_CACHE_ELSE_NETWORK` и перезагружает — но это работает **только для main frame**. Поэтому Cache-Control на под-ресурсы обязателен. |
+| **2. Service Worker shell cache** | `public/sw.js` → `SHELL_CACHE = 'signage-shell-v1'` | те же `index.html / player.js / favicon.png` через `cache.addAll` на `install` | Stale-while-revalidate. Защищает на случай, если WebView HTTP cache протух / был эвикчен. |
+| **3a. SW media cache** | `public/sw.js` → `CACHE_NAME = 'signage-media-v5'` | `/uploads/*` (картинки целиком, видео — только не-Range запросы для прогрева), `/api/player/:id` (network-first) | `precacheUrls()` управляется PRECACHE-сообщением. ⚠️ **Не сноси `/api/player/*` в eviction-loop** — это было багом до b6e678e. |
+| **3b. Native playlist cache** | `VideoPlayerManager.kt` → `playlist-cache` SharedPreferences | последний успешный ответ `/api/player/:id` | Используется player.js когда SW недоступен / не залкаймил страницу. Переживает WebView destroy и force-stop приложения. |
+| **4. ExoPlayer SimpleCache** | `VideoPlayerManager.kt` → `cache-dir = video-cache`, 2 GB LRU | сами видеофайлы | CacheDataSource: при попытке открыть URL — сначала диск, потом сеть. `FLAG_IGNORE_CACHE_ON_ERROR` — fallback. |
+
+Порядок fall-through в `player.js::poll()`: сначала `fetchWithRetry` (тут срабатывает либо сеть, либо SW media-cache на network-first); при netErr — `loadLastPlaylist()` (native preferred, localStorage fallback). Если **обе** пустые — на экране остаётся «Ошибка загрузки / Повторная попытка...».
+
+**Boot-stage telemetry**: на каждой ключевой развилке `markBootStage(stage)` пишет метку в SharedPreferences. На первый успешный online-poll буфер drain'ится и POSTится на сервер. В pm2-логах `grep "boot-stage"` → видна цепочка стадий для конкретного экрана, без необходимости физически подходить к приставке. Стадии: `script-started`, `sw-ready` / `sw-timeout` / `sw-unavailable`, `poll-network-ok` / `poll-cache-hit` / `poll-cache-empty`.
 
 ### При правках admin JS (`public/js/admin-*.js`)
 
@@ -173,12 +192,13 @@ docs/                       # ARCHITECTURE, DEPLOYMENT, AUDIT, archive/
    - Bump версии в `package.json`.
    - Создать git tag `vX.Y.Z`.
 
-**Старт новой сессии:** прочитать `CLAUDE.md` → `docs/AUDIT.md` (что висит) → `CHANGELOG.md` секцию `[Unreleased]` (что недавно делали). Этого достаточно, чтобы продолжить работу без потери контекста.
+**Старт новой сессии:** прочитать `GO.md` → `CLAUDE.md` → `docs/AUDIT.md` (что висит) → `CHANGELOG.md` секцию `[Unreleased]` (что недавно делали). Этого достаточно, чтобы продолжить работу без потери контекста.
 
 ---
 
 ## Документация
 
+- `GO.md` — короткая «start here» точка входа для новой AI-сессии: что свежее, где задеплоено, что pending. Читать **первым**, потом — этот файл.
 - `CHANGELOG.md` — единый источник истины «что менялось и что чинили». Keep a Changelog format.
 - `docs/AUDIT.md` — открытые баги и наблюдения. Удалять записи по мере фиксов.
 - `docs/ARCHITECTURE.md` — глубокий разбор: data flow, плеер, видео-пайплайн, pair.
