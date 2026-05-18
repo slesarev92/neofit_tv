@@ -8,6 +8,10 @@
 
 ## [Unreleased]
 
+---
+
+## [3.6.0] — 2026-05-18
+
 ### Added
 - **Boot-stage telemetry для оффлайн-диагностики.** Каждый перезапуск приставки `player.js` отмечает ключевые точки (`script-started` → `sw-ready`/`sw-timeout`/`sw-unavailable` → `poll-network-ok`/`poll-cache-hit`/`poll-cache-empty`) в native SharedPreferences через новый `NativePlayer.markBootStage(stage)`. На первый успешный онлайн-poll буфер дренируется (`NativePlayer.consumeBootHistory()`) и POSTится в `/api/player/:id/metrics` как поле `bootHistory`. Сервер пишет это в winston-лог с `screenId`/`screenName` — оператор по `pm2 logs signage | grep boot-stage` сразу видит, на какой именно фазе застряла конкретная приставка (например `sw-timeout;poll-cache-empty` → SW не активировался + ни native, ни localStorage кэша не было — приставка раньше не работала онлайн с этого screenId). `/metrics` теперь обрабатывает boot-only POST'ы без перезаписи `playbackMetrics` (гонка: иначе boot-only тело с нулями затирало реальные метрики). Затронуты: `VideoPlayerManager.kt` (новые `markBootStage` / `consumeBootHistory` @JavascriptInterface, формат хранения `<ms>:<stage>;...`, cap 20 записей), `public/js/player.js` (расстановка маркеров + `maybeReportBootHistory`), `src/modules/player/player.routes.js` (логирование + gate `hasPlaybackData`). (2026-05-17)
 - **Нативный playlist-кэш в Android (SharedPreferences через @JavascriptInterface).** Параллельно с WebView-кэшем плеер теперь сохраняет последний успешный ответ `/api/player/...` в private SharedPreferences приставки (`playlist-cache`/`playlist_<screenId>`). Это решает оффлайн-boot регрессию на Allwinner H616, где WebView-storage (SW Cache + localStorage) после `WebView.destroy()` пропадал между запусками приложения. Native-путь устойчив к рестарту, force-stop, очистке WebView. Затронуты: `VideoPlayerManager.kt` (новые `saveLastPlaylist(screenId, json)` / `getLastPlaylist(screenId)` через `@JavascriptInterface`), `public/js/player.js` (использует native bridge как первичный источник, localStorage как fallback для не-APK контекстов вроде браузерной отладки). (2026-05-16)

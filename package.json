@@ -1,6 +1,6 @@
 {
   "name": "digital-signage",
-  "version": "3.5.0",
+  "version": "3.6.0",
   "description": "NeoFit TV — система управления контентом на экранах",
   "main": "server.js",
   "scripts": {
