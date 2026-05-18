@@ -33,23 +33,18 @@
 
 | Сервер | Серверный код | APK в репо | Тест offline-boot |
 |--------|---------------|-----------|--------------------|
-| `tv.labgym.ru` | ✅ `v3.6.0` (PM2 online, PID после restart) | ✅ свежий | ✅ подтверждён пользователем |
-| `tv.n-fit.ru` (NeoFit, **38 экранов prod**) | ⏳ деплой выполняет пользователь вручную (у Claude нет SSH-ключа) | ⏳ подтянется тем же `git pull` | — |
+| `tv.labgym.ru` | ✅ `v3.6.0` (PM2 online) | ✅ свежий | ✅ подтверждён пользователем |
+| `tv.n-fit.ru` (NeoFit, **38 экранов prod**) | ✅ `v3.6.0` (PM2 online, PID 629778). Сервер был на `e3b29b9` — прыжок через 5 релизов (v3.3 → v3.6) одним fast-forward без падения подключений. SSH ключ: `~/.ssh/signage_prod`. | ✅ свежий | — (apk-апгрейд на приставках ещё не катился) |
 | `tv.soham-fit.ru` (Soham) | ❌ не задеплоен в этой сессии | ❌ | — |
-
-Команда деплоя для NeoFit (пользователь выполняет):
-```bash
-ssh root@tv.n-fit.ru "cd /opt/signage && git pull && pm2 restart signage && pm2 status"
-```
 
 ---
 
 ## Что pending
 
-1. **Подтвердить, что NeoFit-деплой прошёл.** В следующей сессии — спросить «`pm2 status` на NeoFit показывал `3.6.0` online?». Если да — отметить ✅ в таблице. Если падал — `pm2 logs signage --lines 50` и разбираться.
-2. **Soham (`tv.soham-fit.ru`)** — server-фикс туда не катился. Решение деплоить — за пользователем.
-3. **Очистить SSH-доступ к NeoFit для Claude (опционально).** Если хочется чтобы будущие сессии могли деплоить туда сами — добавить публичный ключ Claude в `/root/.ssh/authorized_keys` на NeoFit (как сделано на labgym).
-4. **Проверить boot-stage logs после деплоя.** На labgym уже идёт — `ssh root@tv.labgym.ru "pm2 logs signage --lines 200 --nostream | grep boot-stage"`. На NeoFit заработает после деплоя + после того как приставки скачают свежий APK через `/app-debug.apk`.
+1. **APK upgrade на приставках NeoFit.** Серверный фикс уже на месте, но устройства всё ещё с APK от старых релизов (без boot-stage telemetry). Раскатить APK через `/app-debug.apk` (под auth) или `scripts/upload-apk.ps1` — это руками, по графику клуба. Без этого `pm2 logs signage | grep boot-stage` на NeoFit будет пустой.
+2. **Soham (`tv.soham-fit.ru`)** — server-фикс туда не катился. Решение деплоить — за пользователем. SSH-ключ (для проверки): `~/.ssh/signage_prod` работает на NeoFit, на Soham не пробовали.
+3. **Проверить boot-stage logs.** На labgym (`LabGym Test1`) — `ssh root@tv.labgym.ru "pm2 logs signage --lines 200 --nostream | grep boot-stage"`. Должны быть первые записи после онлайн-визита приставки со свежим APK.
+4. **ENOENT-ошибки atomicWrite на NeoFit — наблюдение.** В логе до деплоя v3.6.0 (timestamps до 2026-05-18 07:39 UTC) были `ENOENT: no such file or directory, rename ... .screens.json.{pid}.{ms}.tmp → ... screens.json`. После рестарта v3.6.0 — ни одной. Похоже, починилось добавлением `tmpSeq++` в `src/utils/atomicWrite.js` (NeoFit отставал — там стояла версия без `tmpSeq`). Если в следующей сессии увидим эти ошибки с **новыми** timestamps — баг возвращается, тогда копать.
 
 ---
 
