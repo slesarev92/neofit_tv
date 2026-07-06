@@ -12,45 +12,43 @@
 
 ---
 
-## Прошлая сессия — 2026-05-17 / 2026-05-18
+## Прошлая сессия — 2026-07-06
 
-**Тема:** оффлайн-загрузка плеера показывала статический «Нет контента / Плейлист не назначен» вместо воспроизведения из кэша.
-
-**Корневая причина:** `/js/player.js` отдавался Express'ом без `Cache-Control` (ранний `return` в `setHeaders` для не-HTML), а SW кэшировал только `/uploads/*` и `/api/player/*`. WebView полагался на эвристическую свежесть Chromium — после force-stop / эвикции скрипт пропадал из HTTP-кэша. Все три предыдущих fallback'а (SW API cache, localStorage, native SharedPreferences) были недоступны, потому что они живут **внутри** `player.js`.
+**Тема:** развернуть проект на третий сервер — **Soham (`tv.soham-fit.ru`, 62.113.105.146)**.
 
 **Что сделано:**
-1. `server.js` — явные `Cache-Control` для `.js/.css/.png/.svg/.ico/.woff*` (`max-age=86400`); `sw.js` → `no-cache`.
-2. `public/sw.js` — отдельный `SHELL_CACHE = 'signage-shell-v1'`, pre-cache shell на `install`, stale-while-revalidate. `precacheUrls` теперь пропускает `/api/player/*` и shell в eviction-loop (раньше каждый успешный poll стирал закэшированный API-ответ).
-3. `VideoPlayerManager.kt` — два новых `@JavascriptInterface`: `markBootStage(stage)` / `consumeBootHistory()`.
-4. `public/js/player.js` — расставлены маркеры стадий, на первый онлайн-poll буфер дренируется и POSTится в `/metrics`.
-5. `src/modules/player/player.routes.js` — приём `bootHistory` + winston-лог + `hasPlaybackData` гейт, чтобы boot-only POST'ы не затирали `playbackMetrics`.
+1. Локальный `main` был на ~40 коммитов позади `origin/main` (устаревший чекаут). Синхронизировали `reset --hard origin/main` → `v3.6.0` (2200612), локальные redundant-коммиты сохранены в backup-ветку `backup/local-stale-2026-07-06` (никуда не пушились).
+2. SSH: ключ `signage_prod` (`claude-signage`) добавлен пользователем на Soham через консоль хостера (пароль от VPS был невалиден). Далее — доступ по ключу.
+3. Деплой одним скриптом `scratchpad/soham-deploy.sh`: apt base, Node 20.20.2, PM2, клон репо в `/opt/signage`, certbot standalone (cert `tv.soham-fit.ru` до 2026-10-04, deploy-hook на `/etc/ssl/tv.soham-fit.ru/`), nginx site (`sed` из `nginx.conf`), `.env` (сгенерён SESSION_SECRET + INITIAL_ADMIN_PASSWORD), `npm install`, PM2 start + startup + logrotate. Health `{"ok":true,"version":"3.6.0"}`, public HTTPS 302.
+4. `data/settings.json` → `systemName: "Soham TV"` (штатным `settings.repository.save()`, atomic write), PM2 restart. Активирует брендинг + раздачу `app-soham-debug.apk` (маппинг `BRAND_TO_APK` в `server.js`).
 
-**Подробности:** `CLAUDE.md` → раздел «Оффлайн-загрузка плеера — каскад кешей».
+**Мультитенантность:** один код на всех, per-club отличает только `settings.systemName` (задаётся после деплоя). APK все три собраны и лежат в корне репо.
 
 ---
 
-## Статус деплоя на 2026-05-18
+## Статус деплоя на 2026-07-06
 
-| Сервер | Серверный код | APK в репо | Тест offline-boot |
-|--------|---------------|-----------|--------------------|
-| `tv.labgym.ru` | ✅ `v3.6.0` (PM2 online) | ✅ свежий | ✅ подтверждён пользователем |
-| `tv.n-fit.ru` (NeoFit, **38 экранов prod**) | ✅ `v3.6.0` (PM2 online, PID 629778). Сервер был на `e3b29b9` — прыжок через 5 релизов (v3.3 → v3.6) одним fast-forward без падения подключений. SSH ключ: `~/.ssh/signage_prod`. | ✅ свежий | — (apk-апгрейд на приставках ещё не катился) |
-| `tv.soham-fit.ru` (Soham) | ❌ не задеплоен в этой сессии | ❌ | — |
+| Сервер | Серверный код | Брендинг | APK в репо | Примечание |
+|--------|---------------|----------|-----------|------------|
+| `tv.n-fit.ru` (NeoFit, **38 экранов prod**) | ✅ `v3.6.0` | NeoFit TV | ✅ | SSH `~/.ssh/signage_prod` |
+| `tv.labgym.ru` (LabGym) | ✅ `v3.6.0` | Labgym TV | ✅ | offline-boot подтверждён |
+| `tv.soham-fit.ru` (Soham, 62.113.105.146) | ✅ `v3.6.0` (PM2 online, задеплоен 2026-07-06) | ✅ Soham TV | ✅ | SSH `~/.ssh/signage_prod` (ключ добавлен). Экранов пока нет — приставки не подключены |
 
 ---
 
 ## Что pending
 
-1. **APK upgrade на приставках NeoFit.** Серверный фикс уже на месте, но устройства всё ещё с APK от старых релизов (без boot-stage telemetry). Раскатить APK через `/app-debug.apk` (под auth) или `scripts/upload-apk.ps1` — это руками, по графику клуба. Без этого `pm2 logs signage | grep boot-stage` на NeoFit будет пустой.
-2. **Soham (`tv.soham-fit.ru`)** — server-фикс туда не катился. Решение деплоить — за пользователем. SSH-ключ (для проверки): `~/.ssh/signage_prod` работает на NeoFit, на Soham не пробовали.
-3. **Проверить boot-stage logs.** На labgym (`LabGym Test1`) — `ssh root@tv.labgym.ru "pm2 logs signage --lines 200 --nostream | grep boot-stage"`. Должны быть первые записи после онлайн-визита приставки со свежим APK.
-4. **ENOENT-ошибки atomicWrite на NeoFit — наблюдение.** В логе до деплоя v3.6.0 (timestamps до 2026-05-18 07:39 UTC) были `ENOENT: no such file or directory, rename ... .screens.json.{pid}.{ms}.tmp → ... screens.json`. После рестарта v3.6.0 — ни одной. Похоже, починилось добавлением `tmpSeq++` в `src/utils/atomicWrite.js` (NeoFit отставал — там стояла версия без `tmpSeq`). Если в следующей сессии увидим эти ошибки с **новыми** timestamps — баг возвращается, тогда копать.
+1. **Soham: подключить приставки.** Сервер готов. Дальше руками: установить `app-soham-debug.apk` на Android-приставки Soham (раздаётся с `https://tv.soham-fit.ru/app-debug.apk` под auth), в админке создать экраны/плейлисты, привязать устройства по pair-коду.
+2. **Soham: сменить initial admin-пароль.** Сгенерённый при деплое пароль — временный bootstrap. Залогиниться в `https://tv.soham-fit.ru/admin`, настроить 2FA, при желании сменить пароль (`npm run reset-password` на сервере).
+3. **APK upgrade на приставках NeoFit.** Серверный фикс на месте, но устройства всё ещё с APK от старых релизов (без boot-stage telemetry). Раскатить `/app-debug.apk` руками по графику клуба. Без этого `pm2 logs signage | grep boot-stage` на NeoFit будет пустой.
+4. **Проверить boot-stage logs.** На labgym (`LabGym Test1`) — `ssh root@tv.labgym.ru "pm2 logs signage --lines 200 --nostream | grep boot-stage"`.
+5. **ENOENT-ошибки atomicWrite на NeoFit — наблюдение.** До деплоя v3.6.0 были `ENOENT ... rename ... screens.json.tmp`. После рестарта — ни одной (починилось `tmpSeq++` в `atomicWrite.js`). Если увидим с **новыми** timestamps — баг вернулся.
 
 ---
 
 ## Что НЕ делали и почему
 
-- Не деплоили на Soham — пользователь не просил, и там нет подтверждённой тест-инфраструктуры.
+- Не подключали приставки Soham — это ручной шаг на стороне клуба (установка APK, pair-коды).
 - Не пересобирали APK сами через Gradle — пользователь делал это локально, мы только копировали в корень репо и пушили (`b6e678e`).
 
 ---
