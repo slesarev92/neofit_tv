@@ -52,6 +52,11 @@ sudo certbot --nginx -d tv.n-fit.ru
 sudo apt install -y nodejs npm
 sudo npm install -g pm2
 
+# ⚠️ ОБЯЗАТЕЛЬНО: системный ffmpeg (тянет и ffprobe). Обработка видео идёт
+# через fluent-ffmpeg, который ищет бинарник в PATH — без него загрузка видео
+# падает с "Cannot find ffmpeg" (инцидент на Soham 2026-07-14). Проверка: which ffmpeg ffprobe
+sudo apt install -y ffmpeg
+
 cd /opt/signage
 cp .env.example .env
 nano .env   # PORT=3000, NODE_ENV=production, BASE_URL=https://tv.n-fit.ru, SESSION_SECRET=<random>
@@ -232,6 +237,7 @@ git push origin v3.3-NEO --force
 |---------|---------|---------|
 | 404 на новых API-маршрутах | Пропустили `npm install` после pull | `npm install --production && pm2 restart signage` |
 | 502 Bad Gateway | Node не запущен или упал | `pm2 status`; если `errored` — `pm2 logs signage` посмотреть причину, `pm2 restart signage` |
+| Видео грузится, но в панели `Cannot find ffmpeg` | Не установлен системный ffmpeg | `apt install -y ffmpeg`, проверить `which ffmpeg ffprobe`, `pm2 restart signage`, перезалить видео |
 | Файлы не загружаются (413) | В nginx.conf не задан `client_max_body_size` | Проверить, что в `nginx.conf` `client_max_body_size 512m` (или больше) |
 | Сертификат не выпускается | DNS ещё не обновился | Подождать, повторить |
 | Открывается по IP, не по домену | DNS | `nslookup tv.n-fit.ru` |
