@@ -208,18 +208,32 @@ async function shellStaleWhileRevalidate(request) {
   const cached = await cache.match(request, { ignoreSearch: true });
   // cache: 'no-cache' — revalidate against the server (ETag → cheap 304)
   // instead of reusing a day-old HTTP-cache copy, so a deploy reaches the
-  // device on the next reboot. Fetch by URL: a navigate-mode Request can't
-  // be re-wrapped with an init object.
-  const networkPromise = fetch(request.url, { cache: 'no-cache' }).then((resp) => {
-    if (resp && resp.ok && resp.status === 200) {
-      cache.put(request, resp.clone()).catch(() => {});
-    }
-    return resp;
-  }).catch(() => null);
-  if (cached) return cached;
+  // device on the next reboot. Offline, fall back to the HTTP cache
+  // (force-cache serves even a stale entry) — needed when the shell cache
+  // was lost. Fetch by URL: a navigate-mode Request can't be re-wrapped
+  // with an init object.
+  const networkPromise = fetch(request.url, { cache: 'no-cache' })
+    .catch(() => fetch(request.url, { cache: 'force-cache' }))
+    .then((resp) => {
+      if (resp && resp.ok && resp.status === 200) {
+        cache.put(request, resp.clone()).catch(() => {});
+      }
+      return resp;
+    }).catch(() => null);
+  if (cached) return withNoCache(cached);
   const fresh = await networkPromise;
-  if (fresh) return fresh;
+  if (fresh) return withNoCache(fresh);
   return new Response('Offline', { status: 503 });
+}
+
+// Blink's memory cache honours the original max-age=86400 and serves the
+// shell on location.reload() without hitting the SW, so the daily reload
+// would never pick up a new player.js. Re-label the response as no-cache;
+// offline is unaffected — the body still comes from CacheStorage.
+function withNoCache(resp) {
+  const headers = new Headers(resp.headers);
+  headers.set('Cache-Control', 'no-cache');
+  return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
 }
 
 // =========================================================
