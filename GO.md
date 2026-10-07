@@ -21,7 +21,7 @@
 2. Задеплоено на **все три** сервера (`git pull && pm2 restart`), health OK, снаружи отдаётся новый `player.js`. На приставки фикс доедет после ближайшей перезагрузки плеера (04:00 или перезапуск приложения) — `player.js` кешируется WebView/SW.
 3. Отдельным коммитом `370cb91` закоммичены висевшие доки по certbot webroot (Soham, 2026-10-05).
 
-**Наблюдение:** на NeoFit в `/opt/signage/ecosystem.config.js` локальная правка с захардкоженными env (включая `SESSION_SECRET`) — не в репо, `git pull` не мешает. Стоит перенести в `.env`.
+4. **NeoFit: env перенесён из PM2 в `.env`.** На сервере `ecosystem.config.js` был локально правлен (захардкоженные env, включая `SESSION_SECRET`, и `BASE_URL=http://` → кука сессии без `Secure`). `.env` уже содержал те же значения (secret совпадал, `BASE_URL=https://`). Сделано: бэкап в `/root/env-migration-20261007-121405/`, `git checkout ecosystem.config.js`, `pm2 delete && pm2 start ecosystem.config.js && pm2 save`. Итог: git clean, секрета нет в `dump.pm2`, `cookieSecure=true` (как на Soham/LabGym), сессии сохранены, плееры опрашивают 200. Откат: вернуть файл из бэкапа + `pm2 delete signage && pm2 start ecosystem.config.js && pm2 save`.
 
 ---
 
