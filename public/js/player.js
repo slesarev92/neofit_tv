@@ -303,6 +303,13 @@
     clearTimeout(watchdogTimer);
   }
 
+  // Compare by id, not object identity: every poll replaces currentPlaylist
+  // with a fresh object (cache-buster branch), so identity breaks after 10s.
+  function isCurrentItem(item) {
+    var cur = currentPlaylist && currentPlaylist.items && currentPlaylist.items[currentIndex];
+    return !!cur && cur.id === item.id;
+  }
+
   // =========================================================
   //  Network
   // =========================================================
@@ -577,7 +584,7 @@
         resetWatchdog(duration * 2);
         currentIndex = nextIndex;
         imageTimer = setTimeout(() => {
-          if (currentPlaylist && currentPlaylist.items[currentIndex] === item) {
+          if (isCurrentItem(item)) {
             clearWatchdog();
             playNext();
           }
@@ -835,7 +842,7 @@
     resetWatchdog(duration * 2);
 
     imageTimer = setTimeout(() => {
-      if (currentPlaylist && currentPlaylist.items[currentIndex] === item) {
+      if (isCurrentItem(item)) {
         clearWatchdog();
         playNext();
       }

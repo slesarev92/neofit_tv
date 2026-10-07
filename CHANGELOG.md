@@ -9,6 +9,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **Плеер: картинки пропадали из ротации, играло только видео.** Таймер картинки сверял `currentPlaylist.items[currentIndex] === item` по ссылке, а каждый poll (раз в `pollInterval`) подменяет `currentPlaylist` новым объектом → при `imageDuration > pollInterval` таймер не срабатывал, картинку переключал watchdog (через 2× длительности) и засчитывал ошибку; после 3 таких циклов картинка пропускалась навсегда (до авто-перезагрузки в 04:00). Сравнение переведено на `id` (`isCurrentItem()` в `public/js/player.js`). Проявилось на Soham (картинки 45 с, poll 10 с). (2026-10-07)
 - **Soham: истёк SSL-сертификат `tv.soham-fit.ru` (04.10).** Сертификат был выпущен `certbot --standalone`, авто-продление падало с `Could not bind TCP port 80` (порт держит nginx). Переведён на `--webroot` (`/var/www/certbot`, location `/.well-known/acme-challenge/` в server-блоке :80), перевыпущен до 2027-01-03, `certbot renew --dry-run` проходит. Типовая проблема добавлена в `docs/DEPLOYMENT.md`. (2026-10-05)
 - **Деплой: `ffmpeg` зафиксирован как обязательная apt-зависимость в `docs/DEPLOYMENT.md`** (шаг установки + строка в «Типовые проблемы»). На Soham при первичном деплое шаг выпал → обработка видео падала с `Cannot find ffmpeg` (`fluent-ffmpeg` ищет системный бинарник в PATH, `ffmpeg-static` не используется). На сервере доустановлен `ffmpeg` 6.1.1. (2026-07-14)
 
