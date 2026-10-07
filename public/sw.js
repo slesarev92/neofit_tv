@@ -27,7 +27,9 @@ function isVideoUrl(url) {
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_URLS))
+      // cache: 'reload' — bypass the WebView HTTP cache (player.js is
+      // max-age=86400), otherwise a new SW would re-store the stale shell.
+      .then((cache) => cache.addAll(SHELL_URLS.map((u) => new Request(u, { cache: 'reload' }))))
       .catch(() => {}) // first install may be offline — shell will fill in on next online fetch
       .then(() => self.skipWaiting())
   );
@@ -204,7 +206,11 @@ function canonicalPlayerKey(url) {
 async function shellStaleWhileRevalidate(request) {
   const cache = await caches.open(SHELL_CACHE);
   const cached = await cache.match(request, { ignoreSearch: true });
-  const networkPromise = fetch(request).then((resp) => {
+  // cache: 'no-cache' — revalidate against the server (ETag → cheap 304)
+  // instead of reusing a day-old HTTP-cache copy, so a deploy reaches the
+  // device on the next reboot. Fetch by URL: a navigate-mode Request can't
+  // be re-wrapped with an init object.
+  const networkPromise = fetch(request.url, { cache: 'no-cache' }).then((resp) => {
     if (resp && resp.ok && resp.status === 200) {
       cache.put(request, resp.clone()).catch(() => {});
     }
