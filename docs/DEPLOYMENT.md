@@ -240,6 +240,7 @@ git push origin v3.3-NEO --force
 | Видео грузится, но в панели `Cannot find ffmpeg` | Не установлен системный ffmpeg | `apt install -y ffmpeg`, проверить `which ffmpeg ffprobe`, `pm2 restart signage`, перезалить видео |
 | Файлы не загружаются (413) | В nginx.conf не задан `client_max_body_size` | Проверить, что в `nginx.conf` `client_max_body_size 512m` (или больше) |
 | Сертификат не выпускается | DNS ещё не обновился | Подождать, повторить |
+| Сертификат истёк, в `/var/log/letsencrypt/letsencrypt.log` — `Could not bind TCP port 80` | Выпущен с `--standalone`: при авто-продлении порт 80 занят nginx | Перевести на webroot: в `server { listen 80 }` добавить `location /.well-known/acme-challenge/ { root /var/www/certbot; }`, затем `certbot certonly --webroot -w /var/www/certbot -d <домен> --cert-name <домен> --force-renewal`, проверить `certbot renew --dry-run`. **Не выпускать через `--standalone`.** (Soham, 2026-10-05) |
 | Открывается по IP, не по домену | DNS | `nslookup tv.n-fit.ru` |
 | `MODULE_NOT_FOUND` в pm2 logs | Не доустановлены зависимости | `npm install --production` |
 | Rate limit залип после рестарта | Старый процесс Node жив | `ps aux \| grep node` или `pm2 list` — убить лишнее |
