@@ -53,6 +53,7 @@ function theses(t) {
   return {
     years: exp ? Number(exp[1]) : null,
     specs: specs.slice(0, 4).map(s => clip(s, 40)),
+    specsAll: specs,
     awards: awards.map(s => clip(s, 90)),
     topAward: awards.find(a => TITLE_AWARD.test(a)) || null,
     hasSportsTitle: awards.some(a => SPORTS_TITLE.test(a)),

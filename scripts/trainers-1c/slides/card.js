@@ -3,10 +3,10 @@
 // Sized for 34" TVs viewed from 2–3 m: body ≥52 px, key text ≥72 px. Three visual directions.
 
 const { esc, theses, yearsWord, clip } = require('../lib/text');
-const { page, brand, POSITION_LABELS } = require('../lib/layout');
+const { page, brand, ASSETS, POSITION_LABELS } = require('../lib/layout');
 
 const BOOKING = 'Запись — на ресепшене<br>или в приложении NeoFit';
-const QR_LIB = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
+const QR_LIB = `${ASSETS}/qrcode.min.js`; // qrcode-generator 1.4.4 (MIT), vendored
 
 // Renders a QR into every [data-qr] element (black modules on white, quiet zone included).
 const qrScript = url => `<script src="${QR_LIB}"></script><script>
@@ -16,9 +16,14 @@ document.querySelectorAll('[data-qr]').forEach(el => {
 });
 </script>`;
 
+// Two specializations that fit one line: short items first, generic "Инструктор …" lines skipped.
+const SPEC_MAX = 24;
 function facts(t) {
   const th = theses(t);
-  return { years: th.years, specs: th.specs.slice(0, 2).map(s => clip(s, 26)) };
+  const useful = th.specsAll.filter(s => !/^инструктор/i.test(s));
+  const pool = useful.length ? useful : th.specsAll;
+  const ordered = [...pool.filter(s => s.length <= SPEC_MAX), ...pool.filter(s => s.length > SPEC_MAX)];
+  return { years: th.years, specs: ordered.slice(0, 2).map(s => clip(s, SPEC_MAX)) };
 }
 
 const CSS_COMMON = `
@@ -47,7 +52,8 @@ function broadcast(t, f, qrUrl) {
 .stat .n { font: 900 170px/0.8 'Unbounded'; }
 .stat .u { font: 800 52px/1.05 'Manrope'; color: var(--muted); padding-bottom: 6px; }
 .specs { margin-top: 36px; display: flex; flex-direction: column; gap: 10px; }
-.specs div { font: 800 56px/1.1 'Manrope'; padding-left: 34px; border-left: 10px solid var(--green); }
+.specs div { font: 800 52px/1.1 'Manrope'; padding-left: 34px; border-left: 10px solid var(--green);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .book { position: absolute; right: 96px; bottom: 54px; width: 820px; }
 `, `
 <div class="ghost">${esc(surname)}</div><div class="glow a"></div>

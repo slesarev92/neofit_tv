@@ -1,6 +1,11 @@
 'use strict';
 // Shared page shell: fonts, palette, texture, brand mark.
 
+const path = require('path');
+
+// Fonts and scripts are vendored so rendering never depends on the network.
+const ASSETS = 'file:///' + path.join(__dirname, '..', 'assets').replace(/\\/g, '/');
+
 const W = 1920;
 const H = 1080;
 
@@ -24,7 +29,8 @@ const GRAIN = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/
   + "<rect width='100%' height='100%' filter='url(%23n)' opacity='.55'/></svg>\")";
 
 const BASE_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800;900&family=Manrope:wght@500;600;700;800&display=block');
+@font-face { font-family: 'Unbounded'; src: url('${ASSETS}/Unbounded.ttf'); font-weight: 200 900; font-display: block; }
+@font-face { font-family: 'Manrope'; src: url('${ASSETS}/Manrope.ttf'); font-weight: 200 800; font-display: block; }
 :root { --green: #8dc63f; --green-dim: rgba(141,198,63,.16); --bg: #000; --panel: #0d0f0b; --line: #1d2119;
   --text: #f4f4f2; --muted: #92958c; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -66,4 +72,4 @@ function page(css, body) {
     + `<body>${body}${FIT_JS}</body></html>`;
 }
 
-module.exports = { W, H, POSITION_LABELS, DIRECTION, page, brand };
+module.exports = { W, H, ASSETS, POSITION_LABELS, DIRECTION, page, brand };
