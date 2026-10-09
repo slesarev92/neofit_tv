@@ -1,6 +1,6 @@
 # Trainer & schedule screens v3 — design
 
-Status: approved in brainstorm 2026-10-10. Research basis: `docs/trainers-1c-research.md`. Journal: `docs/trainers-1c.md`.
+Status: approved in brainstorm 2026-10-10; spec reviewed by user (kids' classes removed, demo 3 s confirmed). Research basis: `docs/trainers-1c-research.md`. Journal: `docs/trainers-1c.md`.
 
 ## Goal
 
@@ -15,7 +15,7 @@ Auto-generated slides from 1C:Fitness for ~34″ TVs in NeoFit Krylatskoe gym zo
 2. **Next hour** — classes starting in [now − 10 min, now + 60 min], max 4, ordered by time; a class that has started gets an «идёт» tag; times are absolute («18:00»). If the window is empty, show the single nearest upcoming class under the title «Следующее занятие». Trainers without a photo get an initials circle.
 3. **Later today** — demo only, not part of the production loop: up to 6 classes after the next-hour window.
 
-Filtered out everywhere: room bookings («Зал забронирован»), placeholder staff (single-word employee name), cancelled classes.
+Filtered out everywhere: room bookings («Зал забронирован»), placeholder staff (single-word employee name), cancelled classes, **kids' room classes** (room or course «Детская комната» — not for gym-floor screens; user decision 2026-10-10).
 
 Removed from v2: team wall, team in numbers, achievement slide, full-day schedule.
 
@@ -44,7 +44,6 @@ Demo (now): one cycle of that loop with today's 3 trainers + the later-today sli
 
 ## Open questions
 
-- Kids' room classes («Детская комната») on gym-floor screens — keep or filter? Currently kept.
 - Real booking URL for the QR.
 - Trainers without photos (4 of 28).
 
