@@ -32,7 +32,7 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: var(--
   font-family: 'Manrope', sans-serif; }
 body::after { content: ''; position: absolute; inset: 0; background-image: ${GRAIN}; opacity: .06;
   pointer-events: none; mix-blend-mode: screen; z-index: 50; }
-.brand { position: absolute; right: 80px; top: 60px; font: 700 24px 'Unbounded'; letter-spacing: .18em;
+.brand { position: absolute; right: 96px; top: 60px; white-space: nowrap; font: 700 24px 'Unbounded'; letter-spacing: .18em;
   color: var(--muted); z-index: 10; }
 .brand b { color: var(--green); font-weight: 700; }
 .brand.bottom { top: auto; bottom: 48px; }
