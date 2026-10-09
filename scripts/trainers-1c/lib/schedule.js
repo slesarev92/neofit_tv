@@ -8,10 +8,14 @@ const MAX_TILES = 4;
 const minutes = hhmm => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const hhmm = c => c.start.slice(11, 16);
 
-// Real classes only: no room bookings, no placeholder staff (single word = position, not a person).
+// Kids' room activities are not for gym-floor screens.
+const KIDS = /детская комната/i;
+
+// Real classes only: no room bookings, no kids' room, no placeholder staff (single word = position, not a person).
 function realClasses(classes) {
   return classes
     .filter(c => !c.canceled && c.title && !/забронирован/i.test(c.title))
+    .filter(c => !KIDS.test(String(c.room || '')) && !KIDS.test(String(c.course || '')))
     .filter(c => c.employeeName && String(c.employeeName).trim().includes(' '))
     .sort((a, b) => a.start.localeCompare(b.start));
 }
