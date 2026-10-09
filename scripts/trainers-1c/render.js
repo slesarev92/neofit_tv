@@ -30,14 +30,14 @@ function pickDay(trainers, names) {
 async function main() {
   const now = arg('now', '12:50');
   const trainers = require(path.join(OUT, 'trainers.json')).filter(t => t.photo);
-  const { classes } = require(path.join(OUT, 'classes.json'));
+  const { day, classes } = require(path.join(OUT, 'classes.json'));
   for (const d of [HTML, SLIDES]) fs.rmSync(d, { recursive: true, force: true });
   for (const d of [HTML, SLIDES, DEMO]) fs.mkdirSync(d, { recursive: true });
 
   const jobs = trainers.map((t, i) => [`card-${String(i + 1).padStart(2, '0')}`, cardSlide(t, STYLE, QR_URL), t]);
-  const hour = hourSlide(classes, trainers, now, STYLE);
+  const hour = hourSlide(classes, trainers, now, STYLE, day);
   if (hour) jobs.push(['hour', hour]);
-  const later = laterSlide(classes, now);
+  const later = laterSlide(classes, now, day);
   if (later) jobs.push(['later', later]);
 
   for (const [name, html] of jobs) {

@@ -31,3 +31,11 @@ test('later today starts after the window and skips kids room', () => {
   ], '12:50');
   assert.deepStrictEqual(items.map(c => c.title), ['Бачата']);
 });
+
+test('classes cut from a full next-hour slide move to later today', () => {
+  const classes = ['17:00', '17:00', '17:00', '18:00', '18:00', '19:00']
+    .map((t, i) => cls(t, `Класс ${i + 1}`, 'Зал'));
+  const sel = nextHour(classes, '17:05');
+  assert.strictEqual(sel.items.length, 4);
+  assert.deepStrictEqual(laterToday(classes, '17:05').map(c => c.title), ['Класс 5', 'Класс 6']);
+});

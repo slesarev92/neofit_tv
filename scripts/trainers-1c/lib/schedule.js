@@ -33,12 +33,18 @@ function nextHour(classes, now) {
   return { mode: 'next', items: upcoming ? [upcoming] : [] };
 }
 
-// Everything after the next-hour window, for the "later today" demo slide.
+// Upcoming classes not already on the next-hour slide (incl. ones cut by MAX_TILES), for "later today".
 function laterToday(classes, now, limit = 6) {
-  const t = minutes(now) + WINDOW_MIN;
-  return realClasses(classes).filter(c => minutes(hhmm(c)) > t).slice(0, limit);
+  const shown = new Set(nextHour(classes, now).items);
+  return realClasses(classes)
+    .filter(c => minutes(hhmm(c)) > minutes(now) && !shown.has(c))
+    .slice(0, limit);
 }
 
 const isRunning = (c, now) => minutes(hhmm(c)) <= minutes(now);
 
-module.exports = { nextHour, laterToday, isRunning, hhmm };
+// «суббота, 10 октября · 17:05» — tells viewers which moment a static snapshot describes.
+const DAY_FMT = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+const whenLabel = (day, now) => `${DAY_FMT.format(new Date(`${day}T12:00:00`))} · ${now}`;
+
+module.exports = { nextHour, laterToday, isRunning, hhmm, whenLabel };

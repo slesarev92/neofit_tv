@@ -4,7 +4,7 @@
 
 const { esc } = require('../lib/text');
 const { page, brand } = require('../lib/layout');
-const { nextHour, isRunning, hhmm } = require('../lib/schedule');
+const { nextHour, isRunning, hhmm, whenLabel } = require('../lib/schedule');
 
 const initials = name => name.split(' ').slice(0, 2).map(w => w[0]).join('');
 const cleanName = n => String(n || '').replace(/\s+/g, ' ').trim();
@@ -26,36 +26,44 @@ const CSS_COMMON = `
   background: #10140c; border: 3px solid rgba(141,198,63,.5); }
 .head { position: absolute; left: 96px; top: 54px; right: 96px; display: flex; align-items: baseline; gap: 30px; }
 .head .h1 { font-size: 92px; }
+.head .when { font: 700 44px 'Manrope'; color: var(--green); }
 `;
 
-// 1. Broadcast: slanted plates per class.
-function broadcast(sel, byId, now) {
+// 1. Broadcast: slanted plates per class. "идёт" sits inside the time plate so long titles keep their width.
+function broadcast(sel, byId, now, when) {
+  const n = sel.items.length;
+  const rowH = n >= 4 ? 168 : 184;
   return page(CSS_COMMON + `
-.list { position: absolute; left: 96px; right: 96px; top: 210px; bottom: 54px; display: flex; flex-direction: column;
-  justify-content: center; gap: 26px; }
-.it { display: grid; grid-template-columns: 400px 1fr 170px; align-items: center; height: 180px; }
-.tm { height: 100%; display: flex; align-items: center; justify-content: center; background: var(--green);
-  transform: skewX(-12deg); }
-.tm span { transform: skewX(12deg); font: 900 92px 'Unbounded'; color: #000; }
-.body { height: 100%; background: #12150e; transform: skewX(-12deg); margin-left: -10px; padding-left: 50px;
-  display: flex; flex-direction: column; justify-content: center; }
+.head .h1 { font-size: 84px; white-space: nowrap; }
+.when2 { position: absolute; right: 96px; top: 104px; font: 700 40px 'Manrope'; color: var(--green); white-space: nowrap; }
+.list { position: absolute; left: 96px; right: 96px; top: 196px; bottom: 40px; display: flex; flex-direction: column;
+  justify-content: center; gap: ${n >= 4 ? 18 : 26}px; }
+.it { display: grid; grid-template-columns: 400px minmax(0, 1fr) 170px; align-items: center; height: ${rowH}px; }
+.tm { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--green); transform: skewX(-12deg); }
+.tm span { transform: skewX(12deg); font: 900 92px/1 'Unbounded'; color: #000; }
+.tm .now { margin-top: 8px; font: 800 26px/1 'Unbounded'; letter-spacing: .14em; text-transform: uppercase;
+  background: #000; color: var(--green); padding: 6px 12px; }
+.body { height: 100%; background: #12150e; transform: skewX(-12deg); margin-left: -10px; padding: 0 30px 0 50px;
+  display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .body > div { transform: skewX(12deg); }
-.ttl { font: 800 66px/1.05 'Manrope'; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sub { margin-top: 8px; font: 700 46px 'Manrope'; color: var(--muted); }
-.av { width: 170px; height: 170px; border-radius: 50%; object-fit: cover; object-position: 50% 10%;
+.ttl { font: 800 64px/1.05 'Manrope'; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub { margin-top: 8px; font: 700 44px 'Manrope'; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.av { width: ${rowH - 10}px; height: ${rowH - 10}px; border-radius: 50%; object-fit: cover; object-position: 50% 10%;
   border: 5px solid var(--green); justify-self: end; }
 `, `
 <div class="head"><div class="h1">${title(sel.mode)}</div></div>
+${when ? `<div class="when2">${esc(when)}</div>` : ''}
 <div class="list">${sel.items.map(c => `<div class="it">
-  <div class="tm"><span>${hhmm(c)}</span></div>
-  <div class="body"><div class="ttl">${esc(c.title)}${status(c, now)}</div>
+  <div class="tm"><span>${hhmm(c)}</span>${isRunning(c, now) ? '<span class="now">идёт</span>' : ''}</div>
+  <div class="body"><div class="ttl">${esc(c.title)}</div>
     <div class="sub">${esc(String(c.room || '').trim())} · ${esc(cleanName(c.employeeName))}</div></div>
   ${face(c, byId, 'av')}</div>`).join('')}</div>
 ${brand()}`);
 }
 
 // 2. Board: departure-board rows.
-function board(sel, byId, now) {
+function board(sel, byId, now, when) {
   return page(CSS_COMMON + `
 body { background: #0c0d0b; }
 .cols { position: absolute; left: 96px; right: 96px; top: 200px; display: grid;
@@ -70,7 +78,7 @@ body { background: #0c0d0b; }
 .r .who { display: flex; align-items: center; gap: 22px; font: 800 46px/1.1 'Manrope'; }
 .r .av { width: 130px; height: 130px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; flex: none; }
 `, `
-<div class="head"><div class="h1">${title(sel.mode)}</div></div>
+<div class="head"><div class="h1">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="cols"><div>Время</div><div>Занятие</div><div>Тренер</div></div>
 <div class="rows">${sel.items.map(c => `<div class="r">
   <div class="tm">${hhmm(c)}</div>
@@ -80,7 +88,7 @@ ${brand('bottom')}`);
 }
 
 // 3. Poster: one vertical column per class with a large face.
-function poster(sel, byId, now) {
+function poster(sel, byId, now, when) {
   const n = sel.items.length;
   return page(CSS_COMMON + `
 .grid { position: absolute; left: 96px; right: 96px; top: 200px; bottom: 54px; display: grid;
@@ -95,7 +103,7 @@ function poster(sel, byId, now) {
 .c .ttl { margin-top: 10px; font: 800 58px/1.05 'Manrope'; height: 122px; overflow: hidden; }
 .c .sub { margin-top: 10px; font: 700 44px/1.15 'Manrope'; color: var(--muted); }
 `, `
-<div class="head"><div class="h1">${title(sel.mode)}</div></div>
+<div class="head"><div class="h1">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="grid">${sel.items.map(c => `<div class="c">
   ${face(c, byId, 'ph cutout')}<div class="sh"></div>
   <div class="b"><div class="tm">${hhmm(c)}</div><div class="ttl">${esc(c.title)}</div>
@@ -105,8 +113,8 @@ ${brand()}`);
 
 const VARIANTS = { broadcast, board, poster };
 
-module.exports = function hourSlide(classes, trainers, now, variant) {
+module.exports = function hourSlide(classes, trainers, now, variant, day) {
   const sel = nextHour(classes, now);
   if (!sel.items.length) return null;
-  return VARIANTS[variant](sel, new Map(trainers.map(t => [t.id, t])), now);
+  return VARIANTS[variant](sel, new Map(trainers.map(t => [t.id, t])), now, day ? whenLabel(day, now) : '');
 };
