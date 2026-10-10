@@ -33,7 +33,7 @@ module.exports = function laterSlide(classes, now, day) {
   const items = laterToday(classes, now);
   if (!items.length) return null;
   return page(CSS, `
-<div class="head"><div class="h1">Сегодня позже</div>${day ? `<div class="when">${esc(whenLabel(day, now))}</div>` : ''}</div>
+<div class="head"><div class="h1">Сегодня позже</div>${day ? `<div class="when">${esc(whenLabel(day))}</div>` : ''}</div>
 <div class="rows">${items.map(c => `<div class="r"><div class="tm">${hhmm(c)}</div>
   <div class="ttl" data-fit="46">${esc(c.title)}</div><div class="who">${esc(String(c.room || '').trim())}</div>${seats(c)}</div>`).join('')}</div>
 ${brand()}`);

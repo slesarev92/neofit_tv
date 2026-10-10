@@ -132,5 +132,5 @@ const VARIANTS = { broadcast, board, poster };
 module.exports = function hourSlide(classes, trainers, now, variant, day) {
   const sel = nextClasses(classes, now);
   if (!sel.items.length) return null;
-  return VARIANTS[variant](sel, new Map(trainers.map(t => [t.id, t])), now, day ? whenLabel(day, now) : '');
+  return VARIANTS[variant](sel, new Map(trainers.map(t => [t.id, t])), now, day ? whenLabel(day) : '');
 };

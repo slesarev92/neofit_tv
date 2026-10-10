@@ -41,9 +41,8 @@ function seatsLeft(c) {
   return Math.max(0, c.capacity - (c.booked || 0));
 }
 
-// «10 октября · 17:05» — tells viewers which moment a static snapshot describes.
-// Kept short: it shares the header row with the title and the logo.
+// «10 октября» — the day a static demo snapshot describes (demo only; live screens need no label).
 const DAY_FMT = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
-const whenLabel = (day, now) => `${DAY_FMT.format(new Date(`${day}T12:00:00`))} · ${now}`;
+const whenLabel = day => DAY_FMT.format(new Date(`${day}T12:00:00`));
 
 module.exports = { nextClasses, laterToday, seatsLeft, hhmm, whenLabel };
