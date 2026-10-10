@@ -39,3 +39,13 @@ test('classes cut from a full next-hour slide move to later today', () => {
   assert.strictEqual(sel.items.length, 4);
   assert.deepStrictEqual(laterToday(classes, '17:05').map(c => c.title), ['Класс 5', 'Класс 6']);
 });
+
+test('seats left: only for classes with real booking limits', () => {
+  const { seatsLeft } = require('./schedule');
+  assert.strictEqual(seatsLeft({ capacity: 12, booked: 8 }), 4);
+  assert.strictEqual(seatsLeft({ capacity: 12, booked: 12 }), 0);
+  assert.strictEqual(seatsLeft({ capacity: 12, booked: 14 }), 0); // overbooked by staff
+  assert.strictEqual(seatsLeft({ capacity: 0, booked: 0 }), null); // no booking for this class
+  assert.strictEqual(seatsLeft({ capacity: 100, booked: 0 }), null); // 100 = "no limit" placeholder in 1C
+  assert.strictEqual(seatsLeft({}), null);
+});

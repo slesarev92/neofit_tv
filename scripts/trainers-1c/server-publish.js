@@ -1,7 +1,8 @@
 // Server side, one-off publishing of rendered slides (test stage only; no admin UI yet).
 // Usage on the server: node server-publish.js <slidesDir> <playlistName> <durationSec> <screenId>
-//   Uploads every *.jpg in slidesDir as media (sorted by name), creates the playlist or replaces
-//   its items if a playlist with that name exists, and assigns it to the screen.
+//   Uploads every *.jpg / *.mp4 in slidesDir as media (sorted by name), creates the playlist or replaces
+//   its items if a playlist with that name exists, and assigns it to the screen. Videos go through the
+//   app's processing queue (a remux for our H.264 files); the script waits until each one is ready.
 // Run ONLY with the app stopped: repositories cache data/*.json in memory and the running app
 // would overwrite the files. Procedure and rollback: docs/trainers-1c.md.
 'use strict';
@@ -14,6 +15,19 @@ const path = require('path');
 const media = require(`${APP}/src/modules/media/media.service`);
 const playlists = require(`${APP}/src/modules/playlists/playlists.service`);
 const screens = require(`${APP}/src/modules/screens/screens.service`);
+const mediaRepo = require(`${APP}/src/modules/media/media.repository`);
+
+const MIME = { '.jpg': 'image/jpeg', '.mp4': 'video/mp4' };
+
+async function waitReady(id) {
+  for (let i = 0; i < 600; i++) {
+    const m = await mediaRepo.findById(id);
+    if (m.status === 'ready') return;
+    if (m.status === 'error') throw new Error(`media ${id}: ${m.statusMessage}`);
+    await new Promise(r => setTimeout(r, 500));
+  }
+  throw new Error(`media ${id}: processing timeout`);
+}
 
 async function main() {
   const [dir, playlistName, durationArg, screenId] = process.argv.slice(2);
@@ -24,14 +38,15 @@ async function main() {
   if (!(await screens.getById(screenId))) throw new Error(`screen ${screenId} not found`);
 
   const items = [];
-  for (const f of fs.readdirSync(dir).filter(n => n.endsWith('.jpg')).sort()) {
+  for (const f of fs.readdirSync(dir).filter(n => MIME[path.extname(n)]).sort()) {
     // upload() moves the file, so hand it a copy.
     const tmp = path.join('/tmp', `up-${Date.now()}-${f}`);
     fs.copyFileSync(path.join(dir, f), tmp);
     const res = await media.upload({
-      path: tmp, originalname: `trainers-${f}`, mimetype: 'image/jpeg', size: fs.statSync(tmp).size,
+      path: tmp, originalname: `trainers-${f}`, mimetype: MIME[path.extname(f)], size: fs.statSync(tmp).size,
     });
     if (!res.ok) throw new Error(`${f}: ${res.error}`);
+    if (res.item.status !== 'ready') await waitReady(res.item.id);
     items.push({ mediaId: res.item.id, duration });
   }
 

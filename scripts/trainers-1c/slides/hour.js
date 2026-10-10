@@ -2,9 +2,9 @@
 // "Next hour": classes starting within 60 min (or the nearest one), 1–4 large items.
 // Sized for 2–3 m: time ≥110 px, class ≥64 px, room/trainer ≥48 px. Three visual directions.
 
-const { esc } = require('../lib/text');
+const { esc, plural } = require('../lib/text');
 const { page, brand } = require('../lib/layout');
-const { nextHour, isRunning, hhmm, whenLabel } = require('../lib/schedule');
+const { nextHour, isRunning, seatsLeft, hhmm, whenLabel } = require('../lib/schedule');
 
 const initials = name => name.split(' ').slice(0, 2).map(w => w[0]).join('');
 const cleanName = n => String(n || '').replace(/\s+/g, ' ').trim();
@@ -14,6 +14,14 @@ function face(c, byId, cls) {
   return t && t.photo
     ? `<img class="${cls}" src="../${esc(t.photo)}">`
     : `<div class="${cls} ini">${esc(initials(cleanName(c.employeeName)))}</div>`;
+}
+
+// Right end of a class row: seats left, "мест нет" when full, nothing for classes without booking.
+function seats(c) {
+  const n = seatsLeft(c);
+  if (n === null) return '';
+  if (n === 0) return '<div class="seats full"><b>мест нет</b></div>';
+  return `<div class="seats"><span>осталось</span><b>${n}<i>${plural(n, 'место', 'места', 'мест')}</i></b></div>`;
 }
 
 const title = mode => (mode === 'hour' ? 'Ближайший час' : 'Следующее занятие');
@@ -34,8 +42,9 @@ function broadcast(sel, byId, now, when) {
   const n = sel.items.length;
   const rowH = n >= 4 ? 168 : 184;
   return page(CSS_COMMON + `
-.head .h1 { font-size: 84px; white-space: nowrap; }
-.when2 { position: absolute; right: 96px; top: 104px; font: 700 40px 'Manrope'; color: var(--green); white-space: nowrap; }
+.head { right: 260px; } /* clear of the logo */
+.head .h1 { font-size: 84px; white-space: nowrap; overflow: hidden; min-width: 0; }
+.head .when { font-size: 40px; white-space: nowrap; flex: none; }
 .list { position: absolute; left: 96px; right: 96px; top: 196px; bottom: 40px; display: flex; flex-direction: column;
   justify-content: center; gap: ${n >= 4 ? 18 : 26}px; }
 .it { display: grid; grid-template-columns: 400px minmax(0, 1fr) 170px; align-items: center; height: ${rowH}px; }
@@ -46,18 +55,30 @@ function broadcast(sel, byId, now, when) {
   background: #000; color: var(--green); padding: 6px 12px; }
 .body { height: 100%; background: #12150e; transform: skewX(-12deg); margin-left: -10px; padding: 0 30px 0 50px;
   display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.body { flex-direction: row; align-items: center; gap: 24px; }
 .body > div { transform: skewX(12deg); }
+.body .txt { flex: 1; min-width: 0; }
+.seats { flex: none; text-align: right; padding-right: 10px; }
+.seats span { display: block; font: 700 28px/1 'Manrope'; color: var(--muted); }
+.seats b { display: block; margin-top: 6px; font: 900 72px/1 'Unbounded'; color: var(--green); }
+.seats i { font: 800 34px 'Manrope'; font-style: normal; margin-left: 12px; color: var(--text); }
+.seats.full b { font: 800 34px/1.1 'Unbounded'; text-transform: uppercase; color: var(--muted); }
 .ttl { font: 800 64px/1.05 'Manrope'; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sub { margin-top: 8px; font: 700 44px 'Manrope'; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.it { animation: row-pulse 2.5s ease-in-out infinite; transform-origin: 0 50%; }
+/* A highlight runs down the list: each row swells in turn, twice per 5 s slide. */
+@keyframes row-pulse {
+  0%, 30%, 100% { transform: none; filter: none; }
+  12% { transform: scale(1.03); filter: brightness(1.25); }
+}
 .av { width: ${rowH - 10}px; height: ${rowH - 10}px; border-radius: 50%; object-fit: cover; object-position: 50% 10%;
   border: 5px solid var(--green); justify-self: end; }
 `, `
-<div class="head"><div class="h1">${title(sel.mode)}</div></div>
-${when ? `<div class="when2">${esc(when)}</div>` : ''}
-<div class="list">${sel.items.map(c => `<div class="it">
+<div class="head"><div class="h1" data-fit="60">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
+<div class="list">${sel.items.map((c, i) => `<div class="it" style="animation-delay: ${i * 0.35}s">
   <div class="tm"><span>${hhmm(c)}</span>${isRunning(c, now) ? '<span class="now">идёт</span>' : ''}</div>
-  <div class="body"><div class="ttl">${esc(c.title)}</div>
-    <div class="sub">${esc(String(c.room || '').trim())} · ${esc(cleanName(c.employeeName))}</div></div>
+  <div class="body"><div class="txt"><div class="ttl" data-fit="48">${esc(c.title)}</div>
+    <div class="sub">${esc(String(c.room || '').trim())} · ${esc(cleanName(c.employeeName))}</div></div>${seats(c)}</div>
   ${face(c, byId, 'av')}</div>`).join('')}</div>
 ${brand()}`);
 }
@@ -78,7 +99,7 @@ body { background: #0c0d0b; }
 .r .who { display: flex; align-items: center; gap: 22px; font: 800 46px/1.1 'Manrope'; }
 .r .av { width: 130px; height: 130px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; flex: none; }
 `, `
-<div class="head"><div class="h1">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
+<div class="head"><div class="h1" data-fit="60">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="cols"><div>Время</div><div>Занятие</div><div>Тренер</div></div>
 <div class="rows">${sel.items.map(c => `<div class="r">
   <div class="tm">${hhmm(c)}</div>
@@ -103,7 +124,7 @@ function poster(sel, byId, now, when) {
 .c .ttl { margin-top: 10px; font: 800 58px/1.05 'Manrope'; height: 122px; overflow: hidden; }
 .c .sub { margin-top: 10px; font: 700 44px/1.15 'Manrope'; color: var(--muted); }
 `, `
-<div class="head"><div class="h1">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
+<div class="head"><div class="h1" data-fit="60">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="grid">${sel.items.map(c => `<div class="c">
   ${face(c, byId, 'ph cutout')}<div class="sh"></div>
   <div class="b"><div class="tm">${hhmm(c)}</div><div class="ttl">${esc(c.title)}</div>

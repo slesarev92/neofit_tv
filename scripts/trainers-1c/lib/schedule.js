@@ -41,10 +41,19 @@ function laterToday(classes, now, limit = 6) {
     .slice(0, limit);
 }
 
+// Seats left for booking, or null when the class takes no bookings (capacity 0) or uses the
+// 100-seat "no limit" placeholder.
+const NO_LIMIT = 100;
+function seatsLeft(c) {
+  if (!(c.capacity > 0) || c.capacity >= NO_LIMIT) return null;
+  return Math.max(0, c.capacity - (c.booked || 0));
+}
+
 const isRunning = (c, now) => minutes(hhmm(c)) <= minutes(now);
 
-// «суббота, 10 октября · 17:05» — tells viewers which moment a static snapshot describes.
-const DAY_FMT = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+// «10 октября · 17:05» — tells viewers which moment a static snapshot describes.
+// Kept short: it shares the header row with the title and the logo.
+const DAY_FMT = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
 const whenLabel = (day, now) => `${DAY_FMT.format(new Date(`${day}T12:00:00`))} · ${now}`;
 
-module.exports = { nextHour, laterToday, isRunning, hhmm, whenLabel };
+module.exports = { nextHour, laterToday, isRunning, seatsLeft, hhmm, whenLabel };

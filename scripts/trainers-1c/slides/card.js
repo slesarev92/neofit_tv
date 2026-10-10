@@ -16,14 +16,17 @@ document.querySelectorAll('[data-qr]').forEach(el => {
 });
 </script>`;
 
-// Two specializations that fit one line: short items first, generic "Инструктор …" lines skipped.
+// Specializations that fit one line, shown two at a time: short items first, generic "Инструктор …" skipped.
+// Up to two pairs; on video slides the second pair replaces the first halfway through.
 const SPEC_MAX = 24;
 function facts(t) {
   const th = theses(t);
   const useful = th.specsAll.filter(s => !/^инструктор/i.test(s));
   const pool = useful.length ? useful : th.specsAll;
   const ordered = [...pool.filter(s => s.length <= SPEC_MAX), ...pool.filter(s => s.length > SPEC_MAX)];
-  return { years: th.years, specs: ordered.slice(0, 2).map(s => clip(s, SPEC_MAX)) };
+  const short = ordered.filter(s => s.length <= SPEC_MAX);
+  const specs = (short.length > 2 ? short.slice(0, 4) : ordered.slice(0, 2)).map(s => clip(s, SPEC_MAX));
+  return { years: th.years, specs: specs.slice(0, 2), specsNext: specs.slice(2, 4) };
 }
 
 const CSS_COMMON = `
@@ -32,6 +35,8 @@ const CSS_COMMON = `
 .book { display: flex; align-items: center; gap: 28px; }
 .book .txt { font: 700 40px/1.2 'Manrope'; color: var(--text); }
 `;
+
+const specSet = (list, cls) => `<div class="set ${cls}">${list.map(s => `<div>${esc(s)}</div>`).join('')}</div>`;
 
 // 1. Broadcast: giant outlined surname behind a cut-out figure, slanted plates.
 function broadcast(t, f, qrUrl) {
@@ -42,7 +47,7 @@ function broadcast(t, f, qrUrl) {
 .glow.a { left: 120px; top: 120px; width: 1100px; height: 1100px; }
 .photo { position: absolute; left: 150px; bottom: 0; height: 1000px; }
 .fade { position: absolute; left: 0; bottom: 0; width: 1100px; height: 140px; background: linear-gradient(0deg, var(--bg), transparent); }
-.panel { position: absolute; right: 96px; top: 140px; width: 820px; }
+.panel { position: absolute; right: 96px; top: 156px; width: 820px; }
 .plate { display: inline-block; background: var(--green); color: #000; padding: 14px 34px 12px 28px;
   transform: skewX(-12deg); margin-left: 12px; }
 .plate > span { display: inline-block; transform: skewX(12deg); font: 800 30px 'Unbounded'; letter-spacing: .1em; text-transform: uppercase; }
@@ -51,8 +56,13 @@ function broadcast(t, f, qrUrl) {
 .stat { margin-top: 34px; display: flex; align-items: flex-end; gap: 24px; }
 .stat .n { font: 900 170px/0.8 'Unbounded'; }
 .stat .u { font: 800 52px/1.05 'Manrope'; color: var(--muted); padding-bottom: 6px; }
-.specs { margin-top: 36px; display: flex; flex-direction: column; gap: 10px; }
-.specs div { font: 800 52px/1.1 'Manrope'; padding-left: 34px; border-left: 10px solid var(--green);
+.specs { position: relative; margin-top: 36px; height: 124px; }
+.specs .set { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; gap: 10px; }
+.specs .set.a.swap { animation: spec-out 5s linear both; }
+.specs .set.b { animation: spec-in 5s linear both; }
+@keyframes spec-out { 0%, 42% { opacity: 1; transform: none; } 48%, 100% { opacity: 0; transform: translateY(-24px); } }
+@keyframes spec-in { 0%, 50% { opacity: 0; transform: translateY(24px); } 56%, 100% { opacity: 1; transform: none; } }
+.specs .set div { font: 800 52px/1.1 'Manrope'; padding-left: 34px; border-left: 10px solid var(--green);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .book { position: absolute; right: 96px; bottom: 54px; width: 820px; }
 `, `
@@ -62,7 +72,7 @@ function broadcast(t, f, qrUrl) {
   <div class="plate"><span>${esc(POSITION_LABELS[t.position] || t.position)}</span></div>
   <div class="name" data-fit="80">${esc(surname)}</div><div class="name first" data-fit="80">${esc(rest.join(' '))}</div>
   ${f.years ? `<div class="stat"><span class="n">${f.years}</span><span class="u">${yearsWord(f.years)}<br>опыта</span></div>` : ''}
-  <div class="specs">${f.specs.map(s => `<div>${esc(s)}</div>`).join('')}</div>
+  <div class="specs">${specSet(f.specs, f.specsNext.length ? 'a swap' : 'a')}${f.specsNext.length ? specSet(f.specsNext, 'b') : ''}</div>
 </div>
 <div class="book"><div class="qr" data-qr></div><div class="txt">${BOOKING}</div></div>
 ${brand()}${qrScript(qrUrl)}`);

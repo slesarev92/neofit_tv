@@ -38,11 +38,14 @@ html, body { width: ${W}px; height: ${H}px; overflow: hidden; background: var(--
   font-family: 'Manrope', sans-serif; }
 body::after { content: ''; position: absolute; inset: 0; background-image: ${GRAIN}; opacity: .06;
   pointer-events: none; mix-blend-mode: screen; z-index: 50; }
-.brand { position: absolute; right: 96px; top: 60px; white-space: nowrap; font: 700 24px 'Unbounded'; letter-spacing: .18em;
-  color: var(--muted); z-index: 10; }
-.brand b { color: var(--green); font-weight: 700; }
-.brand.bottom { top: auto; bottom: 48px; }
-.brand.left { right: auto; left: 100px; }
+.logo { position: absolute; right: 96px; top: 54px; height: 64px; z-index: 10;
+  animation: logo-pulse 2.5s ease-in-out infinite; transform-origin: 50% 50%; }
+.logo.bottom { top: auto; bottom: 54px; }
+/* Gentle breathing: two pulses per 5 s slide, peak glow in the slide accent. */
+@keyframes logo-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(141,198,63,0)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 18px rgba(141,198,63,.75)); }
+}
 .kicker { font: 700 26px 'Unbounded'; letter-spacing: .16em; text-transform: uppercase; color: var(--green); }
 .h1 { font: 900 84px/1 'Unbounded'; text-transform: uppercase; }
 .glow { position: absolute; border-radius: 50%; pointer-events: none;
@@ -65,7 +68,7 @@ document.fonts.ready.then(() => {
 });
 </script>`;
 
-const brand = (cls = '') => `<div class="brand ${cls}"><b>NEO</b>FIT · КРЫЛАТСКОЕ</div>`;
+const brand = (cls = '') => `<img class="logo ${cls}" src="${ASSETS}/neofit-logo.svg">`;
 
 function page(css, body) {
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><style>${BASE_CSS}${css}</style></head>`

@@ -46,3 +46,16 @@
 - Читаемость: wmich.edu/digital-accessibility/digital-signage · extron videowall font size · developer.android.com/design/ui/tv (typography, layouts) · Burmistrov NordiCHI16 (тонкие начертания) · Visix / UAB / Notre Dame signage guides · Spectrio dwell time.
 - Клубы: crowntv-us.com/blog/gym-digital-signage · optisigns gym signage best practices · screencloud Roar Fitness case · fugo.ai/industries/fitness · juuno gyms · Edinburgh Uni timetable colour coding · Orangetheory zones.
 - Графика: ggrecon EA FC card design · newscaststudio ESPN NBA branding · metamatwarriors tale of the tape.
+
+
+## Все поля API (снято 2026-10-10)
+
+| Метод | Поля |
+|---|---|
+| `/clubs` | id, название, часы работы по дням (`work_time`), координаты, часовой пояс, фото, `free_registration` |
+| `/trainers` | id, ФИО (+ `last_name`, `second_name`), должность, отдел, фото, описание |
+| `/employee` | биография, `awards`, `can_train_groups/personally`, услуги тренера; `ratings` и `reviews` пустые |
+| `/classes` | `start_date/end_date/duration`, услуга (название, описание, цвет, направление, `strength`/`endurance`; `cardio/flexibility/recovery` пустые), группа, зал, тренер с фото, ассистент, `canceled` + причина, `commercial`, `ageFrom/ageTo`, **места**: `capacity`, `booked`, `available_slots` (число или `"unlimited"`), `web_capacity/web_booked`, `booking_online`, `booking_window`; бейджи пустые |
+| `/price_list` | название, категория, тип/вид, цена, скидка, цена со скидкой, зал, гостевые визиты; срок, заморозки, описание — пустые |
+
+Места: `capacity = 0` — занятие без записи (пользователь); `100` — похоже на заглушку «без лимита». За неделю 10–17.10: 196 занятий, реальный лимит у ~100, хоть одна запись у 23, онлайн-запись у 38 — запись реально ведут бассейн и часть групповых.

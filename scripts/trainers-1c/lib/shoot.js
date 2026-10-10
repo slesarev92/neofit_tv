@@ -31,4 +31,4 @@ async function shoot(htmlFile, jpgFile) {
   fs.unlinkSync(png);
 }
 
-module.exports = { shoot };
+module.exports = { shoot, findChrome };

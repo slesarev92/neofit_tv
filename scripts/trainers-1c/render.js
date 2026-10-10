@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // Renders v3 «Эфир» slides from out/trainers.json + out/classes.json.
-// Usage: node scripts/trainers-1c/render.js [--now=HH:MM] [--day-trainers=Surname1,Surname2,Surname3]
-// Output: out/slides/*.jpg (all cards + schedule) and out/slides/demo/*.jpg (one loop, show order).
+// Usage: node scripts/trainers-1c/render.js [--now=HH:MM] [--day-trainers=Surname1,Surname2,Surname3] [--video]
+// Output: out/slides/*.jpg (all cards + schedule) and out/slides/demo/ (one loop, show order):
+// JPEG stills, or with --video animated 5 s MP4s of the loop slides.
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const { shoot } = require('./lib/shoot');
+const { record } = require('./lib/record');
 const { theses } = require('./lib/text');
 const cardSlide = require('./slides/card');
 const hourSlide = require('./slides/hour');
@@ -50,7 +52,15 @@ async function main() {
   const cardOf = t => jobs.find(j => j[2] === t)[0];
   const [a, b, c] = pickDay(trainers, arg('day-trainers', ''));
   const loop = [hour && 'hour', cardOf(a), cardOf(b), hour && 'hour', cardOf(c), later && 'later'].filter(Boolean);
-  loop.forEach((name, i) => fs.copyFileSync(path.join(SLIDES, `${name}.jpg`), path.join(DEMO, `${i + 1}-${name}.jpg`)));
+  const video = process.argv.includes('--video');
+  if (video) {
+    for (const name of new Set(loop)) {
+      await record(path.join(HTML, `${name}.html`), path.join(SLIDES, `${name}.mp4`));
+      process.stdout.write('v');
+    }
+  }
+  const ext = video ? 'mp4' : 'jpg';
+  loop.forEach((name, i) => fs.copyFileSync(path.join(SLIDES, `${name}.${ext}`), path.join(DEMO, `${i + 1}-${name}.${ext}`)));
   console.log(`\n${jobs.length} slides; demo loop: ${loop.join(' → ')}`);
 }
 
