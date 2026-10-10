@@ -1,5 +1,6 @@
 // Server side, one-off publishing of rendered slides (test stage only; no admin UI yet).
-// Usage on the server: node server-publish.js <slidesDir> <playlistName> <durationSec> <screenId>
+// Usage on the server: node server-publish.js <slidesDir> <playlistName> <durationSec> <screenId|->
+//   screenId '-' publishes the playlist without assigning it to a screen.
 //   Uploads every *.jpg / *.mp4 in slidesDir as media (sorted by name), creates the playlist or replaces
 //   its items if a playlist with that name exists, and assigns it to the screen. Videos go through the
 //   app's processing queue (a remux for our H.264 files); the script waits until each one is ready.
@@ -35,7 +36,8 @@ async function main() {
   if (!dir || !playlistName || !duration || !screenId) {
     throw new Error('usage: server-publish.js <slidesDir> <playlistName> <durationSec> <screenId>');
   }
-  if (!(await screens.getById(screenId))) throw new Error(`screen ${screenId} not found`);
+  const assign = screenId !== '-';
+  if (assign && !(await screens.getById(screenId))) throw new Error(`screen ${screenId} not found`);
 
   const items = [];
   for (const f of fs.readdirSync(dir).filter(n => MIME[path.extname(n)]).sort()) {
@@ -56,9 +58,12 @@ async function main() {
     : await playlists.create({ name: playlistName, items });
   if (!pl.ok) throw new Error(pl.error);
 
-  const sc = await screens.update(screenId, { playlistId: pl.item.id });
-  if (!sc.ok) throw new Error(sc.error);
-  console.log(JSON.stringify({ media: items.length, playlistId: pl.item.id, created: !existing, screenId }));
+  if (assign) {
+    const sc = await screens.update(screenId, { playlistId: pl.item.id });
+    if (!sc.ok) throw new Error(sc.error);
+  }
+  const files = (await Promise.all(items.map(i => mediaRepo.findById(i.mediaId)))).map(m => m.path);
+  console.log(JSON.stringify({ media: items.length, playlistId: pl.item.id, created: !existing, screenId, files }));
 }
 
 main().then(() => process.exit(0)).catch(e => { console.error('FAIL', e.message); process.exit(1); });
