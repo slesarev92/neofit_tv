@@ -1,10 +1,10 @@
 'use strict';
-// "Next hour": classes starting within 60 min (or the nearest one), 1–4 large items.
+// "Next classes": the four nearest classes that have not started yet, 1–4 large items.
 // Sized for 2–3 m: time ≥110 px, class ≥64 px, room/trainer ≥48 px. Three visual directions.
 
 const { esc, plural } = require('../lib/text');
 const { page, brand } = require('../lib/layout');
-const { nextHour, isRunning, seatsLeft, hhmm, whenLabel } = require('../lib/schedule');
+const { nextClasses, seatsLeft, hhmm, whenLabel } = require('../lib/schedule');
 
 const initials = name => name.split(' ').slice(0, 2).map(w => w[0]).join('');
 const cleanName = n => String(n || '').replace(/\s+/g, ' ').trim();
@@ -24,12 +24,9 @@ function seats(c) {
   return `<div class="seats"><span>осталось</span><b>${n}<i>${plural(n, 'место', 'места', 'мест')}</i></b></div>`;
 }
 
-const title = mode => (mode === 'hour' ? 'Ближайший час' : 'Следующее занятие');
-const status = (c, now) => (isRunning(c, now) ? '<span class="live">идёт</span>' : '');
+const TITLE = 'Ближайшие занятия';
 
 const CSS_COMMON = `
-.live { display: inline-block; vertical-align: middle; margin-left: 18px; font: 800 26px 'Unbounded';
-  letter-spacing: .1em; text-transform: uppercase; background: var(--green); color: #000; padding: 8px 14px; }
 .ini { display: flex; align-items: center; justify-content: center; font: 800 44px 'Unbounded'; color: var(--green);
   background: #10140c; border: 3px solid rgba(141,198,63,.5); }
 .head { position: absolute; left: 96px; top: 54px; right: 96px; display: flex; align-items: baseline; gap: 30px; }
@@ -37,7 +34,7 @@ const CSS_COMMON = `
 .head .when { font: 700 44px 'Manrope'; color: var(--green); }
 `;
 
-// 1. Broadcast: slanted plates per class. "идёт" sits inside the time plate so long titles keep their width.
+// 1. Broadcast: slanted plates per class.
 function broadcast(sel, byId, now, when) {
   const n = sel.items.length;
   const rowH = n >= 4 ? 168 : 184;
@@ -51,8 +48,6 @@ function broadcast(sel, byId, now, when) {
 .tm { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--green); transform: skewX(-12deg); }
 .tm span { transform: skewX(12deg); font: 900 92px/1 'Unbounded'; color: #000; }
-.tm .now { margin-top: 8px; font: 800 26px/1 'Unbounded'; letter-spacing: .14em; text-transform: uppercase;
-  background: #000; color: var(--green); padding: 6px 12px; }
 .body { height: 100%; background: #12150e; transform: skewX(-12deg); margin-left: -10px; padding: 0 30px 0 50px;
   display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .body { flex-direction: row; align-items: center; gap: 24px; }
@@ -74,9 +69,9 @@ function broadcast(sel, byId, now, when) {
 .av { width: ${rowH - 10}px; height: ${rowH - 10}px; border-radius: 50%; object-fit: cover; object-position: 50% 10%;
   border: 5px solid var(--green); justify-self: end; }
 `, `
-<div class="head"><div class="h1" data-fit="60">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
+<div class="head"><div class="h1" data-fit="60">${TITLE}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="list">${sel.items.map((c, i) => `<div class="it" style="animation-delay: ${i * 0.35}s">
-  <div class="tm"><span>${hhmm(c)}</span>${isRunning(c, now) ? '<span class="now">идёт</span>' : ''}</div>
+  <div class="tm"><span>${hhmm(c)}</span></div>
   <div class="body"><div class="txt"><div class="ttl" data-fit="48">${esc(c.title)}</div>
     <div class="sub">${esc(String(c.room || '').trim())} · ${esc(cleanName(c.employeeName))}</div></div>${seats(c)}</div>
   ${face(c, byId, 'av')}</div>`).join('')}</div>
@@ -99,11 +94,11 @@ body { background: #0c0d0b; }
 .r .who { display: flex; align-items: center; gap: 22px; font: 800 46px/1.1 'Manrope'; }
 .r .av { width: 130px; height: 130px; border-radius: 50%; object-fit: cover; object-position: 50% 10%; flex: none; }
 `, `
-<div class="head"><div class="h1" data-fit="60">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
+<div class="head"><div class="h1" data-fit="60">${TITLE}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="cols"><div>Время</div><div>Занятие</div><div>Тренер</div></div>
 <div class="rows">${sel.items.map(c => `<div class="r">
   <div class="tm">${hhmm(c)}</div>
-  <div><div class="ttl">${esc(c.title)}${status(c, now)}</div><div class="room">${esc(String(c.room || '').trim())}</div></div>
+  <div><div class="ttl">${esc(c.title)}</div><div class="room">${esc(String(c.room || '').trim())}</div></div>
   <div class="who">${face(c, byId, 'av')}<span>${esc(cleanName(c.employeeName))}</span></div></div>`).join('')}</div>
 ${brand('bottom')}`);
 }
@@ -124,7 +119,7 @@ function poster(sel, byId, now, when) {
 .c .ttl { margin-top: 10px; font: 800 58px/1.05 'Manrope'; height: 122px; overflow: hidden; }
 .c .sub { margin-top: 10px; font: 700 44px/1.15 'Manrope'; color: var(--muted); }
 `, `
-<div class="head"><div class="h1" data-fit="60">${title(sel.mode)}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
+<div class="head"><div class="h1" data-fit="60">${TITLE}</div>${when ? `<div class="when">${esc(when)}</div>` : ''}</div>
 <div class="grid">${sel.items.map(c => `<div class="c">
   ${face(c, byId, 'ph cutout')}<div class="sh"></div>
   <div class="b"><div class="tm">${hhmm(c)}</div><div class="ttl">${esc(c.title)}</div>
@@ -135,7 +130,7 @@ ${brand()}`);
 const VARIANTS = { broadcast, board, poster };
 
 module.exports = function hourSlide(classes, trainers, now, variant, day) {
-  const sel = nextHour(classes, now);
+  const sel = nextClasses(classes, now);
   if (!sel.items.length) return null;
   return VARIANTS[variant](sel, new Map(trainers.map(t => [t.id, t])), now, day ? whenLabel(day, now) : '');
 };

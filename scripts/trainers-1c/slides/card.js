@@ -8,11 +8,12 @@ const { page, brand, ASSETS, POSITION_LABELS } = require('../lib/layout');
 const BOOKING = 'Запись — на ресепшене<br>или в приложении NeoFit';
 const QR_LIB = `${ASSETS}/qrcode.min.js`; // qrcode-generator 1.4.4 (MIT), vendored
 
-// Renders a QR into every [data-qr] element (black modules on white, quiet zone included).
+// Renders a QR into every [data-qr] element: black modules on the NeoFit green, quiet zone included
+// (dark-on-light keeps it readable for every phone camera; inverted codes fail on some).
 const qrScript = url => `<script src="${QR_LIB}"></script><script>
 document.querySelectorAll('[data-qr]').forEach(el => {
   const q = qrcode(0, 'M'); q.addData(${JSON.stringify(url)}); q.make();
-  el.innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+  el.innerHTML = q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }).replace(/fill="white"/g, 'fill="#8dc63f"');
 });
 </script>`;
 
@@ -30,7 +31,7 @@ function facts(t) {
 }
 
 const CSS_COMMON = `
-.qr { width: 150px; height: 150px; background: #fff; padding: 0; flex: none; }
+.qr { width: 116px; height: 116px; background: var(--green); flex: none; }
 .qr svg { width: 100%; height: 100%; display: block; }
 .book { display: flex; align-items: center; gap: 28px; }
 .book .txt { font: 700 40px/1.2 'Manrope'; color: var(--text); }

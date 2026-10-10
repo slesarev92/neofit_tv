@@ -1,5 +1,5 @@
 'use strict';
-// "Later today" (demo only): up to 6 classes after the next-hour window, departure-board rows.
+// "Later today" (demo only): up to 6 classes after the "next classes" slide, departure-board rows.
 
 const { esc, plural } = require('../lib/text');
 const { page, brand } = require('../lib/layout');
@@ -7,7 +7,7 @@ const { laterToday, seatsLeft, hhmm, whenLabel } = require('../lib/schedule');
 
 const CSS = `
 body { background: #0c0d0b; }
-.head { position: absolute; left: 96px; top: 54px; right: 96px; display: flex; align-items: baseline; gap: 30px; }
+.head { position: absolute; left: 96px; top: 54px; right: 260px; display: flex; align-items: baseline; gap: 30px; }
 .head .when { font: 700 44px 'Manrope'; color: var(--green); }
 .head .h1 { font-size: 92px; }
 .rows { position: absolute; left: 96px; right: 96px; top: 200px; border-top: 4px solid var(--green); }
@@ -36,5 +36,5 @@ module.exports = function laterSlide(classes, now, day) {
 <div class="head"><div class="h1">Сегодня позже</div>${day ? `<div class="when">${esc(whenLabel(day, now))}</div>` : ''}</div>
 <div class="rows">${items.map(c => `<div class="r"><div class="tm">${hhmm(c)}</div>
   <div class="ttl" data-fit="46">${esc(c.title)}</div><div class="who">${esc(String(c.room || '').trim())}</div>${seats(c)}</div>`).join('')}</div>
-${brand('bottom')}`);
+${brand()}`);
 };

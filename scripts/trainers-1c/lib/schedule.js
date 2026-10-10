@@ -1,9 +1,8 @@
 'use strict';
 // Schedule selection: which classes a slide shows relative to "now".
 
-const WINDOW_MIN = 60;      // "next hour" window
-const GRACE_MIN = 10;       // a class that started ≤10 min ago is still worth walking into
-const MAX_TILES = 4;
+const MAX_TILES = 4;        // "next classes" slide
+const LATER_ROWS = 6;       // "later today" slide
 
 const minutes = hhmm => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 const hhmm = c => c.start.slice(11, 16);
@@ -20,25 +19,18 @@ function realClasses(classes) {
     .sort((a, b) => a.start.localeCompare(b.start));
 }
 
-// Classes starting within the next hour (or just started); falls back to the nearest upcoming one.
-function nextHour(classes, now) {
-  const t = minutes(now);
-  const all = realClasses(classes);
-  const inWindow = all.filter(c => {
-    const s = minutes(hhmm(c));
-    return s >= t - GRACE_MIN && s <= t + WINDOW_MIN;
-  });
-  if (inWindow.length) return { mode: 'hour', items: inWindow.slice(0, MAX_TILES) };
-  const upcoming = all.find(c => minutes(hhmm(c)) > t);
-  return { mode: 'next', items: upcoming ? [upcoming] : [] };
+// The nearest classes that have not started yet, however far ahead (running ones are of no use to a viewer).
+function upcoming(classes, now) {
+  return realClasses(classes).filter(c => minutes(hhmm(c)) > minutes(now));
 }
 
-// Upcoming classes not already on the next-hour slide (incl. ones cut by MAX_TILES), for "later today".
-function laterToday(classes, now, limit = 6) {
-  const shown = new Set(nextHour(classes, now).items);
-  return realClasses(classes)
-    .filter(c => minutes(hhmm(c)) > minutes(now) && !shown.has(c))
-    .slice(0, limit);
+function nextClasses(classes, now) {
+  return { items: upcoming(classes, now).slice(0, MAX_TILES) };
+}
+
+// The classes right after the "next classes" slide, for "later today".
+function laterToday(classes, now, limit = LATER_ROWS) {
+  return upcoming(classes, now).slice(MAX_TILES, MAX_TILES + limit);
 }
 
 // Seats left for booking, or null when the class takes no bookings (capacity 0) or uses the
@@ -49,11 +41,9 @@ function seatsLeft(c) {
   return Math.max(0, c.capacity - (c.booked || 0));
 }
 
-const isRunning = (c, now) => minutes(hhmm(c)) <= minutes(now);
-
 // «10 октября · 17:05» — tells viewers which moment a static snapshot describes.
 // Kept short: it shares the header row with the title and the logo.
 const DAY_FMT = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
 const whenLabel = (day, now) => `${DAY_FMT.format(new Date(`${day}T12:00:00`))} · ${now}`;
 
-module.exports = { nextHour, laterToday, isRunning, seatsLeft, hhmm, whenLabel };
+module.exports = { nextClasses, laterToday, seatsLeft, hhmm, whenLabel };
